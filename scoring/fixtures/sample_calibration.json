@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "schema": "kob-calibration-v1",
+  "exported_at": "2026-05-21T20:35:00.000Z",
+  "rules": {
+    "yes": "Has at least one song I would want in a Best of [Year] playlist. Tier S/A/B/C weights how strongly.",
+    "no": "Do not want anything by them in any year. Also covers artists I have never knowingly listened to (treated as hard exclude)."
+  },
+  "stats": {
+    "total_rated": 6,
+    "yes": 5,
+    "no": 1,
+    "by_tier": { "S": 1, "A": 1, "B": 1, "C": 1 }
+  },
+  "ratings": {
+    "Radiohead": { "verdict": "yes", "tier": "S", "ts": 1716239400000 },
+    "Stromae": { "verdict": "yes", "tier": "A", "ts": 1716239410000 },
+    "Coldplay": { "verdict": "yes", "tier": "B", "ts": 1716239420000 },
+    "Phoenix": { "verdict": "yes", "tier": "C", "ts": 1716239430000 },
+    "Mystery Band": { "verdict": "yes", "ts": 1716239460000 },
+    "Nickelback": { "verdict": "no", "ts": 1716239440000 }
+  }
+}

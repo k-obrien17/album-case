@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>KOB Artist Calibration</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <h1>Artist calibration</h1>
+      <p class="subtitle">Rate each artist for the Best of Years pipeline</p>
+    </header>
+
+    <div class="stats" id="stats"></div>
+    <div class="progress"><div class="progress-bar" id="bar"></div></div>
+
+    <section id="active">
+      <div class="card">
+        <div class="name" id="name">Loading...</div>
+        <div class="meta" id="meta"></div>
+      </div>
+
+      <div class="tier-row">
+        <button class="tier-btn tier-s" data-verdict="yes" data-tier="S">
+          <span class="tier-letter">S</span>
+          <span class="tier-label">essential <kbd>1</kbd></span>
+        </button>
+        <button class="tier-btn tier-a" data-verdict="yes" data-tier="A">
+          <span class="tier-letter">A</span>
+          <span class="tier-label">strong <kbd>2</kbd></span>
+        </button>
+        <button class="tier-btn tier-b" data-verdict="yes" data-tier="B">
+          <span class="tier-letter">B</span>
+          <span class="tier-label">solid <kbd>3</kbd></span>
+        </button>
+        <button class="tier-btn tier-c" data-verdict="yes" data-tier="C">
+          <span class="tier-letter">C</span>
+          <span class="tier-label">one song <kbd>4</kbd></span>
+        </button>
+      </div>
+
+      <div class="other-row">
+        <button class="no-btn" data-verdict="no">
+          No songs I want <kbd>5</kbd>
+        </button>
+        <button class="never-btn" data-verdict="never">
+          Never listened <kbd>6</kbd>
+        </button>
+      </div>
+
+      <div class="last" id="last"></div>
+
+      <div class="utility-row">
+        <button class="util-btn" id="undo-btn">Undo <kbd>left</kbd></button>
+        <button class="util-btn" id="skip-btn">Skip for later <kbd>space</kbd></button>
+        <button class="util-btn" id="export-btn">Export ratings</button>
+        <button class="util-btn" id="reset-btn">Reset</button>
+      </div>
+    </section>
+
+    <section id="finished" class="hidden">
+      <div class="done">
+        <h2>All 996 artists rated</h2>
+        <p>Export your ratings as JSON for the Best of Years pipeline</p>
+        <button class="export-final-btn" id="export-final-btn">Download ratings JSON</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Random Music Rankings</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <h1>Random music rankings</h1>
+      <p class="subtitle">Rank five at a time, rate each for the Best of Years pipeline</p>
+    </header>
+
+    <div class="stats" id="stats"></div>
+    <div class="progress"><div class="progress-bar" id="bar"></div></div>
+
+    <section id="active">
+      <div class="screen-label" id="screen-label"></div>
+      <div id="screen"></div>
+
+      <div class="advance">
+        <button class="next-btn" id="next-btn" disabled>Next 5 &rarr;</button>
+      </div>
+
+      <div class="last" id="last"></div>
+
+      <div class="utility-row">
+        <button class="util-btn" id="undo-btn">&larr; Undo <kbd>left</kbd></button>
+        <button class="util-btn" id="export-btn">Export ratings</button>
+        <button class="util-btn" id="reset-btn">Reset</button>
+      </div>
+    </section>
+
+    <section id="finished" class="hidden">
+      <div class="done">
+        <h2 id="done-title">All artists rated</h2>
+        <p>Export your ratings as JSON for the Best of Years pipeline</p>
+        <button class="export-final-btn" id="export-final-btn">Download ratings JSON</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="artists.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
