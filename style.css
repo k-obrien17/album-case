@@ -119,13 +119,13 @@ h1 {
 }
 
 .ro-btn {
-  width: 30px;
-  height: 26px;
+  width: 44px;
+  height: 44px;
   border: 1px solid var(--border);
   background: var(--bg);
   border-radius: 6px;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-secondary);
   font-family: inherit;
   line-height: 1;
@@ -182,7 +182,7 @@ h1 {
   font-size: 12px;
   color: var(--text-secondary);
   font-family: inherit;
-  min-height: 32px;
+  min-height: 44px;
 }
 
 .skip-btn:hover { background: var(--bg-secondary); }
@@ -299,6 +299,7 @@ h1 {
 
 .next-btn {
   padding: 12px 28px;
+  min-height: 44px;
   background: var(--text-primary);
   color: var(--bg);
   border: none;
@@ -330,6 +331,7 @@ h1 {
 
 .util-btn {
   padding: 8px 12px;
+  min-height: 44px;
   border: none;
   background: transparent;
   color: var(--text-secondary);
@@ -368,6 +370,7 @@ kbd {
 
 .export-final-btn {
   padding: 12px 24px;
+  min-height: 44px;
   background: var(--text-primary);
   color: var(--bg);
   border: none;
