@@ -1,0 +1,74 @@
+<!doctype html><meta charset=utf-8>
+<title>Taste Test — Clustering POC</title>
+<style>
+ body{font:15px/1.5 -apple-system,system-ui,sans-serif;max-width:860px;margin:2rem auto;padding:0 1rem;color:#1a1a1a}
+ h1{font-size:1.5rem} h2{margin-top:2rem;border-bottom:2px solid #eee;padding-bottom:.3rem}
+ .meta{color:#666;font-size:.9rem}
+ .lane{border:1px solid #ddd;border-radius:10px;padding:1rem;margin:.8rem 0;background:#fafafa}
+ .lane h3{margin:.2rem 0 .6rem;font-size:1.05rem}
+ .artist{margin:.35rem 0}
+ .artist b{font-size:1rem}
+ .tag{display:inline-block;background:#eef;border-radius:6px;padding:1px 7px;margin:1px;font-size:.72rem;color:#446}
+ .attr .lane{background:#fffaf0;border-color:#e8d8b0}
+ .empty{color:#999;font-style:italic}
+ .verdict{background:#f0f7ff;border-left:4px solid #57f;padding:.8rem 1rem;margin:1rem 0}
+</style>
+<h1>Taste Test — Clustering POC</h1>
+<p class=meta>31/31 seeds resolved ·
+ similarity graph: 1180 nodes, 2989 edges ·
+ source: MusicBrainz (identity+tags) + ListenBrainz CC0 similarity (Louvain communities)</p>
+<div class=verdict><b>How to read this:</b> each similarity lane is a community the
+algorithm found among the seed artists (their shared neighbors pulled them together).
+The question for each lane: would a 5-artist matchup drawn from here be <i>fun</i> and
+<i>apples-to-apples</i>? Attribute lanes below test the generated-lane mechanism.</div>
+
+<h2>Similarity lanes (auto-derived)</h2>
+<div class=lane><h3>Community 0 · 6 seeds</h3>
+<div class=artist><b>3 Doors Down</b> <span class=meta>(100 similar)</span><br><span class="tag">2000s</span><span class="tag">acoustic rock</span><span class="tag">alternative metal</span><span class="tag">alternative rock</span><span class="tag">hard rock</span><span class="tag">pop rock</span><span class="tag">post-grunge</span><span class="tag">pro trump</span></div>
+<div class=artist><b>Creed</b> <span class=meta>(74 similar)</span><br><span class="tag">alternative rock</span><span class="tag">hard rock</span><span class="tag">post-grunge</span><span class="tag">rock</span></div>
+<div class=artist><b>Korn</b> <span class=meta>(100 similar)</span><br><span class="tag">alternative metal</span><span class="tag">alternative rock</span><span class="tag">american</span><span class="tag">metal</span><span class="tag">nu metal</span><span class="tag">rock</span></div>
+<div class=artist><b>Nickelback</b> <span class=meta>(100 similar)</span><br><span class="tag">alternative rock</span><span class="tag">death metal</span><span class="tag">electropop</span><span class="tag">funk rock</span><span class="tag">hard rock</span><span class="tag">pop rock</span><span class="tag">post-grunge</span><span class="tag">rock</span></div>
+<div class=artist><b>Puddle of Mudd</b> <span class=meta>(100 similar)</span><br><span class="tag">2008 universal fire victim</span><span class="tag">alternative rock</span><span class="tag">post grunge</span></div>
+<div class=artist><b>Staind</b> <span class=meta>(100 similar)</span><br><span class="tag">alternative metal</span><span class="tag">alternative rock</span><span class="tag">american</span><span class="tag">grunge</span><span class="tag">hard rock</span><span class="tag">metal</span><span class="tag">nu metal</span><span class="tag">post-grunge</span></div>
+</div>
+<div class=lane><h3>Community 1 · 6 seeds</h3>
+<div class=artist><b>Alice in Chains</b> <span class=meta>(100 similar)</span><br><span class="tag">acoustic rock</span><span class="tag">alternative metal</span><span class="tag">alternative rock</span><span class="tag">doom metal</span><span class="tag">glam metal</span><span class="tag">grunge</span><span class="tag">hard rock</span><span class="tag">heavy metal</span></div>
+<div class=artist><b>Metallica</b> <span class=meta>(100 similar)</span><br><span class="tag">american</span><span class="tag">hard rock</span><span class="tag">heavy metal</span><span class="tag">metal</span><span class="tag">thrash metal</span></div>
+<div class=artist><b>Nirvana</b> <span class=meta>(100 similar)</span><br><span class="tag">90s</span><span class="tag">acoustic rock</span><span class="tag">alternative metal</span><span class="tag">alternative rock</span><span class="tag">american</span><span class="tag">estados unidos</span><span class="tag">grunge</span><span class="tag">noise rock</span></div>
+<div class=artist><b>Pearl Jam</b> <span class=meta>(100 similar)</span><br><span class="tag">acoustic rock</span><span class="tag">alternative rock</span><span class="tag">art rock</span><span class="tag">bridge</span><span class="tag">christmas singles</span><span class="tag">classic rock</span><span class="tag">estados unidos</span><span class="tag">experimental rock</span></div>
+<div class=artist><b>Soundgarden</b> <span class=meta>(100 similar)</span><br><span class="tag">alternative metal</span><span class="tag">alternative rock</span><span class="tag">american</span><span class="tag">grunge</span><span class="tag">hard rock</span><span class="tag">psychedelic rock</span><span class="tag">sludge metal</span><span class="tag">usa</span></div>
+<div class=artist><b>The Smashing Pumpkins</b> <span class=meta>(100 similar)</span><br><span class="tag">alternative rock</span><span class="tag">dream pop</span><span class="tag">grunge</span><span class="tag">neo-psychedelia</span><span class="tag">progressive rock</span><span class="tag">rock</span><span class="tag">shoegaze</span><span class="tag">spacegrunge</span></div>
+</div>
+<div class=lane><h3>Community 2 · 4 seeds</h3>
+<div class=artist><b>*NSYNC</b> <span class=meta>(100 similar)</span><br><span class="tag">00s</span><span class="tag">1990s</span><span class="tag">2000s</span><span class="tag">90s</span><span class="tag">blue-eyed soul</span><span class="tag">boy band</span><span class="tag">dance-pop</span><span class="tag">pop</span></div>
+<div class=artist><b>Backstreet Boys</b> <span class=meta>(100 similar)</span><br><span class="tag">american</span><span class="tag">boy band</span><span class="tag">dance-pop</span><span class="tag">electropop</span><span class="tag">pop</span><span class="tag">teen pop</span></div>
+<div class=artist><b>Britney Spears</b> <span class=meta>(100 similar)</span><br><span class="tag">2000s</span><span class="tag">american</span><span class="tag">américain</span><span class="tag">contemporary r&amp;b</span><span class="tag">dance</span><span class="tag">dance-pop</span><span class="tag">electro house</span><span class="tag">electropop</span></div>
+<div class=artist><b>Christina Aguilera</b> <span class=meta>(100 similar)</span><br><span class="tag">adult contemporary</span><span class="tag">contemporary r&amp;b</span><span class="tag">dance-pop</span><span class="tag">electropop</span><span class="tag">female vocals</span><span class="tag">pop</span><span class="tag">pop and chart</span><span class="tag">rock</span></div>
+</div>
+<div class=lane><h3>Community 3 · 4 seeds</h3>
+<div class=artist><b>JAY‐Z</b> <span class=meta>(100 similar)</span><br><span class="tag">boom bap</span><span class="tag">chipmunk soul</span><span class="tag">east coast hip hop</span><span class="tag">grammy winner</span><span class="tag">hardcore hip hop</span><span class="tag">hip hop</span><span class="tag">pop</span><span class="tag">pop rap</span></div>
+<div class=artist><b>Nas</b> <span class=meta>(100 similar)</span><br><span class="tag">boom bap</span><span class="tag">conscious rap</span><span class="tag">deep soul</span><span class="tag">east coast hip hop</span><span class="tag">east coast hip-hop</span><span class="tag">god</span><span class="tag">hip hop</span><span class="tag">hip hop soul</span></div>
+<div class=artist><b>The Notorious B.I.G.</b> <span class=meta>(100 similar)</span><br><span class="tag">boom bap</span><span class="tag">death by murder</span><span class="tag">east coast hip hop</span><span class="tag">gangsta rap</span><span class="tag">hardcore hip hop</span><span class="tag">hip hop</span></div>
+<div class=artist><b>Wu‐Tang Clan</b> <span class=meta>(100 similar)</span><br><span class="tag">boom bap</span><span class="tag">east coast hip hop</span><span class="tag">hardcore hip hop</span><span class="tag">hip hop</span><span class="tag">hip-hop</span></div>
+</div>
+<div class=lane><h3>Community 4 · 5 seeds</h3>
+<div class=artist><b>Arcade Fire</b> <span class=meta>(100 similar)</span><br><span class="tag">alternative dance</span><span class="tag">alternative rock</span><span class="tag">art rock</span><span class="tag">baroque pop</span><span class="tag">chamber pop</span><span class="tag">indie</span><span class="tag">indie pop</span><span class="tag">indie rock</span></div>
+<div class=artist><b>CAKE</b> <span class=meta>(100 similar)</span><br><span class="tag">alt-country</span><span class="tag">alternative rock</span><span class="tag">american</span><span class="tag">college rock</span><span class="tag">funk rock</span><span class="tag">indie rock</span><span class="tag">lo-fi indie</span><span class="tag">pop rock</span></div>
+<div class=artist><b>Interpol</b> <span class=meta>(100 similar)</span><br><span class="tag">american</span><span class="tag">indie rock</span><span class="tag">post-punk</span><span class="tag">post-punk revival</span><span class="tag">usa</span></div>
+<div class=artist><b>Modest Mouse</b> <span class=meta>(100 similar)</span><br><span class="tag">alternative rock</span><span class="tag">american</span><span class="tag">art rock</span><span class="tag">indie rock</span><span class="tag">lo-fi indie</span><span class="tag">post-hardcore</span><span class="tag">slacker rock</span></div>
+<div class=artist><b>The Strokes</b> <span class=meta>(100 similar)</span><br><span class="tag">alternative rock music</span><span class="tag">garage rock</span><span class="tag">garage rock music</span><span class="tag">garage rock revival</span><span class="tag">indie rock</span><span class="tag">new wave</span><span class="tag">post-punk revival</span><span class="tag">rock</span></div>
+</div>
+<div class=lane><h3>Community 5 · 2 seeds</h3>
+<div class=artist><b>Megadeth</b> <span class=meta>(100 similar)</span><br><span class="tag">american</span><span class="tag">heavy metal</span><span class="tag">metal</span><span class="tag">old school thrash</span><span class="tag">rock</span><span class="tag">speed metal</span><span class="tag">thrash metal</span></div>
+<div class=artist><b>Slayer</b> <span class=meta>(100 similar)</span><br><span class="tag">crossover thrash</span><span class="tag">heavy metal</span><span class="tag">metal</span><span class="tag">nu metal</span><span class="tag">speed metal</span><span class="tag">thrash metal</span></div>
+</div>
+<div class=lane><h3>Community 6 · 3 seeds</h3>
+<div class=artist><b>Aphex Twin</b> <span class=meta>(100 similar)</span><br><span class="tag">acid breaks</span><span class="tag">acid techno</span><span class="tag">ambient</span><span class="tag">ambient techno</span><span class="tag">bleep techno</span><span class="tag">breakbeat</span><span class="tag">breakcore</span><span class="tag">british</span></div>
+<div class=artist><b>Daft Punk</b> <span class=meta>(100 similar)</span><br><span class="tag">club</span><span class="tag">dance</span><span class="tag">dance and electronica</span><span class="tag">dance music</span><span class="tag">disco</span><span class="tag">dj tools / acapellas</span><span class="tag">edm</span><span class="tag">electro</span></div>
+<div class=artist><b>The Chemical Brothers</b> <span class=meta>(100 similar)</span><br><span class="tag">big beat</span><span class="tag">breakbeat</span><span class="tag">british</span><span class="tag">electronic</span><span class="tag">neo-psychedelia</span><span class="tag">progressive house</span><span class="tag">techno</span></div>
+</div>
+<p class=meta><b>Lone seeds</b> (own community, no seed-peers): Bread</p>
+<h2>Attribute lanes (generated)</h2><div class=attr>
+<div class=lane><h3>Bands with foods in their name · 4 hits</h3>Bread, CAKE, Korn, The Smashing Pumpkins</div>
+<div class=lane><h3>One-word band names · 15 hits</h3>*NSYNC, Bread, CAKE, Creed, Interpol, JAY‐Z, Korn, Megadeth, Metallica, Nas, Nickelback, Nirvana, Slayer, Soundgarden, Staind</div>
+</div>

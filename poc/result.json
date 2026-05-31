@@ -1,0 +1,1102 @@
+{
+  "n_seeds": 31,
+  "n_resolved": 31,
+  "graph": {
+    "nodes": 1180,
+    "edges": 2989
+  },
+  "similarity_lanes": [
+    {
+      "community": 0,
+      "members": [
+        {
+          "name": "3 Doors Down",
+          "query": "3 Doors Down",
+          "tags": [
+            "2000s",
+            "acoustic rock",
+            "alternative metal",
+            "alternative rock",
+            "hard rock",
+            "pop rock",
+            "post-grunge",
+            "pro trump",
+            "rock",
+            "southern rock",
+            "vyrzukhisuc-artiest"
+          ],
+          "n_similar": 100
+        },
+        {
+          "name": "Creed",
+          "query": "Creed",
+          "tags": [
+            "alternative rock",
+            "hard rock",
+            "post-grunge",
+            "rock"
+          ],
+          "n_similar": 74
+        },
+        {
+          "name": "Korn",
+          "query": "Korn",
+          "tags": [
+            "alternative metal",
+            "alternative rock",
+            "american",
+            "metal",
+            "nu metal",
+            "rock"
+          ],
+          "n_similar": 100
+        },
+        {
+          "name": "Nickelback",
+          "query": "Nickelback",
+          "tags": [
+            "alternative rock",
+            "death metal",
+            "electropop",
+            "funk rock",
+            "hard rock",
+            "pop rock",
+            "post-grunge",
+            "rock"
+          ],
+          "n_similar": 100
+        },
+        {
+          "name": "Puddle of Mudd",
+          "query": "Puddle of Mudd",
+          "tags": [
+            "2008 universal fire victim",
+            "alternative rock",
+            "post grunge"
+          ],
+          "n_similar": 100
+        },
+        {
+          "name": "Staind",
+          "query": "Staind",
+          "tags": [
+            "alternative metal",
+            "alternative rock",
+            "american",
+            "grunge",
+            "hard rock",
+            "metal",
+            "nu metal",
+            "post-grunge",
+            "rock",
+            "sludge metal"
+          ],
+          "n_similar": 100
+        }
+      ]
+    },
+    {
+      "community": 1,
+      "members": [
+        {
+          "name": "Alice in Chains",
+          "query": "Alice in Chains",
+          "tags": [
+            "acoustic rock",
+            "alternative metal",
+            "alternative rock",
+            "doom metal",
+            "glam metal",
+            "grunge",
+            "hard rock",
+            "heavy metal",
+            "rock",
+            "sludge metal",
+            "stoner metal"
+          ],
+          "n_similar": 100
+        },
+        {
+          "name": "Metallica",
+          "query": "Metallica",
+          "tags": [
+            "american",
+            "hard rock",
+            "heavy metal",
+            "metal",
+            "thrash metal"
+          ],
+          "n_similar": 100
+        },
+        {
+          "name": "Nirvana",
+          "query": "Nirvana",
+          "tags": [
+            "90s",
+            "acoustic rock",
+            "alternative metal",
+            "alternative rock",
+            "american",
+            "estados unidos",
+            "grunge",
+            "noise rock",
+            "pigfuck",
+            "post-hardcore",
+            "punk",
+            "punk rock",
+            "rock",
+            "seattle",
+            "sludge metal",
+            "united states",
+            "usa"
+          ],
+          "n_similar": 100
+        },
+        {
+          "name": "Pearl Jam",
+          "query": "Pearl Jam",
+          "tags": [
+            "acoustic rock",
+            "alternative rock",
+            "art rock",
+            "bridge",
+            "christmas singles",
+            "classic rock",
+            "estados unidos",
+            "experimental rock",
+            "funk rock",
+            "grunge",
+            "hard rock",
+            "indie rock",
+            "pop rock",
+            "post-grunge",
+            "rock",
+            "rock and indie",
+            "seattle",
+            "usa"
+          ],
+          "n_similar": 100
+        },
+        {
+          "name": "Soundgarden",
+          "query": "Soundgarden",
+          "tags": [
+            "alternative metal",
+            "alternative rock",
+            "american",
+            "grunge",
+            "hard rock",
+            "psychedelic rock",
+            "sludge metal",
+            "usa"
+          ],
+          "n_similar": 100
+        },
+        {
+          "name": "The Smashing Pumpkins",
+          "query": "Smashing Pumpkins",
+          "tags": [
+            "alternative rock",
+            "dream pop",
+            "grunge",
+            "neo-psychedelia",
+            "progressive rock",
+            "rock",
+            "shoegaze",
+            "spacegrunge",
+            "symphonic rock",
+            "synth-pop"
+          ],
+          "n_similar": 100
+        }
+      ]
+    },
+    {
+      "community": 2,
+      "members": [
+        {
+          "name": "*NSYNC",
+          "query": "*NSYNC",
+          "tags": [
+            "00s",
+            "1990s",
+            "2000s",
+            "90s",
+            "blue-eyed soul",
+            "boy band",
+            "dance-pop",
+            "pop",
+            "pop soul",
+            "r&b",
+            "teen pop"
+          ],
+          "n_similar": 100
+        },
+        {
+          "name": "Backstreet Boys",
+          "query": "Backstreet Boys",
+          "tags": [
+            "american",
+            "boy band",
+            "dance-pop",
+            "electropop",
+            "pop",
+            "teen pop"
+          ],
+          "n_similar": 100
+        },
+        {
+          "name": "Britney Spears",
+          "query": "Britney Spears",
+          "tags": [
+            "2000s",
+            "american",
+            "am\u00e9ricain",
+            "contemporary r&b",
+            "dance",
+            "dance-pop",
+            "electro house",
+            "electropop",
+            "female vocals",
+            "pop",
+            "pop and chart",
+            "teen pop",
+            "urban pop",
+            "usa",
+            "y2k"
+          ],
+          "n_similar": 100
+        },
+        {
+          "name": "Christina Aguilera",
+          "query": "Christina Aguilera",
+          "tags": [
+            "adult contemporary",
+            "contemporary r&b",
+            "dance-pop",
+            "electropop",
+            "female vocals",
+            "pop",
+            "pop and chart",
+            "rock",
+            "soul",
+            "teen pop"
+          ],
+          "n_similar": 100
+        }
+      ]
+    },
+    {
+      "community": 3,
+      "members": [
+        {
+          "name": "JAY\u2010Z",
+          "query": "Jay-Z",
+          "tags": [
+            "boom bap",
+            "chipmunk soul",
+            "east coast hip hop",
+            "grammy winner",
+            "hardcore hip hop",
+            "hip hop",
+            "pop",
+            "pop rap"
+          ],
+          "n_similar": 100
+        },
+        {
+          "name": "Nas",
+          "query": "Nas",
+          "tags": [
+            "boom bap",
+            "conscious rap",
+            "deep soul",
+            "east coast hip hop",
+            "east coast hip-hop",
+            "god",
+            "hip hop",
+            "hip hop soul",
+            "jazz rap",
+            "pop",
+            "pop soul",
+            "r&b",
+            "rap",
+            "rap musicians",
+            "rnb",
+            "smooth soul",
+            "top 10",
+            "top 100",
+            "top 5",
+            "top 50",
+            "trap soul"
+          ],
+          "n_similar": 100
+        },
+        {
+          "name": "The Notorious B.I.G.",
+          "query": "The Notorious B.I.G.",
+          "tags": [
+            "boom bap",
+            "death by murder",
+            "east coast hip hop",
+            "gangsta rap",
+            "hardcore hip hop",
+            "hip hop"
+          ],
+          "n_similar": 100
+        },
+        {
+          "name": "Wu\u2010Tang Clan",
+          "query": "Wu-Tang Clan",
+          "tags": [
+            "boom bap",
+            "east coast hip hop",
+            "hardcore hip hop",
+            "hip hop",
+            "hip-hop"
+          ],
+          "n_similar": 100
+        }
+      ]
+    },
+    {
+      "community": 4,
+      "members": [
+        {
+          "name": "Arcade Fire",
+          "query": "Arcade Fire",
+          "tags": [
+            "alternative dance",
+            "alternative rock",
+            "art rock",
+            "baroque pop",
+            "chamber pop",
+            "indie",
+            "indie pop",
+            "indie rock",
+            "post-punk revival",
+            "rock",
+            "synth-pop"
+          ],
+          "n_similar": 100
+        },
+        {
+          "name": "CAKE",
+          "query": "Cake",
+          "tags": [
+            "alt-country",
+            "alternative rock",
+            "american",
+            "college rock",
+            "funk rock",
+            "indie rock",
+            "lo-fi indie",
+            "pop rock",
+            "rock",
+            "rock and indie"
+          ],
+          "n_similar": 100
+        },
+        {
+          "name": "Interpol",
+          "query": "Interpol",
+          "tags": [
+            "american",
+            "indie rock",
+            "post-punk",
+            "post-punk revival",
+            "usa"
+          ],
+          "n_similar": 100
+        },
+        {
+          "name": "Modest Mouse",
+          "query": "Modest Mouse",
+          "tags": [
+            "alternative rock",
+            "american",
+            "art rock",
+            "indie rock",
+            "lo-fi indie",
+            "post-hardcore",
+            "slacker rock"
+          ],
+          "n_similar": 100
+        },
+        {
+          "name": "The Strokes",
+          "query": "The Strokes",
+          "tags": [
+            "alternative rock music",
+            "garage rock",
+            "garage rock music",
+            "garage rock revival",
+            "indie rock",
+            "new wave",
+            "post-punk revival",
+            "rock",
+            "rock music",
+            "synth-pop"
+          ],
+          "n_similar": 100
+        }
+      ]
+    },
+    {
+      "community": 5,
+      "members": [
+        {
+          "name": "Megadeth",
+          "query": "Megadeth",
+          "tags": [
+            "american",
+            "heavy metal",
+            "metal",
+            "old school thrash",
+            "rock",
+            "speed metal",
+            "thrash metal"
+          ],
+          "n_similar": 100
+        },
+        {
+          "name": "Slayer",
+          "query": "Slayer",
+          "tags": [
+            "crossover thrash",
+            "heavy metal",
+            "metal",
+            "nu metal",
+            "speed metal",
+            "thrash metal"
+          ],
+          "n_similar": 100
+        }
+      ]
+    },
+    {
+      "community": 6,
+      "members": [
+        {
+          "name": "Aphex Twin",
+          "query": "Aphex Twin",
+          "tags": [
+            "acid breaks",
+            "acid techno",
+            "ambient",
+            "ambient techno",
+            "bleep techno",
+            "breakbeat",
+            "breakcore",
+            "british",
+            "drill and bass",
+            "electroacoustic",
+            "electronic",
+            "electronica",
+            "experimental",
+            "idm",
+            "instrumental",
+            "progressive techno",
+            "techno"
+          ],
+          "n_similar": 100
+        },
+        {
+          "name": "Daft Punk",
+          "query": "Daft Punk",
+          "tags": [
+            "club",
+            "dance",
+            "dance and electronica",
+            "dance music",
+            "disco",
+            "dj tools / acapellas",
+            "edm",
+            "electro",
+            "electro house",
+            "electroclash",
+            "electronic",
+            "electronic rock",
+            "electronica",
+            "european",
+            "film score",
+            "french",
+            "french electro",
+            "french house",
+            "french touch",
+            "funk",
+            "future bass",
+            "house",
+            "house music",
+            "indie dance",
+            "jackin house",
+            "left-field house",
+            "leftfield house",
+            "nu disco",
+            "nu-disco",
+            "organic house",
+            "pop",
+            "r&b",
+            "synth-pop",
+            "synthpop",
+            "techno",
+            "trap",
+            "vocoder"
+          ],
+          "n_similar": 100
+        },
+        {
+          "name": "The Chemical Brothers",
+          "query": "The Chemical Brothers",
+          "tags": [
+            "big beat",
+            "breakbeat",
+            "british",
+            "electronic",
+            "neo-psychedelia",
+            "progressive house",
+            "techno"
+          ],
+          "n_similar": 100
+        }
+      ]
+    }
+  ],
+  "singletons": [
+    "Bread"
+  ],
+  "attribute_lanes": [
+    {
+      "name": "Bands with foods in their name",
+      "members": [
+        "Bread",
+        "CAKE",
+        "Korn",
+        "The Smashing Pumpkins"
+      ]
+    },
+    {
+      "name": "One-word band names",
+      "members": [
+        "*NSYNC",
+        "Bread",
+        "CAKE",
+        "Creed",
+        "Interpol",
+        "JAY\u2010Z",
+        "Korn",
+        "Megadeth",
+        "Metallica",
+        "Nas",
+        "Nickelback",
+        "Nirvana",
+        "Slayer",
+        "Soundgarden",
+        "Staind"
+      ]
+    }
+  ],
+  "resolved_detail": {
+    "Creed": {
+      "name": "Creed",
+      "tags": [
+        "alternative rock",
+        "hard rock",
+        "post-grunge",
+        "rock"
+      ],
+      "score": 100
+    },
+    "Nickelback": {
+      "name": "Nickelback",
+      "tags": [
+        "alternative rock",
+        "death metal",
+        "electropop",
+        "funk rock",
+        "hard rock",
+        "pop rock",
+        "post-grunge",
+        "rock"
+      ],
+      "score": 100
+    },
+    "3 Doors Down": {
+      "name": "3 Doors Down",
+      "tags": [
+        "2000s",
+        "acoustic rock",
+        "alternative metal",
+        "alternative rock",
+        "hard rock",
+        "pop rock",
+        "post-grunge",
+        "pro trump",
+        "rock",
+        "southern rock",
+        "vyrzukhisuc-artiest"
+      ],
+      "score": 100
+    },
+    "Puddle of Mudd": {
+      "name": "Puddle of Mudd",
+      "tags": [
+        "2008 universal fire victim",
+        "alternative rock",
+        "post grunge"
+      ],
+      "score": 100
+    },
+    "Staind": {
+      "name": "Staind",
+      "tags": [
+        "alternative metal",
+        "alternative rock",
+        "american",
+        "grunge",
+        "hard rock",
+        "metal",
+        "nu metal",
+        "post-grunge",
+        "rock",
+        "sludge metal"
+      ],
+      "score": 100
+    },
+    "Nirvana": {
+      "name": "Nirvana",
+      "tags": [
+        "90s",
+        "acoustic rock",
+        "alternative metal",
+        "alternative rock",
+        "american",
+        "estados unidos",
+        "grunge",
+        "noise rock",
+        "pigfuck",
+        "post-hardcore",
+        "punk",
+        "punk rock",
+        "rock",
+        "seattle",
+        "sludge metal",
+        "united states",
+        "usa"
+      ],
+      "score": 100
+    },
+    "Pearl Jam": {
+      "name": "Pearl Jam",
+      "tags": [
+        "acoustic rock",
+        "alternative rock",
+        "art rock",
+        "bridge",
+        "christmas singles",
+        "classic rock",
+        "estados unidos",
+        "experimental rock",
+        "funk rock",
+        "grunge",
+        "hard rock",
+        "indie rock",
+        "pop rock",
+        "post-grunge",
+        "rock",
+        "rock and indie",
+        "seattle",
+        "usa"
+      ],
+      "score": 100
+    },
+    "Soundgarden": {
+      "name": "Soundgarden",
+      "tags": [
+        "alternative metal",
+        "alternative rock",
+        "american",
+        "grunge",
+        "hard rock",
+        "psychedelic rock",
+        "sludge metal",
+        "usa"
+      ],
+      "score": 100
+    },
+    "Alice in Chains": {
+      "name": "Alice in Chains",
+      "tags": [
+        "acoustic rock",
+        "alternative metal",
+        "alternative rock",
+        "doom metal",
+        "glam metal",
+        "grunge",
+        "hard rock",
+        "heavy metal",
+        "rock",
+        "sludge metal",
+        "stoner metal"
+      ],
+      "score": 100
+    },
+    "Britney Spears": {
+      "name": "Britney Spears",
+      "tags": [
+        "2000s",
+        "american",
+        "am\u00e9ricain",
+        "contemporary r&b",
+        "dance",
+        "dance-pop",
+        "electro house",
+        "electropop",
+        "female vocals",
+        "pop",
+        "pop and chart",
+        "teen pop",
+        "urban pop",
+        "usa",
+        "y2k"
+      ],
+      "score": 100
+    },
+    "*NSYNC": {
+      "name": "*NSYNC",
+      "tags": [
+        "00s",
+        "1990s",
+        "2000s",
+        "90s",
+        "blue-eyed soul",
+        "boy band",
+        "dance-pop",
+        "pop",
+        "pop soul",
+        "r&b",
+        "teen pop"
+      ],
+      "score": 100
+    },
+    "Backstreet Boys": {
+      "name": "Backstreet Boys",
+      "tags": [
+        "american",
+        "boy band",
+        "dance-pop",
+        "electropop",
+        "pop",
+        "teen pop"
+      ],
+      "score": 100
+    },
+    "Christina Aguilera": {
+      "name": "Christina Aguilera",
+      "tags": [
+        "adult contemporary",
+        "contemporary r&b",
+        "dance-pop",
+        "electropop",
+        "female vocals",
+        "pop",
+        "pop and chart",
+        "rock",
+        "soul",
+        "teen pop"
+      ],
+      "score": 100
+    },
+    "Nas": {
+      "name": "Nas",
+      "tags": [
+        "boom bap",
+        "conscious rap",
+        "deep soul",
+        "east coast hip hop",
+        "east coast hip-hop",
+        "god",
+        "hip hop",
+        "hip hop soul",
+        "jazz rap",
+        "pop",
+        "pop soul",
+        "r&b",
+        "rap",
+        "rap musicians",
+        "rnb",
+        "smooth soul",
+        "top 10",
+        "top 100",
+        "top 5",
+        "top 50",
+        "trap soul"
+      ],
+      "score": 100
+    },
+    "Jay-Z": {
+      "name": "JAY\u2010Z",
+      "tags": [
+        "boom bap",
+        "chipmunk soul",
+        "east coast hip hop",
+        "grammy winner",
+        "hardcore hip hop",
+        "hip hop",
+        "pop",
+        "pop rap"
+      ],
+      "score": 100
+    },
+    "The Notorious B.I.G.": {
+      "name": "The Notorious B.I.G.",
+      "tags": [
+        "boom bap",
+        "death by murder",
+        "east coast hip hop",
+        "gangsta rap",
+        "hardcore hip hop",
+        "hip hop"
+      ],
+      "score": 100
+    },
+    "Wu-Tang Clan": {
+      "name": "Wu\u2010Tang Clan",
+      "tags": [
+        "boom bap",
+        "east coast hip hop",
+        "hardcore hip hop",
+        "hip hop",
+        "hip-hop"
+      ],
+      "score": 100
+    },
+    "Arcade Fire": {
+      "name": "Arcade Fire",
+      "tags": [
+        "alternative dance",
+        "alternative rock",
+        "art rock",
+        "baroque pop",
+        "chamber pop",
+        "indie",
+        "indie pop",
+        "indie rock",
+        "post-punk revival",
+        "rock",
+        "synth-pop"
+      ],
+      "score": 100
+    },
+    "The Strokes": {
+      "name": "The Strokes",
+      "tags": [
+        "alternative rock music",
+        "garage rock",
+        "garage rock music",
+        "garage rock revival",
+        "indie rock",
+        "new wave",
+        "post-punk revival",
+        "rock",
+        "rock music",
+        "synth-pop"
+      ],
+      "score": 100
+    },
+    "Interpol": {
+      "name": "Interpol",
+      "tags": [
+        "american",
+        "indie rock",
+        "post-punk",
+        "post-punk revival",
+        "usa"
+      ],
+      "score": 100
+    },
+    "Modest Mouse": {
+      "name": "Modest Mouse",
+      "tags": [
+        "alternative rock",
+        "american",
+        "art rock",
+        "indie rock",
+        "lo-fi indie",
+        "post-hardcore",
+        "slacker rock"
+      ],
+      "score": 100
+    },
+    "Daft Punk": {
+      "name": "Daft Punk",
+      "tags": [
+        "club",
+        "dance",
+        "dance and electronica",
+        "dance music",
+        "disco",
+        "dj tools / acapellas",
+        "edm",
+        "electro",
+        "electro house",
+        "electroclash",
+        "electronic",
+        "electronic rock",
+        "electronica",
+        "european",
+        "film score",
+        "french",
+        "french electro",
+        "french house",
+        "french touch",
+        "funk",
+        "future bass",
+        "house",
+        "house music",
+        "indie dance",
+        "jackin house",
+        "left-field house",
+        "leftfield house",
+        "nu disco",
+        "nu-disco",
+        "organic house",
+        "pop",
+        "r&b",
+        "synth-pop",
+        "synthpop",
+        "techno",
+        "trap",
+        "vocoder"
+      ],
+      "score": 100
+    },
+    "The Chemical Brothers": {
+      "name": "The Chemical Brothers",
+      "tags": [
+        "big beat",
+        "breakbeat",
+        "british",
+        "electronic",
+        "neo-psychedelia",
+        "progressive house",
+        "techno"
+      ],
+      "score": 100
+    },
+    "Aphex Twin": {
+      "name": "Aphex Twin",
+      "tags": [
+        "acid breaks",
+        "acid techno",
+        "ambient",
+        "ambient techno",
+        "bleep techno",
+        "breakbeat",
+        "breakcore",
+        "british",
+        "drill and bass",
+        "electroacoustic",
+        "electronic",
+        "electronica",
+        "experimental",
+        "idm",
+        "instrumental",
+        "progressive techno",
+        "techno"
+      ],
+      "score": 100
+    },
+    "Metallica": {
+      "name": "Metallica",
+      "tags": [
+        "american",
+        "hard rock",
+        "heavy metal",
+        "metal",
+        "thrash metal"
+      ],
+      "score": 100
+    },
+    "Slayer": {
+      "name": "Slayer",
+      "tags": [
+        "crossover thrash",
+        "heavy metal",
+        "metal",
+        "nu metal",
+        "speed metal",
+        "thrash metal"
+      ],
+      "score": 100
+    },
+    "Megadeth": {
+      "name": "Megadeth",
+      "tags": [
+        "american",
+        "heavy metal",
+        "metal",
+        "old school thrash",
+        "rock",
+        "speed metal",
+        "thrash metal"
+      ],
+      "score": 100
+    },
+    "Cake": {
+      "name": "CAKE",
+      "tags": [
+        "alt-country",
+        "alternative rock",
+        "american",
+        "college rock",
+        "funk rock",
+        "indie rock",
+        "lo-fi indie",
+        "pop rock",
+        "rock",
+        "rock and indie"
+      ],
+      "score": 100
+    },
+    "Korn": {
+      "name": "Korn",
+      "tags": [
+        "alternative metal",
+        "alternative rock",
+        "american",
+        "metal",
+        "nu metal",
+        "rock"
+      ],
+      "score": 100
+    },
+    "Bread": {
+      "name": "Bread",
+      "tags": [
+        "classic pop and rock",
+        "pop rock",
+        "rock",
+        "soft rock",
+        "yacht rock"
+      ],
+      "score": 100
+    },
+    "Smashing Pumpkins": {
+      "name": "The Smashing Pumpkins",
+      "tags": [
+        "alternative rock",
+        "dream pop",
+        "grunge",
+        "neo-psychedelia",
+        "progressive rock",
+        "rock",
+        "shoegaze",
+        "spacegrunge",
+        "symphonic rock",
+        "synth-pop"
+      ],
+      "score": 100
+    }
+  }
+}
