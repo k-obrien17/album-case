@@ -1,19 +1,25 @@
-# Ship Standard — random-music-rankings
-Generated: 2026-05-20 · Class: static-site · Type: side project (personal tool)
-Live URL: TBD (GitHub Pages / Cloudflare Pages / local server)
-Golden path: open app → rate artists one at a time → progress persists across reload → export schema-valid ratings JSON
-Business goal: produce a complete, valid ratings export the Best-of-Years pipeline can consume
-Jurisdictions: n/a — internal, no public users, no data collection
+# Ship Standard — Taste Test (random-music-rankings)
+Generated: 2026-05-31 · Class: app-with-accounts · Type: side project (nurtured)
+Live URL: TBD (currently GitHub Pages, old private tool)
+Golden path: open a lane → rank/rate 5 artists → get a shareable ranked card
+Business goal: engagement
+Jurisdictions: US
+
+Supersedes the 2025-12-29 standard, which described the dead private-tool
+(static-site) version. See PRODUCT.md for the full product definition.
 
 ## Lenses
-On: architecture, ux, visual, tests
-Off: seo (private tool, not for search), legal (no accounts/data collection), db-safety (no DB, localStorage only), app-audit (no server/auth/mutations), launch-ops (static files, git is the rollback), feature-prospector (locked spec)
+On: architecture, app-audit, db-safety, tests, ux, visual, seo, legal, launch-ops
+Off: feature-prospector (generative — runs at end audit only, not a must-pass)
 
 ## Must-pass commitments
-- Single source of truth for state: localStorage key `kob-calibration-v1` is the only store; in-memory state mirrors it and never diverges
-- Golden path works end-to-end: rate → persists across reload → export downloads a schema-`kob-calibration-v1` JSON with correct stats
-- localStorage failure (private mode / quota) degrades gracefully: console warn, keep going in-memory, never crash
-- Mobile-first: all tap targets ≥44px, fully usable at 360px viewport, no horizontal scroll
-- Keyboard parity on desktop: 1-6 rate, space skip, left/backspace undo
-- Light-mode-only locked palette; zero external runtime dependencies (no CDN, no npm, no build step)
-- Scoring module is tested: the 7 named tests in `scoring/test_calibration.py` pass (S=.30 / A=.20 / B=.10 / C=0, "no"=-inf, "never"/unknown/unrated=0)
+- Single source of truth for state; no parallel data stores; preference atoms are MBID/artist-keyed and lane-type-tagged from day one
+- Authz + rate-limiting on every write to the atom store; input validated at boundaries; errors caught at boundaries, not swallowed
+- Stored asset stays CC0-clean: nothing Spotify/Last.fm-origin persisted (Spotify only at the UI edge, mapped to MBIDs)
+- Migrations reversible + collision-free; ms timestamps; no unbounded queries on hot paths
+- Golden path (lane → rank → card) tested end-to-end
+- Golden path completable without confusion on mobile at 360px; primary CTA unambiguous
+- Consistent design tokens; mobile/responsive; doesn't read as generic-AI
+- Title/meta/OG present (OG image = the shareable card); sitemap + robots; semantic headings
+- Privacy policy + terms present; consent gates analytics before it fires; account data export/delete path
+- Rollback path exists; error tracking live; dev/prod separation; one smoke test on the golden path

@@ -45,6 +45,13 @@ Stored asset stays **CC0**:
 
 **Flywheel:** bootstrap clusters from ListenBrainz; over time, "artists people rank together / prefer together" becomes a proprietary similarity signal we own, which sharpens the clusters and *is* the data asset (goal b).
 
+## Artist universe (decided, 2026-05-31)
+
+The rankable set is **derived from the CC0 dumps with a notability floor, not hand-curated.** Use MusicBrainz as the identity spine, keep artists above a popularity/notability threshold (ListenBrainz listen counts, tag presence, Wikidata link), and drop the long tail of one-upload non-entities. Expect tens of thousands of artists: not millions of noise, not a curated few hundred.
+
+- **The legacy 996-artist pool is demoted to a seed.** It came from the original private calibration tool, hand-curated for the Best-of-Years pipeline and deliberately capped at "artists a critic might plausibly name." That cap was correct for a private tool (the pipeline pre-filters by critical attention, so rating an obscure artist was wasted effort) and wrong for a public product (it caps discovery, bakes one person's blind spots in as the ceiling, and cannot represent what the crowd loves). It survives as the **marquee/anchor seed** (the ~8 evergreen lanes in Q5) and a **test fixture**, never as the catalog.
+- **Consequence: pairing/lane intelligence is now mandatory, not optional.** At tens of thousands of artists no player can cover the space by chance, so the matchups they see must be chosen (lane membership, similarity, under-sampled artists). This reinforces the Q5 decision to cut pure-random mode.
+
 ## Hard-won principles (decided)
 
 - **Relative ranking is not absolute sentiment.** Ordering five artists tells you A > B > C, never how much you like any of them. The #1 of a cluster you hate is just the least-hated.
@@ -53,7 +60,7 @@ Stored asset stays **CC0**:
 
 ## Subsystems (decomposition)
 
-1. **Data foundation** — MBID spine + ListenBrainz similarity + tags + Wikidata attributes.
+1. **Data foundation** — derive the notability-floored artist universe (see Artist universe), MBID spine + ListenBrainz similarity + tags + Wikidata attributes.
 2. **Cluster builder** — hand-curated marquee lanes + auto-derived long tail + generated attribute lanes.
 3. **Public ranking app** — cluster-default experience, modes, random wildcard, shareable result, optional light accounts.
 4. **Aggregation / insights** — capture interactions as preference atoms, the data asset.
