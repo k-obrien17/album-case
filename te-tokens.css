@@ -1,0 +1,78 @@
+/* GENERATED — synced from portfolio/design-system/tokens.css. Do not edit. */
+/* =============================================================================
+   Total Emphasis design system — core tokens (portable)
+   -----------------------------------------------------------------------------
+   Drop-in CSS custom properties for the minimal, text-first "mono" design
+   language. Stack-agnostic: works with Tailwind v4 (@theme), plain CSS, Astro,
+   or anything that reads CSS variables.
+
+   These VALUES are the source of truth and mirror the portfolio's
+   app/globals.css :root verbatim. If you change one, change both (the standard
+   and any project that copied it — propagation is by hand, see design-system.md).
+
+   Pair with IBM Plex Mono (400/500/600 + italic 400) and IBM Plex Sans
+   (400/500/600) loaded as --font-plex-mono / --font-plex-sans.
+   ========================================================================== */
+
+:root {
+  /* Surfaces & text */
+  --color-bg: #ffffff;
+  --color-bg-alt: #faf9f4;       /* faint panel / row hover */
+  --color-fg: #15140f;           /* primary text / headings */
+  --color-body: #5a584e;         /* muted body copy */
+  --color-muted: #7a786e;        /* meta text */
+  --color-faint: #9a988e;        /* section labels */
+  --color-faint-2: #b3b1a7;      /* table header text */
+  --color-byline: #3a3a34;       /* prominent inline runs */
+
+  /* Accent (terracotta) */
+  --color-accent: #b9512a;
+  --color-accent-hover: #9d4423;
+  --color-accent-light: #f3d9cb; /* selection / faint accent fill */
+
+  /* Borders & rules */
+  --color-border: #ececea;       /* section dividers */
+  --color-border-row: #efeee8;   /* index-table row dividers */
+  --color-rule-strong: #16140f;  /* table header rule */
+  --color-border-btn: #d8d6cc;   /* outline button / inline underline */
+
+  /* Dark surface (full-bleed contact / footer) */
+  --color-dark-bg: #15140f;
+  --color-dark-fg: #f4f2ea;
+  --color-dark-accent: #c97a52;
+  --color-dark-muted: #a39e90;
+  --color-dark-faint: #6f6b5f;
+  --color-dark-rule: #2b291f;
+
+  /* State */
+  --color-success: #3d7a4a;
+  --color-error: #b53629;
+
+  /* Typography — one family (IBM Plex). Mono is the default everywhere;
+     Sans is used only for long-form reading (article bodies). */
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --font-sans: var(--font-plex-sans), system-ui, -apple-system, sans-serif;
+
+  /* Square corners throughout */
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-full: 9999px; /* reserved for the rare pill/avatar */
+
+  /* Layout */
+  --content-width: 940px;        /* centered column max-width */
+  --content-pad: 32px;           /* horizontal padding */
+  --label-col: 150px;            /* section label column */
+  --section-gap: 48px;           /* label-to-content gap */
+  --section-pad-y: 56px;         /* section vertical padding */
+}
+
+/* Base + interaction rules (copy into a global stylesheet) */
+::selection { background: var(--color-accent-light); color: var(--color-fg); }
+
+/* Mono reads ~1px larger than proportional at the same px; base is dropped so
+   the minimal, text-first scale holds. Long-form bodies opt into Plex Sans. */
+/* body { font-family: var(--font-mono); font-size: 0.875rem; line-height: 1.6;
+         background: var(--color-bg); color: var(--color-body); } */
+
+/* Link / row hover: opacity fade, 0.15s ease. No other motion (restraint). */
