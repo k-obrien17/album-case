@@ -1,4 +1,11 @@
-/* GENERATED — synced from portfolio/design-system/tokens.css. Do not edit. */
+/* ===========================================================================
+   GENERATED FILE — DO NOT EDIT.
+   Synced from portfolio/design-system/tokens.css by sync.mjs.
+   To change tokens: edit the canonical file and run `node sync.mjs`.
+   App-specific overrides belong in your bridge stylesheet, not here.
+   Target: te-tokens.css
+   ========================================================================= */
+
 /* =============================================================================
    Total Emphasis design system — core tokens (portable)
    -----------------------------------------------------------------------------
