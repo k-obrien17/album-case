@@ -28,8 +28,8 @@
   --color-fg: #15140f;           /* primary text / headings */
   --color-body: #5a584e;         /* muted body copy */
   --color-muted: #7a786e;        /* meta text */
-  --color-faint: #9a988e;        /* section labels */
-  --color-faint-2: #b3b1a7;      /* table header text */
+  --color-faint: #82806e;        /* section labels */
+  --color-faint-2: #918f83;      /* table header text */
   --color-byline: #3a3a34;       /* prominent inline runs */
 
   /* Accent (terracotta) */
