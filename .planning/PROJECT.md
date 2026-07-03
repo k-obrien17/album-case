@@ -2,13 +2,13 @@
 
 ## What This Is
 
-Taste Test is a public, data-first music-ranking web app for music enthusiasts. Players rank artists inside auto-generated and curated "lanes" (vibe clusters, similarity groups, and playful attribute lanes like "bands with foods in their name"), and every interaction is captured as a clean, MBID-keyed preference atom. The aggregate becomes the product: publishable culture insights and charts (most polarizing artists of the 2000s, love-to-hate, cluster power rankings), with a licensable dataset as a parked secondary door.
+Taste Test is a public, data-first music-ranking web app for music enthusiasts. The starting experience is dead simple: show two albums, pick the one you like more, and those picks build your true, self-consistent ranked list. Every pick is captured as an openly-keyed pairwise comparison, so the growing pile of choices becomes the product: publishable culture-insight charts and a licensable dataset (parked).
 
-It began as a private calibration tool that triaged ~996 artists into tiers for a personal "Best of Years" Spotify pipeline. That tool is demoted to a seed and test fixture; the public product is the project now.
+It began as a private artist-tier calibration tool. That tool is demoted to a seed and test fixture. The public product is the project now, and it starts as **albums, this-or-that**, built to expand to songs and artists and to richer ranking mechanisms without a rebuild.
 
 ## Core Value
 
-Capturing crowd taste as a clean, openly-keyed dataset that produces honest, shareable culture insights. If everything else fails, the aggregate preference data must be trustworthy and well-structured.
+Turning the simplest possible choice (this album or that one) into an honest personal ranked list AND clean, openly-keyed crowd data. If everything else fails, the pairwise pick loop and the atoms it produces must be trustworthy and well-structured.
 
 ## Requirements
 
@@ -16,49 +16,50 @@ Capturing crowd taste as a clean, openly-keyed dataset that produces honest, sha
 
 <!-- Shipped and confirmed valuable. -->
 
-- ✓ Zero-dependency tier-rating game over a fixed artist pool — legacy calibration tool (demoted to seed/fixture)
-- ✓ Scoring module with locked tier weights + passing tests — `scoring/` (staged for the Best-of-Years pipeline)
+- ✓ Zero-dependency ranking game over a fixed pool — legacy calibration tool (demoted to seed/fixture)
+- ✓ Scoring module with locked tier weights + passing tests — `scoring/` (staged for the parked Best-of-Years pipeline)
 - ✓ Clustering approach validated — POC recovered genre pockets from ListenBrainz CC0 similarity + Louvain
 
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-- [ ] Data foundation: notability-floored, MBID-keyed artist universe materialized from CC0 bulk dumps as the searchable store
-- [ ] Cluster builder: hand-curated marquee lanes + auto-derived similarity long tail + generated attribute lanes
-- [ ] Public ranking app: lane-default ranking experience, shareable ranked card, optional light accounts
-- [ ] Aggregation / insights: interactions captured as artist-keyed, lane-type-tagged preference atoms; publishable charts
+**v1 (albums, this-or-that):**
+- [ ] Data foundation: notability-floored, MBID-keyed **album** universe (MusicBrainz release-groups) materialized from CC0 bulk dumps as the searchable store, with covers from the Cover Art Archive
+- [ ] Polymorphic entity schema: every rankable item is `(entity_type, mbid)` — `album` now, `song`/`artist` ready without a rebuild
+- [ ] This-or-that pick loop: show two album covers, pick one; a binary-insertion sort places each album into a transitive, self-consistent personal ranked list
+- [ ] Generic pairwise atom store: every pick logged as `(entity_a, entity_b, winner, mechanism, session, timestamp)`, `mechanism = 'this_or_that'` — the shared substrate for all future mechanisms
 
 ### Out of Scope
 
 <!-- Explicit boundaries. Includes reasoning to prevent re-adding. -->
 
-- Storing Spotify/Deezer/Apple data in the DB — vendor ToS forbids it; only open CC0 data is stored, copyrighted images/previews are live-rendered pointers
-- Tiering (S/A/B/C absolute tiers) — parked; the absolute-vs-relative conflict makes it premature, build against real usage later as an absolute-only act
-- Head-to-head mode — parked; needs a "both meh" escape first
-- Pure-random ranking mode — cut from v1; generated lanes already supply infinite variety and random is the noisiest data source
-- Monetization — deferred; free passion project, data-licensing door kept open via clean schema only
-- Audio features (BPM/key/mood) — no open source exists anymore (AcousticBrainz frozen, Spotify endpoint killed); compute in-house only if ever needed
-- Lyrics, setlists, live events — encumbered sources; not in v1
+- Storing Spotify/Deezer/Apple data — vendor ToS forbids it; only CC0 data is stored, copyrighted assets are live-rendered pointers (album covers come from the CC-licensed Cover Art Archive)
+- Songs and artists as rankable units — deferred to expansion; the polymorphic schema makes this data-loading, not a rebuild
+- Additional mechanisms (lane/cluster ranking, tier buckets, discography ranking, quick-pick) — deferred; all consume the same pairwise atom table
+- Crowd aggregate insight charts — deferred to a later phase; the atom schema is built clean so this door stays open
+- Accounts, shareable card — deferred past the anonymous this-or-that MVP
+- Elo living ranking — not the chosen model; the personal list is transitive-by-construction (no self-contradiction), which Elo does not guarantee. Reconsider only if a never-finished global ranking is wanted
+- Monetization — deferred; free passion project
+- Audio features (BPM/key/mood), lyrics, setlists, live events — no open source and/or encumbered; not in scope
 
 ## Context
 
-- **Origin:** Private calibration tool (`index.html` + `app.js` + `artists.js`, 996 artists) feeding a personal `spotify-best-of-years` pipeline (never built). Pivoted to a public product 2026-05-31.
-- **Data architecture (decided, see `DATA-SOURCES.md`):** Store everything from CC0 dumps; reference only what you already own; use pointers for copyrighted assets. The app's search index is the project's own materialized universe, never a vendor's live catalog. Commercial APIs decorate rows the dumps already gave you; they never introduce an entity.
-- **Stored core:** MusicBrainz (MBID identity spine, CC0), ListenBrainz (similarity + popularity, open), Discogs (genres/styles, CC0 text), Wikidata (ID crosswalks + attribute lanes, CC0).
-- **Live edges (display-only):** Deezer (search/images/previews, no key, no backend), TheAudioDB (cacheable images/bios). Spotify dropped entirely after its Feb 2026 dev-access lockdown.
-- **Validated by POC:** ListenBrainz CC0 similarity + Louvain recovered all 7 planted genre pockets with only correct crossovers; "butt rock" emerged from pure similarity. POC is throwaway (used live APIs); production uses bulk dumps.
-- **Hard-won ranking principles:** Relative ranking is not absolute sentiment. Tier is an absolute call that can never be derived from comparisons. Ranking is only valid within a tier.
-- **Flywheel:** Bootstrap clusters from ListenBrainz; over time "artists people rank/prefer together" becomes a proprietary similarity signal the project owns, sharpening clusters and forming the data asset.
+- **Origin:** Private artist-tier calibration tool feeding a personal `spotify-best-of-years` pipeline (never built). Pivoted to a public product 2026-05-31, then narrowed to an album this-or-that MVP 2026-07-03.
+- **The pivot to albums + pairwise (2026-07-03):** the rankable unit is the **album**, not the artist. The prevailing mechanism is pairwise head-to-head building a progressive, self-consistent "true list." Artists and songs become additional entity types later. This supersedes the artist-keyed framing in the older `PRODUCT.md`.
+- **Data architecture (decided, see `DATA-SOURCES.md`):** Store everything from CC0 dumps; reference only what you already own; use pointers for copyrighted assets. The search index is the project's own materialized universe, never a vendor's live catalog. Now album-scoped: MusicBrainz release-groups are the identity spine; the Cover Art Archive (CC-licensed, MBID-keyed) supplies covers.
+- **Stored core:** MusicBrainz (release-group + artist identity, CC0), Cover Art Archive (covers), ListenBrainz (popularity floor + future similarity), Discogs (genres/styles, CC0 text), Wikidata (crosswalks + attributes). Deezer/TheAudioDB are live-edge only. Spotify dropped (Feb 2026 lockdown).
+- **Two expansion guarantees baked into v1:** (1) polymorphic `(entity_type, mbid)` so songs/artists slot in; (2) generic pairwise atom table so every mechanism shares one substrate. Both are cheap now, expensive to retrofit.
+- **Hard-won ranking principle:** the pairwise loop builds a transitive personal list by construction (binary-insertion placement), so a user can never make self-contradicting picks.
 
 ## Constraints
 
-- **Data license**: Stored asset stays CC0 (MusicBrainz + ListenBrainz + Discogs text + Wikidata) — keeps the aggregate publishable and licensable, and legally clean.
-- **Data ingestion**: Use bulk dumps, not APIs, for anything stored — dumps refresh bi-weekly; new artists enter through the next dump, never as thin API stubs.
-- **Assets**: Copyrighted images/previews are never stored, only referenced by ID and rendered live — vendor ToS plus storage/liability.
-- **Schema**: Preference atoms are artist-keyed AND lane-type-tagged from day one — expensive to retrofit; enables high-signal vs gimmick-lane weighting for charts and licensing.
-- **Accounts**: Anonymous by default (zero-setup first play) + optional email/OAuth save — pulls auth, privacy, and consent into scope (app-with-accounts class, see `SHIP-STANDARD.md`).
-- **Universe scale**: Tens of thousands of notability-floored artists, not millions of noise nor a curated few hundred — pairing/lane intelligence is therefore mandatory (no chance coverage at scale).
+- **Data license**: Stored asset stays CC0 (MusicBrainz + Cover Art Archive + ListenBrainz + Discogs text + Wikidata) — keeps the aggregate publishable/licensable and legally clean.
+- **Data ingestion**: Bulk dumps, not APIs, for anything stored — refresh bi-weekly; new albums enter via the next dump, never as thin API stubs.
+- **Assets**: Copyrighted images/previews never stored, only referenced by ID and rendered live; album covers use the CC-licensed Cover Art Archive.
+- **Schema (expansion insurance)**: Rankable items are polymorphic `(entity_type, mbid)` and picks are generic pairwise atoms tagged by mechanism — both from day one.
+- **Universe scale**: Tens of thousands of notability-floored albums, not millions of noise. Pair selection is driven by the insertion sort, so no chance-coverage problem.
+- **First-play friction**: Anonymous, zero-setup, works on a phone. The this-or-that loop must be instant.
 
 ## Key Decisions
 
@@ -66,18 +67,19 @@ Capturing crowd taste as a clean, openly-keyed dataset that produces honest, sha
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Store only CC0 data from bulk dumps; APIs live at edges | Keeps aggregate publishable/licensable and legally clean | ✓ Good |
-| Materialize the universe as the searchable store | "Everything referenced ends up in my database" by construction; no non-CC0 entity can enter via search | ✓ Good |
-| Drop Spotify entirely | Feb 2026 dev-mode lockdown (Premium required, 1 client/5 users, no batch, no-DB ToS); Deezer covers the edge with no key | ✓ Good |
-| Notability-floored universe (tens of thousands) | Public discovery needs breadth; the 996 pool baked in one person's blind spots | ✓ Good |
-| Artist-keyed + lane-type-tagged atoms | Aggregate per artist across lanes; weight high-signal lanes for charts/licensing | ✓ Good |
-| Random ranking mode cut from v1 | Generated lanes supply variety; random is noisiest data | ✓ Good |
-| Core loop: 5-up lanes vs ongoing Elo | Unresolved fork (see HANDOFF.md); does NOT block the data foundation | — Pending |
+| Rankable unit = album (release-group) | Keith's direction 2026-07-03; supersedes artist-keyed framing | ✓ Good |
+| Start with albums this-or-that only | Smallest honest slice; ship and learn | ✓ Good |
+| Polymorphic `(entity_type, mbid)` entities | Songs/artists become data-loading, not a rebuild | ✓ Good |
+| Generic pairwise atom table, mechanism-tagged | Every future mechanism shares one substrate | ✓ Good |
+| Binary-insertion transitive personal list | Delivers "true list, no self-contradiction"; Elo can't guarantee transitivity | ✓ Good |
+| Store only CC0 data from bulk dumps; APIs live at edges | Aggregate stays publishable/licensable and legally clean | ✓ Good |
+| Drop Spotify entirely | Feb 2026 dev lockdown; Deezer/Cover Art Archive cover the edges | ✓ Good |
 
 ## Open Questions
 
-- **THE FORK (decide before any ranking UI):** core loop = 5-up lanes (current `PRODUCT.md`) vs ongoing Elo / head-to-head living ranking (2-up, never-finished, year-end top-N becomes the annual playlist). Tap-through demos at repo root: `elo-demo.html`, `pairwise-demo.html`. The data foundation is needed either way, so Phase 1 proceeds regardless.
-- Name/domain/handle availability for "Taste Test" before committing (consider a distinguishing TLD).
+- Songs and artists as additional units: confirm timing and any unit-specific UX (e.g. discography ranking mixes album+artist).
+- Whether the crowd aggregate should allow contradiction-bearing raw picks (good for divisiveness signal) alongside each user's transitive personal list. Likely yes: personal list is transitive, crowd atoms are raw. Settle when the aggregate phase is designed.
+- Name/domain/handle availability for "Taste Test" before committing.
 
 ## Evolution
 
@@ -97,4 +99,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-03 after initialization (from existing PRODUCT.md, DATA-SOURCES.md, SHIP-STANDARD.md)*
+*Last updated: 2026-07-03 after narrowing to the albums this-or-that MVP*
