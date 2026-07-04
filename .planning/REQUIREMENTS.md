@@ -17,9 +17,9 @@ Requirements for the albums this-or-that MVP. Each maps to a roadmap phase.
 
 ### Schema (expansion insurance)
 
-- [ ] **SCHEMA-01**: Every rankable item is stored polymorphically as `(entity_type, mbid)` with `entity_type = 'album'`, so `song`/`artist` can be added later without a schema rebuild
-- [ ] **SCHEMA-02**: Every pick is stored as a generic pairwise atom `(entity_a, entity_b, winner, mechanism, session_id, created_at)` with `mechanism = 'this_or_that'`
-- [ ] **SCHEMA-03**: A session identifier groups an anonymous player's picks without requiring an account
+- [x] **SCHEMA-01**: Every rankable item is stored polymorphically as `(entity_type, mbid)` with `entity_type = 'album'`, so `song`/`artist` can be added later without a schema rebuild
+- [x] **SCHEMA-02**: Every pick is stored as a generic pairwise atom `(entity_a, entity_b, winner, mechanism, session_id, created_at)` with `mechanism = 'this_or_that'`
+- [x] **SCHEMA-03**: A session identifier groups an anonymous player's picks without requiring an account
 
 ### Ranking Loop
 
@@ -80,9 +80,9 @@ Explicitly excluded. Documented to prevent scope creep.
 | DATA-03 | Phase 1 | Pending |
 | DATA-04 | Phase 1 | Pending |
 | DATA-05 | Phase 1 | Pending |
-| SCHEMA-01 | Phase 1 | Pending |
-| SCHEMA-02 | Phase 1 | Pending |
-| SCHEMA-03 | Phase 1 | Pending |
+| SCHEMA-01 | Phase 1 | Complete |
+| SCHEMA-02 | Phase 1 | Complete |
+| SCHEMA-03 | Phase 1 | Complete |
 | RANK-01 | Phase 2 | Pending |
 | RANK-02 | Phase 2 | Pending |
 | RANK-03 | Phase 2 | Pending |
