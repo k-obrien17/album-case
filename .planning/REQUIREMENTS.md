@@ -1,11 +1,11 @@
 # Requirements: Taste Test
 
 **Defined:** 2026-07-03
-**Core Value:** Turning the simplest choice (this album or that one) into an honest personal ranked list AND clean, openly-keyed crowd data.
+**Core Value:** Turning the simplest placement (where this album belongs in your list) into an honest personal ranked list AND clean, openly-keyed crowd data.
 
 ## v1 Requirements
 
-Requirements for the albums this-or-that MVP. Each maps to a roadmap phase.
+Requirements for the albums drag-to-place MVP. Each maps to a roadmap phase.
 
 ### Data Foundation
 
@@ -18,23 +18,23 @@ Requirements for the albums this-or-that MVP. Each maps to a roadmap phase.
 ### Schema (expansion insurance)
 
 - [x] **SCHEMA-01**: Every rankable item is stored polymorphically as `(entity_type, mbid)` with `entity_type = 'album'`, so `song`/`artist` can be added later without a schema rebuild
-- [x] **SCHEMA-02**: Every pick is stored as a generic pairwise atom `(entity_a, entity_b, winner, mechanism, session_id, created_at)` with `mechanism = 'this_or_that'`
+- [x] **SCHEMA-02**: Every placement-derived preference is stored as a generic pairwise atom `(entity_a, entity_b, winner, mechanism, session_id, created_at)` with `mechanism = 'drag_to_place'`
 - [x] **SCHEMA-03**: A session identifier groups an anonymous player's picks without requiring an account
 
 ### Ranking Loop
 
-- [ ] **RANK-01**: The app presents two albums (cover, title, artist) and the player picks the one they prefer
-- [x] **RANK-02**: Picks build a transitive, self-consistent personal ranked list via binary-insertion placement (the player can never make a self-contradicting pick)
-- [x] **RANK-03**: The next pair shown is chosen to place the current album into the player's existing ordered list (insertion-sort driven, not random)
-- [ ] **RANK-04**: The player can view their current ranked list at any time
-- [ ] **RANK-05**: Every pick is persisted as a pairwise atom (per SCHEMA-02) in addition to updating the personal list
+- [x] **RANK-01**: The app presents a candidate album (title, artist/year) and the player places it into their ranked list
+- [x] **RANK-02**: Placements build a transitive, self-consistent personal ranked list (the player can never make a self-contradicting pick)
+- [x] **RANK-03**: The next candidate is randomized from eligible albums, excluding already-ranked and set-aside albums
+- [x] **RANK-04**: The player can view and reorder their current ranked list at any time
+- [x] **RANK-05**: Every placement is persisted as pairwise neighbor atom(s) (per SCHEMA-02) in addition to updating the personal list
 
 ### Play Surface
 
-- [ ] **PLAY-01**: The this-or-that loop is playable anonymously with zero setup, instantly, on first visit
-- [ ] **PLAY-02**: The interface is usable on a phone (>=44px tap targets, no horizontal scroll at 360px)
-- [ ] **PLAY-03**: A player's list and session survive a page refresh
-- [ ] **PLAY-04**: Album covers load live from the pointer without blocking the pick interaction
+- [x] **PLAY-01**: The drag-to-place loop is playable anonymously with zero setup, instantly, on first visit
+- [x] **PLAY-02**: The interface is usable on a phone (>=44px tap targets, no horizontal scroll at 360px)
+- [x] **PLAY-03**: A player's list, set-aside lists, and session survive a page refresh
+- [x] **PLAY-04**: The ranking interaction is text-first and never blocks on cover/media loading
 
 ## v2 Requirements
 
@@ -69,7 +69,7 @@ Explicitly excluded. Documented to prevent scope creep.
 | Live artist/album search over a vendor catalog | The search index is the project's own materialized universe, never a vendor's live catalog |
 | Audio features (BPM/key/mood) | No open source remains (AcousticBrainz frozen, Spotify endpoint killed) |
 | Lyrics, setlists, live events | Encumbered sources; not core to ranking |
-| Accounts/share/charts in v1 | The MVP is anonymous this-or-that; these are the expansion path |
+| Accounts/share/charts in v1 | The MVP is anonymous drag-to-place ranking; these are the expansion path |
 
 ## Traceability
 
@@ -83,15 +83,15 @@ Explicitly excluded. Documented to prevent scope creep.
 | SCHEMA-01 | Phase 1 | Complete |
 | SCHEMA-02 | Phase 1 | Complete |
 | SCHEMA-03 | Phase 1 | Complete |
-| RANK-01 | Phase 2 | Pending |
+| RANK-01 | Phase 2 | Complete |
 | RANK-02 | Phase 2 | Complete |
 | RANK-03 | Phase 2 | Complete |
-| RANK-04 | Phase 2 | Pending |
-| RANK-05 | Phase 2 | Pending |
-| PLAY-01 | Phase 2 | Pending |
-| PLAY-02 | Phase 2 | Pending |
-| PLAY-03 | Phase 2 | Pending |
-| PLAY-04 | Phase 2 | Pending |
+| RANK-04 | Phase 2 | Complete |
+| RANK-05 | Phase 2 | Complete |
+| PLAY-01 | Phase 2 | Complete |
+| PLAY-02 | Phase 2 | Complete |
+| PLAY-03 | Phase 2 | Complete |
+| PLAY-04 | Phase 2 | Complete |
 
 **Coverage:**
 - v1 requirements: 17 total
@@ -100,4 +100,4 @@ Explicitly excluded. Documented to prevent scope creep.
 
 ---
 *Requirements defined: 2026-07-03*
-*Last updated: 2026-07-03 after roadmap creation (traceability populated)*
+*Last updated: 2026-07-04 after drag-to-place UI completion*

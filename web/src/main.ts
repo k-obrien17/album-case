@@ -16,6 +16,7 @@ import {
 } from './lists';
 import { mountRankList } from './ui/rankList';
 import { renderSavedList } from './ui/savedList';
+import { enqueueAtom, flushAtomQueue } from './atoms';
 
 type ViewMode = 'ranked' | 'wantToListen' | 'notHeard';
 
@@ -25,7 +26,8 @@ async function main(): Promise<void> {
     throw new Error('#app mount point not found');
   }
 
-  getOrCreateSession();
+  const session = getOrCreateSession();
+  void flushAtomQueue();
 
   const pool = await loadSeedPool();
   let lists: SavedLists = loadLists();
@@ -65,7 +67,30 @@ async function main(): Promise<void> {
     getCandidate: () => candidate,
     onPlace: (index) => {
       if (!candidate) return;
-      state = { ranked: insertAt(state.ranked, candidate, index), pending: null };
+      const before = state.ranked;
+      const placed = candidate;
+      const clamped = Math.max(0, Math.min(index, before.length));
+      const upper = before[clamped - 1] ?? null;
+      const lower = before[clamped] ?? null;
+
+      if (upper) {
+        enqueueAtom({
+          entity_a: upper.mbid,
+          entity_b: placed.mbid,
+          winner: upper.mbid,
+          session_id: session.session_id,
+        });
+      }
+      if (lower) {
+        enqueueAtom({
+          entity_a: placed.mbid,
+          entity_b: lower.mbid,
+          winner: placed.mbid,
+          session_id: session.session_id,
+        });
+      }
+
+      state = { ranked: insertAt(before, placed, clamped), pending: null };
       saveRanking(state);
       reselectCandidate();
       rankList.render();

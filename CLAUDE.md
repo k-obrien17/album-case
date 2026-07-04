@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Positioning
 
-**Taste Test** is a public, data-first music-ranking web app for enthusiasts. The starting experience: show two albums, pick the one you like more, and those picks build your true, self-consistent ranked list. Every pick is captured as an openly-keyed pairwise comparison, so the aggregate becomes the product (publishable culture-insight charts; a licensable dataset is parked). Design priority is friction reduction: the this-or-that loop must be instant, anonymous, and phone-first.
+**Taste Test** is a public, data-first music-ranking web app for enthusiasts. The starting experience: show one candidate album, drag it into the exact position in your ranked list, and repeat until you have a true, self-consistent order. Each placement can be captured as openly-keyed pairwise neighbor atoms, so the aggregate becomes the product (publishable culture-insight charts; a licensable dataset is parked). Design priority is friction reduction: the ranking loop must be instant, anonymous, and phone-first.
 
 The rankable unit is the **album** (MusicBrainz release-group), built to expand to songs and artists and to richer mechanisms without a rebuild.
 
@@ -15,13 +15,13 @@ This repo also contains a **legacy private calibration tool** (artist-tier rater
 - **Managed via GSD.** Planning lives in `.planning/` (`PROJECT.md`, `REQUIREMENTS.md`, `ROADMAP.md`, `STATE.md`, `config.json`). Read `PROJECT.md` for the current, authoritative product definition; it supersedes the older root `PRODUCT.md` where they differ.
 - **Roadmap (2 phases, coarse, horizontal layers):**
   1. **Album Data Foundation** (not built) — materialize a notability-floored album universe from CC0 bulk dumps into a queryable store; polymorphic entity + generic atom schema.
-  2. **This-or-That Ranking MVP** (not built) — anonymous two-album pick loop, binary-insertion transitive personal list, picks stored as atoms.
+  2. **This-or-That Ranking MVP** (in progress) — anonymous drag-to-place album ranking loop, transitive personal list, placement signals stored as atoms.
 - **Legacy (stable, demoted):** the calibration game (`index.html` + `app.js` + `style.css` + generated `artists.js`) and the Python `scoring/` module with passing pytest tests.
-- **Open fork:** the pairwise this-or-that loop is chosen for v1. Lanes/tiers/Elo are parked or out of scope (see `PROJECT.md`).
+- **Open fork:** the v1 player mechanism has pivoted from two-card pairwise picks to drag-to-place ranking. Lanes/tiers/Elo are parked or out of scope (see `PROJECT.md`).
 
 ## Two codebases in this repo
 
-1. **The product (Taste Test), being built** — data pipeline (CC0 dump ingestion) + a queryable store + the this-or-that web app. Stack is decided per-phase at plan time; see `DATA-SOURCES.md` and `.planning/`. This is where new work happens.
+1. **The product (Taste Test), being built** — data pipeline (CC0 dump ingestion) + a queryable store + the drag-to-place ranking web app. Stack is decided per-phase at plan time; see `DATA-SOURCES.md` and `.planning/`. This is where new work happens.
 2. **The legacy calibration tool, at the repo root** — `index.html`, `app.js`, `style.css`, `artists.js`, `build-artists.py`, `scoring/`, `reference/`. Zero-dependency, runs from `file://`. Kept as seed pool + fixture. The old constraints below apply ONLY to it.
 
 ## Architecture (the product)
@@ -36,7 +36,7 @@ Source of truth for data decisions: `DATA-SOURCES.md`. Core rule:
 - **Expansion insurance, baked in from Phase 1:**
   - Rankable items are polymorphic `(entity_type, mbid)` — `album` now, `song`/`artist` later without a rebuild.
   - Picks are generic pairwise atoms `(entity_a, entity_b, winner, mechanism, session_id, created_at)` — every future mechanism shares this one table.
-- **The personal list is transitive by construction** (binary-insertion placement), so a player can never make a self-contradicting pick. Not Elo.
+- **The personal list is transitive by construction** (direct placement into one ordered list), so a player can never make a self-contradicting pick. Not Elo.
 
 ## Commands (legacy tool)
 

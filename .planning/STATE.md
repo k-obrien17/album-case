@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-02-PLAN.md (binary-insertion ranking engine)
-last_updated: "2026-07-04T13:14:56.736Z"
+stopped_at: Completed 02-04-PLAN.md (Turso atom mailbox + retry queue)
+last_updated: "2026-07-04T15:53:21Z"
 last_activity: 2026-07-04
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 8
-  completed_plans: 6
-  percent: 50
+  completed_plans: 8
+  percent: 100
 ---
 
 # Project State
@@ -20,17 +20,17 @@ progress:
 
 See: .planning/PROJECT.md (updated 2026-07-03)
 
-**Core value:** Turning the simplest choice (this album or that one) into an honest personal ranked list AND clean, openly-keyed crowd data.
+**Core value:** Turning the simplest placement (where this album belongs in your list) into an honest personal ranked list AND clean, openly-keyed crowd data.
 **Current focus:** Phase 2 — This-or-That Ranking MVP
 
 ## Current Position
 
 Phase: 2 (This-or-That Ranking MVP) — EXECUTING
-Plan: 2 of 4
-Status: Ready to execute
+Plan: 4 of 4 complete
+Status: Phase 2 complete
 Last activity: 2026-07-04
 
-Progress: [████████░░] 75%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -58,6 +58,8 @@ Progress: [████████░░] 75%
 | Phase 01 P04 | 3min | 2 tasks | 2 files |
 | Phase 02 P01 | 20min | 2 tasks | 25 files |
 | Phase 02 P02 | 12min | 1 tasks | 3 files |
+| Phase 02 P03 | ~75min | 3 tasks | 13 files |
+| Phase 02 P04 | ~45min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -68,7 +70,7 @@ Recent decisions affecting current work:
 
 - Rankable unit = album (release-group); polymorphic `(entity_type, mbid)` so songs/artists slot in later without a rebuild.
 - Store only CC0 data from bulk dumps (MusicBrainz + Cover Art Archive + ListenBrainz + Discogs text + Wikidata); copyrighted assets are live-rendered pointers.
-- Binary-insertion transitive personal list, not Elo; pair selection is insertion-driven, so no chance-coverage problem.
+- Drag-to-place transitive personal list, not Elo; candidate selection is randomized from eligible albums so seed order does not overexpose one era.
 - [Phase 01]: Serving store is single-file SQLite via stdlib sqlite3 at data/tastetest.db, gitignored — no third-party DB needed; entities PK is composite (entity_type, mbid), no surrogate id
 - [Phase 01]: MB column-order constants pinned by fetching musicbrainz-server's current schema live (CreateTables.sql, InsertDefaultRows.sql) rather than from memory; release_group_primary_type id=1 confirmed as Album
 - [Phase 01]: Staging tables use truncate-and-reload symmetrically for both MusicBrainz and ListenBrainz loaders (DELETE + reinsert share one transaction per table)
@@ -79,10 +81,14 @@ Recent decisions affecting current work:
 - [Phase 02-01]: build-seed.py imports pipeline.covers.cover_url_for directly to guarantee the same Cover Art Archive pointer format as the pipeline; MVP seed resolved 405/422 curated albums against live MusicBrainz (temporary bootstrap, not the permanent catalog)
 - [Phase 02-02]: applyPick throws on unrecognized winnerMbid instead of silently no-oping (fail loud on caller bugs)
 - [Phase 02-02]: startPlacement on an empty ranked list finalizes synchronously with pending:null, avoiding a special-case empty-list branch in callers
+- [Phase 02-03]: Player-facing mechanism pivoted from two-card binary insertion to text-only drag-to-place ranked list; existing binary-insertion engine remains kept and tested for future/reference use
+- [Phase 02-03]: Set-aside lists (`wantToListen`, `notHeard`) are persisted under `tastetest-lists` and excluded from candidate selection
+- [Phase 02-04]: Drag placements enqueue pairwise neighbor atoms to `/api/atom`; the server hardcodes `mechanism = 'drag_to_place'`, validates MBIDs against the seed allowlist, and writes to Turso with parameterized SQL
+- [Phase 02-04]: Vercel project `eighth-chair-s-projects/web` has `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` set for production, preview, and development
 
 ### Pending Todos
 
-None yet.
+- Phase 1 remains `Executed (data-pending)` until the real ~7GB MusicBrainz dump is ingested by the operator and verified. Phase 2 is complete against the curated seed.
 
 ### Blockers/Concerns
 
@@ -99,5 +105,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-07-04T13:14:56.730Z
-Stopped at: Completed 02-02-PLAN.md (binary-insertion ranking engine)
+Stopped at: Completed 02-04-PLAN.md (Turso atom mailbox + retry queue)
 Resume file: None

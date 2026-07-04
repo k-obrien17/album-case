@@ -14,6 +14,24 @@ describe('ranking state persistence', () => {
           cover_url: 'https://example.test/a.jpg',
         },
       ],
+      pending: null,
+    };
+
+    saveRanking(state);
+    expect(loadRanking()).toEqual(state);
+  });
+
+  it('normalizes stale pending placement data away on load', () => {
+    const state: RankingState = {
+      ranked: [
+        {
+          mbid: 'a',
+          title: 'A',
+          primary_artist_name: 'Artist A',
+          release_year: 2000,
+          cover_url: 'https://example.test/a.jpg',
+        },
+      ],
       pending: {
         album: {
           mbid: 'b',
@@ -28,6 +46,6 @@ describe('ranking state persistence', () => {
     };
 
     saveRanking(state);
-    expect(loadRanking()).toEqual(state);
+    expect(loadRanking()).toEqual({ ranked: state.ranked, pending: null });
   });
 });
