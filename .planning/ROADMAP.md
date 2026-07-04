@@ -40,7 +40,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Every pick is persisted as a pairwise atom (per SCHEMA-02) in addition to updating the personal list, and both the list and the session survive a page refresh.
   5. The interface is usable on a phone (>=44px tap targets, no horizontal scroll at 360px) and album covers load live from the pointer without blocking the pick interaction.
 **Plans**: 4 plans
-- [ ] 02-01-PLAN.md — Scaffold the web/ Vite+TS app, adopt the te design system, and build the curated seed album dataset
+- [x] 02-01-PLAN.md — Scaffold the web/ Vite+TS app, adopt the te design system, and build the curated seed album dataset
 - [ ] 02-02-PLAN.md — Binary-insertion ranking algorithm as a pure, DOM-free, unit-tested module (transitivity + insertion-driven pairing)
 - [ ] 02-03-PLAN.md — Two-album pick loop, ranked-list view, and localStorage persistence of list + anonymous session
 - [ ] 02-04-PLAN.md — Thin Turso atom-mailbox endpoint + fire-and-forget client poster with retry buffer
@@ -54,5 +54,5 @@ Phases execute in numeric order: 1 → 2
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Album Data Foundation | 4/4 | Executed (data-pending) | - |
-| 2. This-or-That Ranking MVP | 0/4 | Planned | - |
+| 2. This-or-That Ranking MVP | 1/4 | In Progress|  |
 </content>
