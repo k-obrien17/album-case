@@ -1,7 +1,8 @@
 import './style.css';
-import type { Album, Comparison, RankingState } from './ranking/types';
-import { startPlacement, nextComparison } from './ranking/insertion';
-import { loadSeedPool, nextUnrankedCandidate } from './seed';
+import type { Album, RankingState } from './ranking/types';
+import { insertAt, moveItem } from './ranking/order';
+import { setAsideAlbum } from './ranking/setAside';
+import { loadSeedPool, pickCandidate } from './seed';
 import { loadRanking, saveRanking } from './storage';
 import { getOrCreateSession } from './session';
 import {
@@ -13,46 +14,10 @@ import {
   type ListName,
   type SavedLists,
 } from './lists';
-import { mountPickLoop } from './ui/pickLoop';
-import { renderRankedList } from './ui/rankedList';
+import { mountRankList } from './ui/rankList';
 import { renderSavedList } from './ui/savedList';
 
-/**
- * Cold-start bootstrap (mandatory -- see 02-03-PLAN.md). On an empty
- * `ranked` list, `startPlacement` seats the first candidate immediately and
- * `nextComparison` then returns `null` (nothing to compare against yet).
- * Chain `startPlacement` on the next unranked candidate, persisting after
- * every step, until `nextComparison` yields a real pair or the seed pool is
- * exhausted. Guarantees a true first-visit player (zero ranked albums) is
- * always shown a real two-album comparison, never a blank/crashed screen.
- *
- * `excluded` is the set of set-aside album mbids to skip while seeding
- * candidates; it is read fresh on every bootstrap call so newly-flagged
- * albums are excluded immediately.
- */
-export function bootstrapComparison(
-  initialState: RankingState,
-  pool: Album[],
-  onPersist: (state: RankingState) => void,
-  excluded: Set<string> = new Set()
-): { state: RankingState; comparison: Comparison | null } {
-  let state = initialState;
-  let comparison = nextComparison(state);
-
-  while (comparison === null) {
-    const pendingMbid = state.pending?.album.mbid ?? null;
-    const candidate = nextUnrankedCandidate(pool, state.ranked, pendingMbid, excluded);
-    if (!candidate) break; // whole seed pool ranked/excluded; nothing to bootstrap
-
-    state = startPlacement(state, candidate);
-    onPersist(state);
-    comparison = nextComparison(state);
-  }
-
-  return { state, comparison };
-}
-
-type ViewMode = 'pick' | 'ranked' | 'wantToListen' | 'notHeard';
+type ViewMode = 'ranked' | 'wantToListen' | 'notHeard';
 
 async function main(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>('#app');
@@ -65,10 +30,12 @@ async function main(): Promise<void> {
   const pool = await loadSeedPool();
   let lists: SavedLists = loadLists();
   const restored = loadRanking();
+  // The drag-to-place flow keeps the ranking as the ordered `ranked` array;
+  // `pending` is always null.
   let state: RankingState = restored ?? { ranked: [], pending: null };
-
-  const bootstrapped = bootstrapComparison(state, pool, saveRanking, excludedMbids(lists));
-  state = bootstrapped.state;
+  // First-visit correctness: an empty list plus a first candidate, never a
+  // blank screen. pickCandidate returns a random eligible album.
+  let candidate: Album | null = pickCandidate(pool, state.ranked, excludedMbids(lists));
 
   const shell = document.createElement('div');
   shell.className = 'app-shell';
@@ -87,35 +54,47 @@ async function main(): Promise<void> {
   app.textContent = '';
   app.append(shell);
 
-  let view: ViewMode = 'pick';
+  let view: ViewMode = 'ranked';
 
-  // mountPickLoop renders the first comparison immediately.
-  const pickLoop = mountPickLoop(
-    stage,
-    state,
-    bootstrapped.comparison,
-    // The bootstrap closure re-reads the CURRENT lists on every call, so an
-    // album flagged during play is excluded from the very next candidate.
-    (s) => bootstrapComparison(s, pool, saveRanking, excludedMbids(lists)),
-    (s) => {
-      state = s;
+  function reselectCandidate(): void {
+    candidate = pickCandidate(pool, state.ranked, excludedMbids(lists));
+  }
+
+  const rankList = mountRankList(stage, {
+    getRanked: () => state.ranked,
+    getCandidate: () => candidate,
+    onPlace: (index) => {
+      if (!candidate) return;
+      state = { ranked: insertAt(state.ranked, candidate, index), pending: null };
+      saveRanking(state);
+      reselectCandidate();
+      rankList.render();
+      renderNav();
     },
-    // recordSetAside: add to the correct list, persist, and update the
-    // in-scope `lists` BEFORE the pick loop re-bootstraps, so the newly
-    // flagged album is already excluded from the next candidate search.
-    (album: Album, which: ListName) => {
+    onReorder: (from, to) => {
+      state = { ranked: moveItem(state.ranked, from, to), pending: null };
+      saveRanking(state);
+      rankList.render();
+    },
+    onSetAside: (album, which) => {
+      // Record to the saved list first (so it is excluded), then drop it from
+      // ranking state (setAsideAlbum also clears any stale placement), then
+      // pick the next candidate.
       lists = addToList(lists, album, which);
       saveLists(lists);
+      state = setAsideAlbum(state, album.mbid);
+      saveRanking(state);
+      reselectCandidate();
+      rankList.render();
       renderNav();
-    }
-  );
+    },
+  });
 
   function markAsHeard(album: Album, which: ListName): void {
     lists = removeFromList(lists, album.mbid, which);
     saveLists(lists);
-    // The album is eligible again (the excluded set shrank); bootstrap will
-    // offer it the next time a candidate is needed. Re-render the current
-    // saved list and refresh the nav counts.
+    // Eligible again: if the pool was exhausted (no candidate), offer it now.
+    if (!candidate) reselectCandidate();
     renderNav();
     renderCurrentSavedList(which);
   }
@@ -126,17 +105,14 @@ async function main(): Promise<void> {
   }
 
   function showView(next: ViewMode): void {
-    // Leaving the pick view: detach its keyboard listener so a stray
-    // keypress can't fire a phantom pick from another view.
-    if (view === 'pick' && next !== 'pick') {
-      pickLoop.teardown();
+    // Leaving the drag view: cancel any in-flight drag / listeners.
+    if (view === 'ranked' && next !== 'ranked') {
+      rankList.teardown();
     }
     view = next;
 
-    if (view === 'pick') {
-      pickLoop.render();
-    } else if (view === 'ranked') {
-      renderRankedList(stage, state.ranked);
+    if (view === 'ranked') {
+      rankList.render();
     } else {
       renderCurrentSavedList(view);
     }
@@ -146,8 +122,7 @@ async function main(): Promise<void> {
   function renderNav(): void {
     nav.textContent = '';
     const items: Array<{ mode: ViewMode; label: string }> = [
-      { mode: 'pick', label: 'Picking' },
-      { mode: 'ranked', label: `Ranked (${state.ranked.length})` },
+      { mode: 'ranked', label: `Ranked list (${state.ranked.length})` },
       { mode: 'wantToListen', label: `Want to listen (${lists.wantToListen.length})` },
       { mode: 'notHeard', label: `Haven't heard (${lists.notHeard.length})` },
     ];
