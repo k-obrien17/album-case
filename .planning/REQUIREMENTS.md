@@ -9,7 +9,7 @@ Requirements for the albums this-or-that MVP. Each maps to a roadmap phase.
 
 ### Data Foundation
 
-- [ ] **DATA-01**: A notability-floored album universe (MusicBrainz release-groups) is materialized into a queryable local store from CC0 bulk dumps, not live APIs
+- [x] **DATA-01**: A notability-floored album universe (MusicBrainz release-groups) is materialized into a queryable local store from CC0 bulk dumps, not live APIs
 - [ ] **DATA-02**: Each album row carries its MBID, title, primary artist (name + MBID), and release year
 - [ ] **DATA-03**: Each album resolves to a cover image via the Cover Art Archive (stored as a pointer/URL, not a copied file)
 - [ ] **DATA-04**: Albums below the notability floor are excluded, keeping the universe in the tens of thousands, not millions
@@ -75,7 +75,7 @@ Explicitly excluded. Documented to prevent scope creep.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DATA-01 | Phase 1 | Pending |
+| DATA-01 | Phase 1 | Complete |
 | DATA-02 | Phase 1 | Pending |
 | DATA-03 | Phase 1 | Pending |
 | DATA-04 | Phase 1 | Pending |

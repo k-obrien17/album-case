@@ -49,5 +49,5 @@ Phases execute in numeric order: 1 → 2
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Album Data Foundation | 1/4 | In Progress|  |
+| 1. Album Data Foundation | 2/4 | In Progress|  |
 | 2. This-or-That Ranking MVP | 0/TBD | Not started | - |
