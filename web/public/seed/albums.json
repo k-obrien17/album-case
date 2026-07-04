@@ -79,14 +79,14 @@
   {
     "mbid": "bb525db3-81e4-4c05-b529-23fa05f35c12",
     "title": "EL MAL QUERER",
-    "primary_artist_name": "ROSAL\u00cdA",
+    "primary_artist_name": "ROSALÍA",
     "release_year": 2018,
     "cover_url": "https://coverartarchive.org/release-group/bb525db3-81e4-4c05-b529-23fa05f35c12/front-500"
   },
   {
     "mbid": "f455f658-dd55-4790-8cd3-99c7c273018a",
     "title": "MOTOMAMI",
-    "primary_artist_name": "ROSAL\u00cdA",
+    "primary_artist_name": "ROSALÍA",
     "release_year": 2022,
     "cover_url": "https://coverartarchive.org/release-group/f455f658-dd55-4790-8cd3-99c7c273018a/front-500"
   },
@@ -260,7 +260,7 @@
   },
   {
     "mbid": "2e93841b-b126-4167-bc26-647f621bfcf7",
-    "title": "B\u00e9cs",
+    "title": "Bécs",
     "primary_artist_name": "Fennesz",
     "release_year": 2014,
     "cover_url": "https://coverartarchive.org/release-group/2e93841b-b126-4167-bc26-647f621bfcf7/front-500"
@@ -309,7 +309,7 @@
   },
   {
     "mbid": "c8bea388-c195-4177-bf9b-7469f6e695a1",
-    "title": "Short n\u2019 Sweet",
+    "title": "Short n’ Sweet",
     "primary_artist_name": "Sabrina Carpenter",
     "release_year": 2024,
     "cover_url": "https://coverartarchive.org/release-group/c8bea388-c195-4177-bf9b-7469f6e695a1/front-500"
@@ -408,21 +408,21 @@
   {
     "mbid": "810272e0-aef1-3d85-b2d3-e512e87fc38c",
     "title": "Homogenic",
-    "primary_artist_name": "Bj\u00f6rk",
+    "primary_artist_name": "Björk",
     "release_year": 1997,
     "cover_url": "https://coverartarchive.org/release-group/810272e0-aef1-3d85-b2d3-e512e87fc38c/front-500"
   },
   {
     "mbid": "b2a6e057-087d-3ae5-a6e5-7f5fa39808ff",
     "title": "Post",
-    "primary_artist_name": "Bj\u00f6rk",
+    "primary_artist_name": "Björk",
     "release_year": 1995,
     "cover_url": "https://coverartarchive.org/release-group/b2a6e057-087d-3ae5-a6e5-7f5fa39808ff/front-500"
   },
   {
     "mbid": "271faeb3-fdd1-3ebb-80aa-97b3116e9341",
     "title": "Vespertine",
-    "primary_artist_name": "Bj\u00f6rk",
+    "primary_artist_name": "Björk",
     "release_year": 2001,
     "cover_url": "https://coverartarchive.org/release-group/271faeb3-fdd1-3ebb-80aa-97b3116e9341/front-500"
   },
@@ -477,7 +477,7 @@
   },
   {
     "mbid": "082363d7-2028-434f-b77b-ce956585ed99",
-    "title": "Everyone\u2019s Crushed",
+    "title": "Everyone’s Crushed",
     "primary_artist_name": "Water From Your Eyes",
     "release_year": 2023,
     "cover_url": "https://coverartarchive.org/release-group/082363d7-2028-434f-b77b-ce956585ed99/front-500"
@@ -541,7 +541,7 @@
   {
     "mbid": "33eaf398-1164-32e3-9055-3bcbff8f3b12",
     "title": "Clics modernos",
-    "primary_artist_name": "Charly Garc\u00eda",
+    "primary_artist_name": "Charly García",
     "release_year": 1983,
     "cover_url": "https://coverartarchive.org/release-group/33eaf398-1164-32e3-9055-3bcbff8f3b12/front-500"
   },
@@ -646,7 +646,7 @@
   {
     "mbid": "11ae8c9c-27c1-3308-9761-edb87c8f54ea",
     "title": "The Blueprint",
-    "primary_artist_name": "Jay\u2010Z",
+    "primary_artist_name": "Jay‐Z",
     "release_year": 2001,
     "cover_url": "https://coverartarchive.org/release-group/11ae8c9c-27c1-3308-9761-edb87c8f54ea/front-500"
   },
@@ -905,7 +905,7 @@
   {
     "mbid": "0d8562eb-7f72-427b-8a0b-984cc5ee7766",
     "title": "An Awesome Wave",
-    "primary_artist_name": "alt\u2010J",
+    "primary_artist_name": "alt‐J",
     "release_year": 2012,
     "cover_url": "https://coverartarchive.org/release-group/0d8562eb-7f72-427b-8a0b-984cc5ee7766/front-500"
   },
@@ -971,5 +971,502 @@
     "primary_artist_name": "Ludacris",
     "release_year": 2001,
     "cover_url": "https://coverartarchive.org/release-group/ebc3e2cf-a96a-3bb6-aa3d-282d35155518/front-500"
+  },
+  {
+    "mbid": "3e7bd1f6-f27d-3514-bb34-955d00eb6533",
+    "title": "Bitte Orca",
+    "primary_artist_name": "Dirty Projectors",
+    "release_year": 2009,
+    "cover_url": "https://coverartarchive.org/release-group/3e7bd1f6-f27d-3514-bb34-955d00eb6533/front-500"
+  },
+  {
+    "mbid": "48140466-cff6-3222-bd55-63c27e43190d",
+    "title": "Dummy",
+    "primary_artist_name": "Portishead",
+    "release_year": 1994,
+    "cover_url": "https://coverartarchive.org/release-group/48140466-cff6-3222-bd55-63c27e43190d/front-500"
+  },
+  {
+    "mbid": "f6b1b900-6108-32f0-abbd-2855af9151eb",
+    "title": "Remain in Light",
+    "primary_artist_name": "Talking Heads",
+    "release_year": 1980,
+    "cover_url": "https://coverartarchive.org/release-group/f6b1b900-6108-32f0-abbd-2855af9151eb/front-500"
+  },
+  {
+    "mbid": "fd29e2cd-9bd7-32c6-adf9-ce80ab1cadfc",
+    "title": "Spirit of Eden",
+    "primary_artist_name": "Talk Talk",
+    "release_year": 1988,
+    "cover_url": "https://coverartarchive.org/release-group/fd29e2cd-9bd7-32c6-adf9-ce80ab1cadfc/front-500"
+  },
+  {
+    "mbid": "5cbd9d7b-597a-3c5e-bfd1-c2b364215560",
+    "title": "The Velvet Underground & Nico",
+    "primary_artist_name": "The Velvet Underground",
+    "release_year": 1967,
+    "cover_url": "https://coverartarchive.org/release-group/5cbd9d7b-597a-3c5e-bfd1-c2b364215560/front-500"
+  },
+  {
+    "mbid": "e7227840-5ef2-3813-af26-15dab34e1a51",
+    "title": "Turn On the Bright Lights",
+    "primary_artist_name": "Interpol",
+    "release_year": 2002,
+    "cover_url": "https://coverartarchive.org/release-group/e7227840-5ef2-3813-af26-15dab34e1a51/front-500"
+  },
+  {
+    "mbid": "f6a51281-56c4-3538-b915-65a9d4eb29b5",
+    "title": "Low",
+    "primary_artist_name": "David Bowie",
+    "release_year": 1977,
+    "cover_url": "https://coverartarchive.org/release-group/f6a51281-56c4-3538-b915-65a9d4eb29b5/front-500"
+  },
+  {
+    "mbid": "8691d12c-abd8-385c-b1eb-d841190124f7",
+    "title": "The Miseducation of Lauryn Hill",
+    "primary_artist_name": "Lauryn Hill",
+    "release_year": 1998,
+    "cover_url": "https://coverartarchive.org/release-group/8691d12c-abd8-385c-b1eb-d841190124f7/front-500"
+  },
+  {
+    "mbid": "28298e2c-4d70-3eed-a0f5-a3280c662b3d",
+    "title": "Illmatic",
+    "primary_artist_name": "Nas",
+    "release_year": 1994,
+    "cover_url": "https://coverartarchive.org/release-group/28298e2c-4d70-3eed-a0f5-a3280c662b3d/front-500"
+  },
+  {
+    "mbid": "3412fd44-c6e6-3a3b-b91a-964a055192ec",
+    "title": "Déjà vu",
+    "primary_artist_name": "Crosby, Stills, Nash & Young",
+    "release_year": 1970,
+    "cover_url": "https://coverartarchive.org/release-group/3412fd44-c6e6-3a3b-b91a-964a055192ec/front-500"
+  },
+  {
+    "mbid": "f2026101-945b-3d05-9ef4-aa718fc3feef",
+    "title": "The Wall",
+    "primary_artist_name": "Pink Floyd",
+    "release_year": 1979,
+    "cover_url": "https://coverartarchive.org/release-group/f2026101-945b-3d05-9ef4-aa718fc3feef/front-500"
+  },
+  {
+    "mbid": "116c9490-6af4-3827-8261-2d5b1f508fe7",
+    "title": "Physical Graffiti",
+    "primary_artist_name": "Led Zeppelin",
+    "release_year": 1975,
+    "cover_url": "https://coverartarchive.org/release-group/116c9490-6af4-3827-8261-2d5b1f508fe7/front-500"
+  },
+  {
+    "mbid": "d03a3ae3-4a33-4c50-8501-00710070549c",
+    "title": "Halcyon Digest",
+    "primary_artist_name": "Deerhunter",
+    "release_year": 2010,
+    "cover_url": "https://coverartarchive.org/release-group/d03a3ae3-4a33-4c50-8501-00710070549c/front-500"
+  },
+  {
+    "mbid": "1a272023-10d3-38ee-bab3-317b55fcc21d",
+    "title": "Wish You Were Here",
+    "primary_artist_name": "Pink Floyd",
+    "release_year": 1975,
+    "cover_url": "https://coverartarchive.org/release-group/1a272023-10d3-38ee-bab3-317b55fcc21d/front-500"
+  },
+  {
+    "mbid": "3d3ff0b9-5858-33f3-9d67-8ba5977899a8",
+    "title": "When the Pawn Hits the Conflicts He Thinks Like a King What He Knows Throws the Blows When He Goes to the Fight and He’ll Win the Whole Thing ’Fore He Enters the Ring There’s No Body to Batter When Your Mind Is Your Might So When You Go Solo, You Hold Your Own Hand and Remember That Depth Is the Greatest of Heights and If You Know Where You Stand, Then You Know Where to Land and If You Fall It Won’t Matter, Cuz You’ll Know That You’re Right",
+    "primary_artist_name": "Fiona Apple",
+    "release_year": 1999,
+    "cover_url": "https://coverartarchive.org/release-group/3d3ff0b9-5858-33f3-9d67-8ba5977899a8/front-500"
+  },
+  {
+    "mbid": "e2621417-9236-36b4-9f9e-376c416dc4b0",
+    "title": "All Eyez on Me",
+    "primary_artist_name": "2Pac",
+    "release_year": 1996,
+    "cover_url": "https://coverartarchive.org/release-group/e2621417-9236-36b4-9f9e-376c416dc4b0/front-500"
+  },
+  {
+    "mbid": "f8f4167d-897c-4b25-a171-638374d1dfa4",
+    "title": "channel ORANGE",
+    "primary_artist_name": "Frank Ocean",
+    "release_year": 2012,
+    "cover_url": "https://coverartarchive.org/release-group/f8f4167d-897c-4b25-a171-638374d1dfa4/front-500"
+  },
+  {
+    "mbid": "ee749c63-5699-38e0-b565-7e84414648d9",
+    "title": "Off the Wall",
+    "primary_artist_name": "Michael Jackson",
+    "release_year": 1979,
+    "cover_url": "https://coverartarchive.org/release-group/ee749c63-5699-38e0-b565-7e84414648d9/front-500"
+  },
+  {
+    "mbid": "416bb5e5-c7d1-3977-8fd7-7c9daf6c2be6",
+    "title": "Rumours",
+    "primary_artist_name": "Fleetwood Mac",
+    "release_year": 1977,
+    "cover_url": "https://coverartarchive.org/release-group/416bb5e5-c7d1-3977-8fd7-7c9daf6c2be6/front-500"
+  },
+  {
+    "mbid": "c3733436-fcba-3c08-b082-d548df5c5139",
+    "title": "The Low End Theory",
+    "primary_artist_name": "A Tribe Called Quest",
+    "release_year": 1991,
+    "cover_url": "https://coverartarchive.org/release-group/c3733436-fcba-3c08-b082-d548df5c5139/front-500"
+  },
+  {
+    "mbid": "581d7ac8-8f1d-4d4a-a224-de9c9cd76b39",
+    "title": "Run the Jewels 2",
+    "primary_artist_name": "Run the Jewels",
+    "release_year": 2014,
+    "cover_url": "https://coverartarchive.org/release-group/581d7ac8-8f1d-4d4a-a224-de9c9cd76b39/front-500"
+  },
+  {
+    "mbid": "eb143c5a-9a85-4bce-a78c-f7faf72c0169",
+    "title": "Modern Vampires of the City",
+    "primary_artist_name": "Vampire Weekend",
+    "release_year": 2013,
+    "cover_url": "https://coverartarchive.org/release-group/eb143c5a-9a85-4bce-a78c-f7faf72c0169/front-500"
+  },
+  {
+    "mbid": "5243f39c-c344-3989-a0f6-2a2f75a9d827",
+    "title": "3 Feet High and Rising",
+    "primary_artist_name": "De La Soul",
+    "release_year": 1989,
+    "cover_url": "https://coverartarchive.org/release-group/5243f39c-c344-3989-a0f6-2a2f75a9d827/front-500"
+  },
+  {
+    "mbid": "8a01217e-6947-3927-a39b-6691104694f1",
+    "title": "The College Dropout",
+    "primary_artist_name": "Kanye West",
+    "release_year": 2004,
+    "cover_url": "https://coverartarchive.org/release-group/8a01217e-6947-3927-a39b-6691104694f1/front-500"
+  },
+  {
+    "mbid": "4b16a1bc-8644-48ae-9b3e-8ae36aa30cfc",
+    "title": "Born to Die",
+    "primary_artist_name": "Lana Del Rey",
+    "release_year": 2012,
+    "cover_url": "https://coverartarchive.org/release-group/4b16a1bc-8644-48ae-9b3e-8ae36aa30cfc/front-500"
+  },
+  {
+    "mbid": "4838a3c9-fd2b-30a5-83eb-e32545b5d7fc",
+    "title": "Exile on Main St.",
+    "primary_artist_name": "The Rolling Stones",
+    "release_year": 1972,
+    "cover_url": "https://coverartarchive.org/release-group/4838a3c9-fd2b-30a5-83eb-e32545b5d7fc/front-500"
+  },
+  {
+    "mbid": "6f3e9fa6-be7a-3de8-a2b2-2072ece8a54d",
+    "title": "The Joshua Tree",
+    "primary_artist_name": "U2",
+    "release_year": 1987,
+    "cover_url": "https://coverartarchive.org/release-group/6f3e9fa6-be7a-3de8-a2b2-2072ece8a54d/front-500"
+  },
+  {
+    "mbid": "136815ec-7b75-4477-9f35-8e6adb926700",
+    "title": "Sometimes I Sit and Think, and Sometimes I Just Sit",
+    "primary_artist_name": "Courtney Barnett",
+    "release_year": 2015,
+    "cover_url": "https://coverartarchive.org/release-group/136815ec-7b75-4477-9f35-8e6adb926700/front-500"
+  },
+  {
+    "mbid": "744c7a1b-ac79-35c4-bd92-7e2c6a24c8d8",
+    "title": "Achtung Baby",
+    "primary_artist_name": "U2",
+    "release_year": 1991,
+    "cover_url": "https://coverartarchive.org/release-group/744c7a1b-ac79-35c4-bd92-7e2c6a24c8d8/front-500"
+  },
+  {
+    "mbid": "120c786d-a3b2-3c19-b4ff-2b7b3b4435bf",
+    "title": "A Rush of Blood to the Head",
+    "primary_artist_name": "Coldplay",
+    "release_year": 2002,
+    "cover_url": "https://coverartarchive.org/release-group/120c786d-a3b2-3c19-b4ff-2b7b3b4435bf/front-500"
+  },
+  {
+    "mbid": "ee3d18ed-d6a8-37c7-a964-41bbdb6d59f1",
+    "title": "Jagged Little Pill",
+    "primary_artist_name": "Alanis Morissette",
+    "release_year": 1995,
+    "cover_url": "https://coverartarchive.org/release-group/ee3d18ed-d6a8-37c7-a964-41bbdb6d59f1/front-500"
+  },
+  {
+    "mbid": "6e4f39e6-3403-39d7-81c6-8e61a990d509",
+    "title": "Tapestry",
+    "primary_artist_name": "Carole King",
+    "release_year": 1971,
+    "cover_url": "https://coverartarchive.org/release-group/6e4f39e6-3403-39d7-81c6-8e61a990d509/front-500"
+  },
+  {
+    "mbid": "8d73e45e-7ca1-3cb4-ae28-6da76196c17c",
+    "title": "London Calling",
+    "primary_artist_name": "The Clash",
+    "release_year": 1979,
+    "cover_url": "https://coverartarchive.org/release-group/8d73e45e-7ca1-3cb4-ae28-6da76196c17c/front-500"
+  },
+  {
+    "mbid": "7c5bb286-ac24-443c-81cc-4f5f6261c343",
+    "title": "The ArchAndroid",
+    "primary_artist_name": "Janelle Monáe",
+    "release_year": 2010,
+    "cover_url": "https://coverartarchive.org/release-group/7c5bb286-ac24-443c-81cc-4f5f6261c343/front-500"
+  },
+  {
+    "mbid": "9f7a4c28-8fa2-3113-929c-c47a9f7982c3",
+    "title": "Sgt. Pepper’s Lonely Hearts Club Band",
+    "primary_artist_name": "The Beatles",
+    "release_year": 1967,
+    "cover_url": "https://coverartarchive.org/release-group/9f7a4c28-8fa2-3113-929c-c47a9f7982c3/front-500"
+  },
+  {
+    "mbid": "e54744e2-7646-304d-abb8-2952671da3bb",
+    "title": "Supreme Clientele",
+    "primary_artist_name": "Ghostface Killah",
+    "release_year": 2000,
+    "cover_url": "https://coverartarchive.org/release-group/e54744e2-7646-304d-abb8-2952671da3bb/front-500"
+  },
+  {
+    "mbid": "4114f899-a9d2-48a8-b597-8a5ca8bb6847",
+    "title": "Teen Dream",
+    "primary_artist_name": "Beach House",
+    "release_year": 2010,
+    "cover_url": "https://coverartarchive.org/release-group/4114f899-a9d2-48a8-b597-8a5ca8bb6847/front-500"
+  },
+  {
+    "mbid": "95f2ba4b-2dd9-38d1-8158-a416a391489c",
+    "title": "Yankee Hotel Foxtrot",
+    "primary_artist_name": "Wilco",
+    "release_year": 2002,
+    "cover_url": "https://coverartarchive.org/release-group/95f2ba4b-2dd9-38d1-8158-a416a391489c/front-500"
+  },
+  {
+    "mbid": "1e151a63-e906-4903-b108-b3ecf21218b4",
+    "title": "Body Talk",
+    "primary_artist_name": "Robyn",
+    "release_year": 2010,
+    "cover_url": "https://coverartarchive.org/release-group/1e151a63-e906-4903-b108-b3ecf21218b4/front-500"
+  },
+  {
+    "mbid": "4c616513-9b14-3dfd-b023-a7e77e69a029",
+    "title": "The Warning",
+    "primary_artist_name": "Hot Chip",
+    "release_year": 2006,
+    "cover_url": "https://coverartarchive.org/release-group/4c616513-9b14-3dfd-b023-a7e77e69a029/front-500"
+  },
+  {
+    "mbid": "bc7740e1-02c9-3ab7-9869-0e0c79acf941",
+    "title": "Antics",
+    "primary_artist_name": "Interpol",
+    "release_year": 2004,
+    "cover_url": "https://coverartarchive.org/release-group/bc7740e1-02c9-3ab7-9869-0e0c79acf941/front-500"
+  },
+  {
+    "mbid": "32304f6e-5b80-3818-a66b-47f09efff0d9",
+    "title": "Wolfgang Amadeus Phoenix",
+    "primary_artist_name": "Phoenix",
+    "release_year": 2009,
+    "cover_url": "https://coverartarchive.org/release-group/32304f6e-5b80-3818-a66b-47f09efff0d9/front-500"
+  },
+  {
+    "mbid": "a7f852ba-08bc-36f1-92f3-4dc127f4b70a",
+    "title": "Reasonable Doubt",
+    "primary_artist_name": "Jaÿ‐Z",
+    "release_year": 1996,
+    "cover_url": "https://coverartarchive.org/release-group/a7f852ba-08bc-36f1-92f3-4dc127f4b70a/front-500"
+  },
+  {
+    "mbid": "6fe82196-df5d-4938-aa39-920df5b4517d",
+    "title": "House of Balloons",
+    "primary_artist_name": "The Weeknd",
+    "release_year": 2011,
+    "cover_url": "https://coverartarchive.org/release-group/6fe82196-df5d-4938-aa39-920df5b4517d/front-500"
+  },
+  {
+    "mbid": "a0b94d0a-210b-4b15-bd1d-93be2196c14a",
+    "title": "Appetite for Destruction",
+    "primary_artist_name": "Guns N’ Roses",
+    "release_year": 1987,
+    "cover_url": "https://coverartarchive.org/release-group/a0b94d0a-210b-4b15-bd1d-93be2196c14a/front-500"
+  },
+  {
+    "mbid": "a903a977-5932-4cc2-a064-57a596658b3d",
+    "title": "In Colour",
+    "primary_artist_name": "Jamie xx",
+    "release_year": 2015,
+    "cover_url": "https://coverartarchive.org/release-group/a903a977-5932-4cc2-a064-57a596658b3d/front-500"
+  },
+  {
+    "mbid": "8898e5eb-48aa-4eea-8569-d3a2e9adaf02",
+    "title": "This Is Happening",
+    "primary_artist_name": "LCD Soundsystem",
+    "release_year": 2010,
+    "cover_url": "https://coverartarchive.org/release-group/8898e5eb-48aa-4eea-8569-d3a2e9adaf02/front-500"
+  },
+  {
+    "mbid": "499c19c8-0dab-4824-884b-6191d145e95b",
+    "title": "good kid, m.A.A.d city",
+    "primary_artist_name": "Kendrick Lamar",
+    "release_year": 2012,
+    "cover_url": "https://coverartarchive.org/release-group/499c19c8-0dab-4824-884b-6191d145e95b/front-500"
+  },
+  {
+    "mbid": "8588c5a5-b491-37a4-8d51-2227346a072e",
+    "title": "Aja",
+    "primary_artist_name": "Steely Dan",
+    "release_year": 1977,
+    "cover_url": "https://coverartarchive.org/release-group/8588c5a5-b491-37a4-8d51-2227346a072e/front-500"
+  },
+  {
+    "mbid": "22deeac8-6009-31ad-a069-26e85d246412",
+    "title": "Tusk",
+    "primary_artist_name": "Fleetwood Mac",
+    "release_year": 1979,
+    "cover_url": "https://coverartarchive.org/release-group/22deeac8-6009-31ad-a069-26e85d246412/front-500"
+  },
+  {
+    "mbid": "e0fdb431-0109-420d-8a37-f99eaeb4d671",
+    "title": "BRAT",
+    "primary_artist_name": "Charli xcx",
+    "release_year": 2024,
+    "cover_url": "https://coverartarchive.org/release-group/e0fdb431-0109-420d-8a37-f99eaeb4d671/front-500"
+  },
+  {
+    "mbid": "f959a46a-a136-3134-9412-6572b23fad95",
+    "title": "Demon Days",
+    "primary_artist_name": "Gorillaz",
+    "release_year": 2005,
+    "cover_url": "https://coverartarchive.org/release-group/f959a46a-a136-3134-9412-6572b23fad95/front-500"
+  },
+  {
+    "mbid": "9facb475-4c5f-369b-9b93-1280e6669090",
+    "title": "Boxer",
+    "primary_artist_name": "The National",
+    "release_year": 2007,
+    "cover_url": "https://coverartarchive.org/release-group/9facb475-4c5f-369b-9b93-1280e6669090/front-500"
+  },
+  {
+    "mbid": "844bfb05-2b51-35e2-8063-1c8e6746c781",
+    "title": "Juju",
+    "primary_artist_name": "Siouxsie and the Banshees",
+    "release_year": 1981,
+    "cover_url": "https://coverartarchive.org/release-group/844bfb05-2b51-35e2-8063-1c8e6746c781/front-500"
+  },
+  {
+    "mbid": "7f6a4e72-9fee-39db-8817-63425f97a0f5",
+    "title": "Play",
+    "primary_artist_name": "Moby",
+    "release_year": 1999,
+    "cover_url": "https://coverartarchive.org/release-group/7f6a4e72-9fee-39db-8817-63425f97a0f5/front-500"
+  },
+  {
+    "mbid": "668e80e0-b35e-4471-9788-0a3d797fe42c",
+    "title": "Melodrama",
+    "primary_artist_name": "Lorde",
+    "release_year": 2017,
+    "cover_url": "https://coverartarchive.org/release-group/668e80e0-b35e-4471-9788-0a3d797fe42c/front-500"
+  },
+  {
+    "mbid": "f48c46e8-8178-3e74-b60f-72b677ebcb96",
+    "title": "Transatlanticism",
+    "primary_artist_name": "Death Cab for Cutie",
+    "release_year": 2003,
+    "cover_url": "https://coverartarchive.org/release-group/f48c46e8-8178-3e74-b60f-72b677ebcb96/front-500"
+  },
+  {
+    "mbid": "3c638420-8208-3c01-b723-f061b10e3f3a",
+    "title": "Rio",
+    "primary_artist_name": "Duran Duran",
+    "release_year": 1982,
+    "cover_url": "https://coverartarchive.org/release-group/3c638420-8208-3c01-b723-f061b10e3f3a/front-500"
+  },
+  {
+    "mbid": "af9a5099-04c5-3aaf-b0d1-fa160bd92e02",
+    "title": "Fleet Foxes",
+    "primary_artist_name": "Fleet Foxes",
+    "release_year": 2008,
+    "cover_url": "https://coverartarchive.org/release-group/af9a5099-04c5-3aaf-b0d1-fa160bd92e02/front-500"
+  },
+  {
+    "mbid": "9fe3ccc2-9649-3ac3-bc7f-a82d9b6ee815",
+    "title": "Ga Ga Ga Ga Ga",
+    "primary_artist_name": "Spoon",
+    "release_year": 2007,
+    "cover_url": "https://coverartarchive.org/release-group/9fe3ccc2-9649-3ac3-bc7f-a82d9b6ee815/front-500"
+  },
+  {
+    "mbid": "475946e9-4b00-3f7c-9bd7-c11f55740262",
+    "title": "Songs From the Big Chair",
+    "primary_artist_name": "Tears for Fears",
+    "release_year": 1985,
+    "cover_url": "https://coverartarchive.org/release-group/475946e9-4b00-3f7c-9bd7-c11f55740262/front-500"
+  },
+  {
+    "mbid": "b0fa91c8-0996-38f1-ab84-797f58d7c4eb",
+    "title": "The Marshall Mathers LP",
+    "primary_artist_name": "Eminem",
+    "release_year": 2000,
+    "cover_url": "https://coverartarchive.org/release-group/b0fa91c8-0996-38f1-ab84-797f58d7c4eb/front-500"
+  },
+  {
+    "mbid": "47809021-4515-4215-beea-db3f5dfb6267",
+    "title": "Take Care",
+    "primary_artist_name": "Drake",
+    "release_year": 2011,
+    "cover_url": "https://coverartarchive.org/release-group/47809021-4515-4215-beea-db3f5dfb6267/front-500"
+  },
+  {
+    "mbid": "0f0ecd4f-1d20-34b9-9f67-5aaa785c7f11",
+    "title": "Tuesday Night Music Club",
+    "primary_artist_name": "Sheryl Crow",
+    "release_year": 1993,
+    "cover_url": "https://coverartarchive.org/release-group/0f0ecd4f-1d20-34b9-9f67-5aaa785c7f11/front-500"
+  },
+  {
+    "mbid": "2cb36662-3560-4b90-a0a5-7924ac039490",
+    "title": "Bon Iver, Bon Iver",
+    "primary_artist_name": "Bon Iver",
+    "release_year": 2011,
+    "cover_url": "https://coverartarchive.org/release-group/2cb36662-3560-4b90-a0a5-7924ac039490/front-500"
+  },
+  {
+    "mbid": "cc7e6348-cc55-31fa-aeb2-748a46a81cb3",
+    "title": "(What’s the Story) Morning Glory?",
+    "primary_artist_name": "Oasis",
+    "release_year": 1995,
+    "cover_url": "https://coverartarchive.org/release-group/cc7e6348-cc55-31fa-aeb2-748a46a81cb3/front-500"
+  },
+  {
+    "mbid": "04b0b075-bed7-388b-b44b-cf34077ad96c",
+    "title": "Tragic Kingdom",
+    "primary_artist_name": "No Doubt",
+    "release_year": 1995,
+    "cover_url": "https://coverartarchive.org/release-group/04b0b075-bed7-388b-b44b-cf34077ad96c/front-500"
+  },
+  {
+    "mbid": "00de8e96-b902-3d80-b980-1298937b0b2a",
+    "title": "FutureSex/LoveSounds",
+    "primary_artist_name": "Justin Timberlake",
+    "release_year": 2006,
+    "cover_url": "https://coverartarchive.org/release-group/00de8e96-b902-3d80-b980-1298937b0b2a/front-500"
+  },
+  {
+    "mbid": "12fa3845-7c62-36e5-a8da-8be137155a72",
+    "title": "Hysteria",
+    "primary_artist_name": "Def Leppard",
+    "release_year": 1987,
+    "cover_url": "https://coverartarchive.org/release-group/12fa3845-7c62-36e5-a8da-8be137155a72/front-500"
+  },
+  {
+    "mbid": "836f349a-0434-3e8b-a0bc-261f77a9f99c",
+    "title": "Hotel California",
+    "primary_artist_name": "Eagles",
+    "release_year": 1976,
+    "cover_url": "https://coverartarchive.org/release-group/836f349a-0434-3e8b-a0bc-261f77a9f99c/front-500"
+  },
+  {
+    "mbid": "2e93b949-f480-475b-a1bd-bbf9723ba13d",
+    "title": "Coloring Book",
+    "primary_artist_name": "Chance the Rapper",
+    "release_year": 2016,
+    "cover_url": "https://coverartarchive.org/release-group/2e93b949-f480-475b-a1bd-bbf9723ba13d/front-500"
   }
 ]

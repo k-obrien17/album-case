@@ -26,9 +26,19 @@ export const CREATE_ATOMS_MECHANISM_INDEX = `
 CREATE INDEX IF NOT EXISTS idx_atoms_mechanism ON atoms(mechanism);
 `;
 
+export const CREATE_RANKING_SNAPSHOTS_TABLE = `
+CREATE TABLE IF NOT EXISTS ranking_snapshots (
+    session_id TEXT PRIMARY KEY,
+    ranking_json TEXT NOT NULL,
+    lists_json TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+`;
+
 export const SCHEMA_STATEMENTS = [
   CREATE_ATOMS_TABLE,
   CREATE_SESSIONS_TABLE,
   CREATE_ATOMS_SESSION_INDEX,
   CREATE_ATOMS_MECHANISM_INDEX,
+  CREATE_RANKING_SNAPSHOTS_TABLE,
 ];
