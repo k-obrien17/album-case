@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { Album } from './ranking/types';
-import { nextUnrankedCandidate } from './seed';
+import { eligibleCandidates, pickCandidate } from './seed';
 
 function album(mbid: string): Album {
   return {
@@ -12,31 +12,36 @@ function album(mbid: string): Album {
   };
 }
 
-const pool = [album('a'), album('b'), album('c')];
+const pool = [album('a'), album('b'), album('c'), album('d')];
 
-describe('nextUnrankedCandidate', () => {
-  it('returns the first album not already ranked', () => {
-    const next = nextUnrankedCandidate(pool, [album('a')], null);
-    expect(next?.mbid).toBe('b');
+describe('eligibleCandidates', () => {
+  it('excludes ranked and set-aside albums', () => {
+    const eligible = eligibleCandidates(pool, [album('a')], new Set(['b']));
+    expect(eligible.map((x) => x.mbid)).toEqual(['c', 'd']);
+  });
+});
+
+describe('pickCandidate', () => {
+  it('excludes ranked and set-aside albums from selection', () => {
+    // rng 0 would normally pick the first pool album; with a/b removed the
+    // first eligible is c.
+    const picked = pickCandidate(pool, [album('a')], new Set(['b']), () => 0);
+    expect(picked?.mbid).toBe('c');
   });
 
-  it('skips the album currently mid-placement (pendingMbid)', () => {
-    const next = nextUnrankedCandidate(pool, [], 'a');
-    expect(next?.mbid).toBe('b');
+  it('is randomized: an injected RNG can return a NON-first eligible album', () => {
+    // rng near 1 selects the last eligible album, proving order is not fixed.
+    const picked = pickCandidate(pool, [], new Set(), () => 0.99);
+    expect(picked?.mbid).toBe('d');
   });
 
-  it('skips albums in the excluded set', () => {
-    const next = nextUnrankedCandidate(pool, [], null, new Set(['a', 'b']));
-    expect(next?.mbid).toBe('c');
+  it('returns null when nothing is eligible', () => {
+    const picked = pickCandidate(pool, pool, new Set(), () => 0.5);
+    expect(picked).toBeNull();
   });
 
-  it('combines ranked, pending, and excluded exclusions', () => {
-    const next = nextUnrankedCandidate(pool, [album('a')], 'b', new Set(['c']));
-    expect(next).toBeNull();
-  });
-
-  it('defaults excluded to empty when omitted (existing callers keep working)', () => {
-    const next = nextUnrankedCandidate(pool, [], null);
-    expect(next?.mbid).toBe('a');
+  it('never indexes out of range even when rng returns exactly 1', () => {
+    const picked = pickCandidate(pool, [], new Set(), () => 1);
+    expect(picked?.mbid).toBe('d');
   });
 });

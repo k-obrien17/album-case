@@ -21,26 +21,36 @@ export async function loadSeedPool(): Promise<Album[]> {
 }
 
 /**
- * The next candidate to insert into the ranked list: the first album in
- * `pool` that is neither already placed in `ranked`, nor the album currently
- * mid-placement (`pendingMbid`), nor set aside into a saved list
- * (`excluded`). Returns `null` once every album in the pool is accounted for
- * -- there is nothing left to bootstrap.
+ * Every album still available to place: not already in `ranked` and not set
+ * aside into a saved list (`excluded`).
  */
-export function nextUnrankedCandidate(
+export function eligibleCandidates(
   pool: Album[],
   ranked: Album[],
-  pendingMbid: string | null,
   excluded: Set<string> = new Set()
-): Album | null {
+): Album[] {
   const rankedIds = new Set(ranked.map((album) => album.mbid));
+  return pool.filter((album) => !rankedIds.has(album.mbid) && !excluded.has(album.mbid));
+}
 
-  for (const album of pool) {
-    if (rankedIds.has(album.mbid)) continue;
-    if (album.mbid === pendingMbid) continue;
-    if (excluded.has(album.mbid)) continue;
-    return album;
-  }
-
-  return null;
+/**
+ * Pick the next candidate to place: a RANDOM eligible album, not the first in
+ * pool order. The seed is editorially ordered (classic-rock canon first), so
+ * walking it in order made every candidate look like the same era -- random
+ * selection spreads candidates across the catalog.
+ *
+ * `rng` is injectable (defaults to `Math.random`) so tests can assert a
+ * specific, non-first eligible album is returned. Returns `null` when nothing
+ * is left to place.
+ */
+export function pickCandidate(
+  pool: Album[],
+  ranked: Album[],
+  excluded: Set<string> = new Set(),
+  rng: () => number = Math.random
+): Album | null {
+  const eligible = eligibleCandidates(pool, ranked, excluded);
+  if (eligible.length === 0) return null;
+  const index = Math.min(Math.floor(rng() * eligible.length), eligible.length - 1);
+  return eligible[index];
 }
