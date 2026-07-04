@@ -1,0 +1,41 @@
+/* =============================================================================
+   Total Emphasis bridge — hand-owned. Loaded LAST so it wins the cascade.
+   Maps random-music-rankings' own CSS variables onto the TE core tokens
+   (te-tokens.css). Core tier only: brand layer restyle. App structure,
+   logic, and functional/category colors (tier S/A/B/C, "no") are preserved.
+   ========================================================================== */
+
+:root {
+  /* Surfaces & text → TE tokens */
+  --bg: var(--color-bg);              /* white */
+  --bg-secondary: var(--color-bg-alt); /* warm faint panel */
+  --border: var(--color-border-btn);  /* warm visible outline */
+  --text-primary: var(--color-fg);    /* near-black */
+  --text-secondary: var(--color-body);
+  --text-tertiary: var(--color-muted);
+
+  /* Square corners throughout */
+  --radius: 0;
+  --radius-lg: 0;
+
+  /* One family — route UI to IBM Plex Mono; keep mono token as TE mono */
+  --font-sans: var(--font-mono);
+
+  /* Functional / category colors (tier S/A/B/C, "no" verdict) left intact. */
+}
+
+/* Mono reads ~1px larger than proportional; drop base so the scale holds. */
+body {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+}
+
+::selection { background: var(--color-accent-light); color: var(--color-fg); }
+
+/* Square-corner sweep for any element-level radii not driven by --radius. */
+.progress,
+.progress-bar,
+.ro-btn,
+kbd {
+  border-radius: 0;
+}

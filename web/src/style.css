@@ -1,0 +1,31 @@
+/* Taste Test app shell — consumes Total Emphasis design tokens (te-tokens.css),
+   no hardcoded palette. Structural / layout rules only; brand values live in
+   te-tokens.css and te-bridge.css. */
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-body);
+  font-family: var(--font-mono);
+}
+
+#app {
+  max-width: var(--content-width);
+  margin: 0 auto;
+  padding: var(--content-pad);
+  box-sizing: border-box;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.placeholder-heading {
+  color: var(--color-fg);
+  font-family: var(--font-mono);
+  border-radius: var(--radius-md);
+}
+
+.placeholder-subtitle {
+  color: var(--color-muted);
+}
