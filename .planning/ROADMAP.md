@@ -27,7 +27,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Every album is stored polymorphically as `(entity_type = 'album', mbid)`, so a `song` or `artist` row can be added later with no schema rebuild.
   4. A generic pairwise atom table accepts `(entity_a, entity_b, winner, mechanism, session_id, created_at)` records with `mechanism = 'this_or_that'`, agnostic to entity type, and a session id can group an anonymous player's picks with no account.
   5. Re-running ingestion against a refreshed bulk dump adds new albums without duplicating existing ones.
-**Plans**: TBD
+**Plans**: 4 plans
 
 ### Phase 2: This-or-That Ranking MVP
 **Goal**: An anonymous, zero-setup, phone-usable this-or-that loop presents two albums, records the player's pick, places each album into a transitive self-consistent personal ranked list by binary insertion, drives the next pair from that insertion, and persists every pick as a pairwise atom.
@@ -39,7 +39,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. The player can view their current ranked list at any time.
   4. Every pick is persisted as a pairwise atom (per SCHEMA-02) in addition to updating the personal list, and both the list and the session survive a page refresh.
   5. The interface is usable on a phone (>=44px tap targets, no horizontal scroll at 360px) and album covers load live from the pointer without blocking the pick interaction.
-**Plans**: TBD
+**Plans**: 4 plans
+- [ ] 02-01-PLAN.md — Scaffold the web/ Vite+TS app, adopt the te design system, and build the curated seed album dataset
+- [ ] 02-02-PLAN.md — Binary-insertion ranking algorithm as a pure, DOM-free, unit-tested module (transitivity + insertion-driven pairing)
+- [ ] 02-03-PLAN.md — Two-album pick loop, ranked-list view, and localStorage persistence of list + anonymous session
+- [ ] 02-04-PLAN.md — Thin Turso atom-mailbox endpoint + fire-and-forget client poster with retry buffer
 **UI hint**: yes
 
 ## Progress
@@ -50,4 +54,5 @@ Phases execute in numeric order: 1 → 2
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Album Data Foundation | 4/4 | Executed (data-pending) | - |
-| 2. This-or-That Ranking MVP | 0/TBD | Not started | - |
+| 2. This-or-That Ranking MVP | 0/4 | Planned | - |
+</content>
