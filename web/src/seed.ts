@@ -22,20 +22,23 @@ export async function loadSeedPool(): Promise<Album[]> {
 
 /**
  * The next candidate to insert into the ranked list: the first album in
- * `pool` that is neither already placed in `ranked` nor the album currently
- * mid-placement (`pendingMbid`). Returns `null` once every album in the
- * pool is either ranked or pending -- there is nothing left to bootstrap.
+ * `pool` that is neither already placed in `ranked`, nor the album currently
+ * mid-placement (`pendingMbid`), nor set aside into a saved list
+ * (`excluded`). Returns `null` once every album in the pool is accounted for
+ * -- there is nothing left to bootstrap.
  */
 export function nextUnrankedCandidate(
   pool: Album[],
   ranked: Album[],
-  pendingMbid: string | null
+  pendingMbid: string | null,
+  excluded: Set<string> = new Set()
 ): Album | null {
   const rankedIds = new Set(ranked.map((album) => album.mbid));
 
   for (const album of pool) {
     if (rankedIds.has(album.mbid)) continue;
     if (album.mbid === pendingMbid) continue;
+    if (excluded.has(album.mbid)) continue;
     return album;
   }
 
