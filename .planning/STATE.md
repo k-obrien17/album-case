@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Plan 02-01 (web/ scaffold + te design system + MVP album seed) executed and committed
-last_updated: "2026-07-04T13:07:27.859Z"
+stopped_at: Completed 02-02-PLAN.md (binary-insertion ranking engine)
+last_updated: "2026-07-04T13:14:56.736Z"
 last_activity: 2026-07-04
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 8
-  completed_plans: 5
+  completed_plans: 6
   percent: 50
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 ## Current Position
 
 Phase: 2 (This-or-That Ranking MVP) — EXECUTING
-Plan: 1 of 4
-Status: Plan 02-01 executed (web/ scaffold + te design system + 405-album MVP seed)
+Plan: 2 of 4
+Status: Ready to execute
 Last activity: 2026-07-04
 
-Progress: [██████░░░░] 63%
+Progress: [████████░░] 75%
 
 ## Performance Metrics
 
@@ -57,6 +57,7 @@ Progress: [██████░░░░] 63%
 | Phase 01 P03 | 12min | 2 tasks | 4 files |
 | Phase 01 P04 | 3min | 2 tasks | 2 files |
 | Phase 02 P01 | 20min | 2 tasks | 25 files |
+| Phase 02 P02 | 12min | 1 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -76,6 +77,8 @@ Recent decisions affecting current work:
 - [Phase 01-04]: Reworded covers.py docstring to avoid literal 'socket'/'urllib' substrings that tripped the plan's own comment-blind verify grep, without changing behavior
 - [Phase 02-01]: web/ is a standalone Vite+TS product isolated from the legacy root vanilla-JS tool; te design system adopted by copying te-tokens.css/te-fonts.css/te-bridge.css + fonts/ into web/public/, not shared via symlink
 - [Phase 02-01]: build-seed.py imports pipeline.covers.cover_url_for directly to guarantee the same Cover Art Archive pointer format as the pipeline; MVP seed resolved 405/422 curated albums against live MusicBrainz (temporary bootstrap, not the permanent catalog)
+- [Phase 02-02]: applyPick throws on unrecognized winnerMbid instead of silently no-oping (fail loud on caller bugs)
+- [Phase 02-02]: startPlacement on an empty ranked list finalizes synchronously with pending:null, avoiding a special-case empty-list branch in callers
 
 ### Pending Todos
 
@@ -95,6 +98,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-04T09:05:00-04:00
-Stopped at: Plan 02-01 (web/ scaffold + te design system + MVP album seed) executed and committed
+Last session: 2026-07-04T13:14:56.730Z
+Stopped at: Completed 02-02-PLAN.md (binary-insertion ranking engine)
 Resume file: None

@@ -24,8 +24,8 @@ Requirements for the albums this-or-that MVP. Each maps to a roadmap phase.
 ### Ranking Loop
 
 - [ ] **RANK-01**: The app presents two albums (cover, title, artist) and the player picks the one they prefer
-- [ ] **RANK-02**: Picks build a transitive, self-consistent personal ranked list via binary-insertion placement (the player can never make a self-contradicting pick)
-- [ ] **RANK-03**: The next pair shown is chosen to place the current album into the player's existing ordered list (insertion-sort driven, not random)
+- [x] **RANK-02**: Picks build a transitive, self-consistent personal ranked list via binary-insertion placement (the player can never make a self-contradicting pick)
+- [x] **RANK-03**: The next pair shown is chosen to place the current album into the player's existing ordered list (insertion-sort driven, not random)
 - [ ] **RANK-04**: The player can view their current ranked list at any time
 - [ ] **RANK-05**: Every pick is persisted as a pairwise atom (per SCHEMA-02) in addition to updating the personal list
 
@@ -84,8 +84,8 @@ Explicitly excluded. Documented to prevent scope creep.
 | SCHEMA-02 | Phase 1 | Complete |
 | SCHEMA-03 | Phase 1 | Complete |
 | RANK-01 | Phase 2 | Pending |
-| RANK-02 | Phase 2 | Pending |
-| RANK-03 | Phase 2 | Pending |
+| RANK-02 | Phase 2 | Complete |
+| RANK-03 | Phase 2 | Complete |
 | RANK-04 | Phase 2 | Pending |
 | RANK-05 | Phase 2 | Pending |
 | PLAY-01 | Phase 2 | Pending |
