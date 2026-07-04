@@ -33,6 +33,7 @@ from pipeline.ingest_musicbrainz import (
     RGM_COL_ID,
     load_musicbrainz_staging,
 )
+from pipeline.ingest_listenbrainz import load_listenbrainz_staging
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
@@ -160,4 +161,87 @@ def test_musicbrainz_cli_help_shows_required_flags():
     )
     assert result.returncode == 0
     assert "--mbdump-dir" in result.stdout
+    assert "--db" in result.stdout
+
+
+# --- ListenBrainz: Task 2 ---
+
+LB_FIXTURE_PATH = FIXTURES_DIR / "lb_popularity.sample.jsonl"
+
+# MBIDs shared with the MusicBrainz fixtures so a downstream join (Plan 03)
+# finds popularity for the sample albums.
+OK_COMPUTER_MBID = "6ccb60c2-6d8a-4869-9e5b-ba3ba99caebe"
+VA_COMPILATION_MBID = "f4a5da2f-459e-4b1b-9a49-cc4d3ba1e0a5"
+ABBEY_ROAD_MBID = "6c771d78-c30a-4681-93a5-45c88f815685"
+
+
+def test_load_listenbrainz_staging_fills_one_row_per_unique_mbid(conn):
+    stats = load_listenbrainz_staging(conn, LB_FIXTURE_PATH)
+
+    assert stats["loaded"] == 3
+    assert stats["skipped"] == 1  # the one malformed JSON line
+
+    count = conn.execute("SELECT COUNT(*) FROM stg_popularity").fetchone()[0]
+    assert count == 3
+
+    mbids = {
+        row["release_group_mbid"]
+        for row in conn.execute("SELECT release_group_mbid FROM stg_popularity")
+    }
+    assert mbids == {OK_COMPUTER_MBID, VA_COMPILATION_MBID, ABBEY_ROAD_MBID}
+
+
+def test_listenbrainz_record_missing_listener_count_defaults_without_crashing(conn):
+    load_listenbrainz_staging(conn, LB_FIXTURE_PATH)
+
+    row = conn.execute(
+        "SELECT listen_count, listener_count FROM stg_popularity WHERE release_group_mbid = ?",
+        (ABBEY_ROAD_MBID,),
+    ).fetchone()
+    assert row["listen_count"] == 50000
+    assert row["listener_count"] in (0, None)
+
+
+def test_listenbrainz_malformed_json_line_is_skipped_and_counted(conn):
+    stats = load_listenbrainz_staging(conn, LB_FIXTURE_PATH)
+    assert stats["skipped"] == 1
+
+
+def test_rerunning_listenbrainz_loader_truncates_and_reloads_not_duplicates(conn):
+    load_listenbrainz_staging(conn, LB_FIXTURE_PATH)
+    first_count = conn.execute("SELECT COUNT(*) FROM stg_popularity").fetchone()[0]
+
+    load_listenbrainz_staging(conn, LB_FIXTURE_PATH)
+    second_count = conn.execute("SELECT COUNT(*) FROM stg_popularity").fetchone()[0]
+
+    assert first_count == 3
+    assert second_count == 3  # unchanged, not doubled -- truncate-before-reload
+
+
+def test_listenbrainz_fixture_mbids_match_musicbrainz_fixture_mbids(conn):
+    """Proves the LB fixture joins to the MB fixture albums for Plan 03."""
+    _load_mb_fixtures(conn)
+    load_listenbrainz_staging(conn, LB_FIXTURE_PATH)
+
+    joined = conn.execute(
+        """
+        SELECT rg.title, pop.listen_count
+        FROM stg_release_group rg
+        JOIN stg_popularity pop ON pop.release_group_mbid = rg.mbid
+        ORDER BY rg.title
+        """
+    ).fetchall()
+    titles = {row["title"] for row in joined}
+    assert titles == {"OK Computer", "Now That's What I Call Music", "Abbey Road"}
+
+
+def test_listenbrainz_cli_help_shows_required_flags():
+    result = subprocess.run(
+        [sys.executable, "pipeline/ingest_listenbrainz.py", "--help"],
+        capture_output=True,
+        text=True,
+        cwd=Path(__file__).parent.parent,
+    )
+    assert result.returncode == 0
+    assert "--popularity" in result.stdout
     assert "--db" in result.stdout
