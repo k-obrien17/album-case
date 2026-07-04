@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Plan 01-02 (CC0 dump ingestion to staging) complete; MB + LB loaders stream into SQLite staging, 15 tests green
-last_updated: "2026-07-04T02:08:33.077Z"
+stopped_at: Plan 01-03 (materialize album universe) executed, data-pending; real-dump verify left to operator
+last_updated: "2026-07-04T02:17:15.345Z"
 last_activity: 2026-07-04
 progress:
   total_phases: 2
   completed_phases: 0
   total_plans: 4
-  completed_plans: 2
+  completed_plans: 3
   percent: 0
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 ## Current Position
 
 Phase: 1 (Album Data Foundation) — EXECUTING
-Plan: 3 of 4
-Status: Ready to execute
+Plan: 4 of 4
+Status: Ready to execute (Plan 01-03 data-pending — real-dump verify blocks Phase 1 Complete)
 Last activity: 2026-07-04
 
-Progress: [█████░░░░░] 50%
+Progress: [████████░░] 75%
 
 ## Performance Metrics
 
@@ -54,6 +54,7 @@ Progress: [█████░░░░░] 50%
 *Updated after each plan completion*
 | Phase 01 P01 | 3min | 2 tasks | 6 files |
 | Phase 01 P02 | 25min | 2 tasks | 9 files |
+| Phase 01 P03 | 12min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -68,6 +69,8 @@ Recent decisions affecting current work:
 - [Phase 01]: Serving store is single-file SQLite via stdlib sqlite3 at data/tastetest.db, gitignored — no third-party DB needed; entities PK is composite (entity_type, mbid), no surrogate id
 - [Phase 01]: MB column-order constants pinned by fetching musicbrainz-server's current schema live (CreateTables.sql, InsertDefaultRows.sql) rather than from memory; release_group_primary_type id=1 confirmed as Album
 - [Phase 01]: Staging tables use truncate-and-reload symmetrically for both MusicBrainz and ListenBrainz loaders (DELETE + reinsert share one transaction per table)
+- [Phase 01]: NOTABILITY_MIN_LISTENERS=50 concrete default shipped; re-tune loop against real dump documented in pipeline/README.md, executed by operator
+- [Phase 01]: Phase 1 real-data completion gate: mbdump.tar.bz2 confirmed live ~7G, too large to download in-session; materialize logic proven on fixtures only, status Executed (data-pending)
 
 ### Pending Todos
 
@@ -87,6 +90,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-04T02:08:33.071Z
-Stopped at: Plan 01-02 (CC0 dump ingestion to staging) complete; MB + LB loaders stream into SQLite staging, 15 tests green
+Last session: 2026-07-04T02:16:20.151Z
+Stopped at: Plan 01-03 (materialize album universe) executed, data-pending; real-dump verify left to operator
 Resume file: None
