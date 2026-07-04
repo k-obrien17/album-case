@@ -49,6 +49,13 @@ body {
 
 /* Two-album pick loop */
 
+.pick-caption {
+  margin: 0 0 4px;
+  color: var(--color-faint);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
 .pick-row {
   display: grid;
   grid-template-columns: 1fr 1fr;

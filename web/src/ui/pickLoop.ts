@@ -20,12 +20,26 @@ export type PickLoopController = {
   teardown(): void;
 };
 
-const KEY_TO_SIDE: Record<string, 'candidate' | 'opponent'> = {
-  '1': 'candidate',
-  ArrowLeft: 'candidate',
-  '2': 'opponent',
-  ArrowRight: 'opponent',
+const KEY_TO_SIDE: Record<string, 'left' | 'right'> = {
+  '1': 'left',
+  ArrowLeft: 'left',
+  '2': 'right',
+  ArrowRight: 'right',
 };
+
+/** The two albums as they are physically shown, left then right. Decoupled
+ * from the semantic candidate/opponent role so the pinned candidate isn't
+ * glued to one side during a placement. */
+type DisplayOrder = { left: Album; right: Album };
+
+/** Randomly assign the comparison's candidate/opponent to left/right. Called
+ * once per comparison instance (not per render) so a re-render can't flip the
+ * sides mid-decision. Exported for unit testing. */
+export function assignSides(comparison: Comparison): DisplayOrder {
+  return Math.random() < 0.5
+    ? { left: comparison.candidate, right: comparison.opponent }
+    : { left: comparison.opponent, right: comparison.candidate };
+}
 
 /**
  * Mount the two-album pick loop into `container`. Clicking a card, or
@@ -45,6 +59,9 @@ export function mountPickLoop(
 ): PickLoopController {
   let state = initialState;
   let comparison = initialComparison;
+  // Displayed side assignment, computed ONCE per comparison instance (see
+  // assignSides) so a re-render never flips the sides mid-decision.
+  let sides: DisplayOrder | null = comparison ? assignSides(comparison) : null;
   let activeKeyHandler: ((event: KeyboardEvent) => void) | null = null;
 
   function handlePick(winnerMbid: string): void {
@@ -58,6 +75,8 @@ export function mountPickLoop(
       next = bootstrapped.comparison;
     }
     comparison = next;
+    // New comparison instance -> reassign displayed sides once, here.
+    sides = comparison ? assignSides(comparison) : null;
 
     onStateChange(state);
     render();
@@ -102,7 +121,7 @@ export function mountPickLoop(
       activeKeyHandler = null;
     }
 
-    if (!comparison) {
+    if (!comparison || !sides) {
       const done = document.createElement('p');
       done.className = 'pick-complete';
       done.textContent = 'You have ranked every album in the seed pool.';
@@ -110,24 +129,28 @@ export function mountPickLoop(
       return;
     }
 
-    const currentComparison = comparison;
+    const displayed = sides;
+
+    // Placement context: name the album currently being placed so the
+    // repeated candidate reads as purposeful progress, not a stuck loop.
+    const caption = document.createElement('p');
+    caption.className = 'pick-caption';
+    caption.textContent = `Where does ${comparison.candidate.title} rank?`;
+    container.append(caption);
+
     const row = document.createElement('div');
     row.className = 'pick-row';
 
-    const candidateCard = buildCard(currentComparison.candidate, () =>
-      handlePick(currentComparison.candidate.mbid)
-    );
-    const opponentCard = buildCard(currentComparison.opponent, () =>
-      handlePick(currentComparison.opponent.mbid)
-    );
+    const leftCard = buildCard(displayed.left, () => handlePick(displayed.left.mbid));
+    const rightCard = buildCard(displayed.right, () => handlePick(displayed.right.mbid));
 
-    row.append(candidateCard, opponentCard);
+    row.append(leftCard, rightCard);
     container.append(row);
 
     activeKeyHandler = (event: KeyboardEvent) => {
       const side = KEY_TO_SIDE[event.key];
       if (!side) return;
-      const winner = side === 'candidate' ? currentComparison.candidate : currentComparison.opponent;
+      const winner = side === 'left' ? displayed.left : displayed.right;
       handlePick(winner.mbid);
     };
     window.addEventListener('keydown', activeKeyHandler);
