@@ -23,3 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+
+# temp local data restore helper (personal ratings — never commit)
+public/import-ranking.html

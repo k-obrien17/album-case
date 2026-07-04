@@ -1,424 +1,594 @@
 [
-  {"artist": "The Beatles", "album": "Abbey Road"},
-  {"artist": "The Beatles", "album": "Revolver"},
-  {"artist": "The Beatles", "album": "Sgt. Pepper's Lonely Hearts Club Band"},
-  {"artist": "The Rolling Stones", "album": "Exile on Main St."},
-  {"artist": "The Rolling Stones", "album": "Let It Bleed"},
-  {"artist": "Bob Dylan", "album": "Highway 61 Revisited"},
-  {"artist": "Bob Dylan", "album": "Blood on the Tracks"},
-  {"artist": "The Beach Boys", "album": "Pet Sounds"},
-  {"artist": "Jimi Hendrix", "album": "Are You Experienced"},
-  {"artist": "Led Zeppelin", "album": "Led Zeppelin IV"},
-  {"artist": "Led Zeppelin", "album": "Physical Graffiti"},
-  {"artist": "Pink Floyd", "album": "The Dark Side of the Moon"},
-  {"artist": "Pink Floyd", "album": "Wish You Were Here"},
-  {"artist": "Pink Floyd", "album": "The Wall"},
-  {"artist": "Fleetwood Mac", "album": "Rumours"},
-  {"artist": "Marvin Gaye", "album": "What's Going On"},
-  {"artist": "Stevie Wonder", "album": "Songs in the Key of Life"},
-  {"artist": "Stevie Wonder", "album": "Innervisions"},
-  {"artist": "Joni Mitchell", "album": "Blue"},
-  {"artist": "Neil Young", "album": "Harvest"},
-  {"artist": "The Velvet Underground", "album": "The Velvet Underground & Nico"},
-  {"artist": "David Bowie", "album": "The Rise and Fall of Ziggy Stardust and the Spiders from Mars"},
-  {"artist": "David Bowie", "album": "Low"},
-  {"artist": "Queen", "album": "A Night at the Opera"},
-  {"artist": "The Who", "album": "Who's Next"},
-  {"artist": "Simon & Garfunkel", "album": "Bridge over Troubled Water"},
-  {"artist": "Van Morrison", "album": "Astral Weeks"},
-  {"artist": "Carole King", "album": "Tapestry"},
-  {"artist": "Nirvana", "album": "Nevermind"},
-  {"artist": "Nirvana", "album": "In Utero"},
-  {"artist": "Pearl Jam", "album": "Ten"},
-  {"artist": "Soundgarden", "album": "Superunknown"},
-  {"artist": "Alice in Chains", "album": "Dirt"},
-  {"artist": "R.E.M.", "album": "Automatic for the People"},
-  {"artist": "U2", "album": "The Joshua Tree"},
-  {"artist": "U2", "album": "Achtung Baby"},
-  {"artist": "Radiohead", "album": "OK Computer"},
-  {"artist": "Radiohead", "album": "Kid A"},
-  {"artist": "Radiohead", "album": "In Rainbows"},
-  {"artist": "Oasis", "album": "(What's the Story) Morning Glory?"},
-  {"artist": "Blur", "album": "Parklife"},
-  {"artist": "The Smiths", "album": "The Queen Is Dead"},
-  {"artist": "Massive Attack", "album": "Blue Lines"},
-  {"artist": "Portishead", "album": "Dummy"},
-  {"artist": "Beastie Boys", "album": "Paul's Boutique"},
-  {"artist": "Beastie Boys", "album": "Licensed to Ill"},
-  {"artist": "Public Enemy", "album": "It Takes a Nation of Millions to Hold Us Back"},
-  {"artist": "N.W.A", "album": "Straight Outta Compton"},
-  {"artist": "Dr. Dre", "album": "The Chronic"},
-  {"artist": "Snoop Dogg", "album": "Doggystyle"},
-  {"artist": "2Pac", "album": "All Eyez on Me"},
-  {"artist": "The Notorious B.I.G.", "album": "Ready to Die"},
-  {"artist": "Nas", "album": "Illmatic"},
-  {"artist": "Wu-Tang Clan", "album": "Enter the Wu-Tang (36 Chambers)"},
-  {"artist": "OutKast", "album": "Stankonia"},
-  {"artist": "OutKast", "album": "Aquemini"},
-  {"artist": "Jay-Z", "album": "The Blueprint"},
-  {"artist": "Jay-Z", "album": "Reasonable Doubt"},
-  {"artist": "Eminem", "album": "The Marshall Mathers LP"},
-  {"artist": "Lauryn Hill", "album": "The Miseducation of Lauryn Hill"},
-  {"artist": "Kanye West", "album": "My Beautiful Dark Twisted Fantasy"},
-  {"artist": "Kanye West", "album": "The College Dropout"},
-  {"artist": "Kendrick Lamar", "album": "To Pimp a Butterfly"},
-  {"artist": "Kendrick Lamar", "album": "good kid, m.A.A.d city"},
-  {"artist": "Kendrick Lamar", "album": "DAMN."},
-  {"artist": "Frank Ocean", "album": "Blonde"},
-  {"artist": "Frank Ocean", "album": "channel ORANGE"},
-  {"artist": "Tyler, The Creator", "album": "IGOR"},
-  {"artist": "Travis Scott", "album": "Astroworld"},
-  {"artist": "Drake", "album": "Take Care"},
-  {"artist": "J. Cole", "album": "2014 Forest Hills Drive"},
-  {"artist": "A Tribe Called Quest", "album": "The Low End Theory"},
-  {"artist": "Missy Elliott", "album": "Supa Dupa Fly"},
-  {"artist": "Erykah Badu", "album": "Baduizm"},
-  {"artist": "D'Angelo", "album": "Voodoo"},
-  {"artist": "Prince", "album": "Purple Rain"},
-  {"artist": "Prince", "album": "Sign o' the Times"},
-  {"artist": "Michael Jackson", "album": "Thriller"},
-  {"artist": "Michael Jackson", "album": "Off the Wall"},
-  {"artist": "Whitney Houston", "album": "Whitney Houston"},
-  {"artist": "Madonna", "album": "Like a Prayer"},
-  {"artist": "Madonna", "album": "Ray of Light"},
-  {"artist": "George Michael", "album": "Faith"},
-  {"artist": "Amy Winehouse", "album": "Back to Black"},
-  {"artist": "Adele", "album": "21"},
-  {"artist": "Adele", "album": "25"},
-  {"artist": "Beyoncé", "album": "Lemonade"},
-  {"artist": "Beyoncé", "album": "Beyoncé"},
-  {"artist": "Rihanna", "album": "Anti"},
-  {"artist": "Lady Gaga", "album": "The Fame Monster"},
-  {"artist": "Taylor Swift", "album": "1989"},
-  {"artist": "Taylor Swift", "album": "folklore"},
-  {"artist": "Taylor Swift", "album": "Red"},
-  {"artist": "Billie Eilish", "album": "When We All Fall Asleep, Where Do We Go?"},
-  {"artist": "Lorde", "album": "Melodrama"},
-  {"artist": "Lorde", "album": "Pure Heroine"},
-  {"artist": "SZA", "album": "Ctrl"},
-  {"artist": "The Weeknd", "album": "After Hours"},
-  {"artist": "The Weeknd", "album": "House of Balloons"},
-  {"artist": "Daft Punk", "album": "Discovery"},
-  {"artist": "Daft Punk", "album": "Random Access Memories"},
-  {"artist": "Aphex Twin", "album": "Selected Ambient Works 85-92"},
-  {"artist": "Boards of Canada", "album": "Music Has the Right to Children"},
-  {"artist": "Burial", "album": "Untrue"},
-  {"artist": "Justice", "album": "Cross"},
-  {"artist": "LCD Soundsystem", "album": "Sound of Silver"},
-  {"artist": "LCD Soundsystem", "album": "This Is Happening"},
-  {"artist": "Arcade Fire", "album": "Funeral"},
-  {"artist": "Arcade Fire", "album": "The Suburbs"},
-  {"artist": "The Strokes", "album": "Is This It"},
-  {"artist": "Interpol", "album": "Turn on the Bright Lights"},
-  {"artist": "Vampire Weekend", "album": "Vampire Weekend"},
-  {"artist": "Vampire Weekend", "album": "Modern Vampires of the City"},
-  {"artist": "Tame Impala", "album": "Currents"},
-  {"artist": "Tame Impala", "album": "Lonerism"},
-  {"artist": "MGMT", "album": "Oracular Spectacular"},
-  {"artist": "Fleet Foxes", "album": "Fleet Foxes"},
-  {"artist": "Bon Iver", "album": "For Emma, Forever Ago"},
-  {"artist": "Bon Iver", "album": "Bon Iver, Bon Iver"},
-  {"artist": "Sufjan Stevens", "album": "Illinois"},
-  {"artist": "Sufjan Stevens", "album": "Carrie & Lowell"},
-  {"artist": "Wilco", "album": "Yankee Hotel Foxtrot"},
-  {"artist": "Modest Mouse", "album": "The Moon & Antarctica"},
-  {"artist": "The National", "album": "Boxer"},
-  {"artist": "The National", "album": "High Violet"},
-  {"artist": "Spoon", "album": "Ga Ga Ga Ga Ga"},
-  {"artist": "Death Cab for Cutie", "album": "Transatlanticism"},
-  {"artist": "My Chemical Romance", "album": "The Black Parade"},
-  {"artist": "Paramore", "album": "Riot!"},
-  {"artist": "Fall Out Boy", "album": "From Under the Cork Tree"},
-  {"artist": "Green Day", "album": "American Idiot"},
-  {"artist": "Green Day", "album": "Dookie"},
-  {"artist": "Blink-182", "album": "Enema of the State"},
-  {"artist": "Weezer", "album": "Weezer (Blue Album)"},
-  {"artist": "Foo Fighters", "album": "The Colour and the Shape"},
-  {"artist": "Red Hot Chili Peppers", "album": "Californication"},
-  {"artist": "Red Hot Chili Peppers", "album": "Blood Sugar Sex Magik"},
-  {"artist": "Rage Against the Machine", "album": "Rage Against the Machine"},
-  {"artist": "System of a Down", "album": "Toxicity"},
-  {"artist": "Tool", "album": "Lateralus"},
-  {"artist": "Metallica", "album": "Master of Puppets"},
-  {"artist": "Metallica", "album": "Metallica (The Black Album)"},
-  {"artist": "Slayer", "album": "Reign in Blood"},
-  {"artist": "Iron Maiden", "album": "The Number of the Beast"},
-  {"artist": "Black Sabbath", "album": "Paranoid"},
-  {"artist": "Guns N' Roses", "album": "Appetite for Destruction"},
-  {"artist": "AC/DC", "album": "Back in Black"},
-  {"artist": "Aerosmith", "album": "Toys in the Attic"},
-  {"artist": "Van Halen", "album": "Van Halen"},
-  {"artist": "Def Leppard", "album": "Hysteria"},
-  {"artist": "Bruce Springsteen", "album": "Born to Run"},
-  {"artist": "Bruce Springsteen", "album": "Born in the U.S.A."},
-  {"artist": "Tom Petty and the Heartbreakers", "album": "Damn the Torpedoes"},
-  {"artist": "Eagles", "album": "Hotel California"},
-  {"artist": "Steely Dan", "album": "Aja"},
-  {"artist": "Talking Heads", "album": "Remain in Light"},
-  {"artist": "Talking Heads", "album": "Speaking in Tongues"},
-  {"artist": "The Clash", "album": "London Calling"},
-  {"artist": "Sex Pistols", "album": "Never Mind the Bollocks, Here's the Sex Pistols"},
-  {"artist": "Ramones", "album": "Ramones"},
-  {"artist": "Patti Smith", "album": "Horses"},
-  {"artist": "Elvis Costello", "album": "This Year's Model"},
-  {"artist": "Elvis Costello", "album": "Imperial Bedroom"},
-  {"artist": "Kate Bush", "album": "Hounds of Love"},
-  {"artist": "Björk", "album": "Homogenic"},
-  {"artist": "Björk", "album": "Post"},
-  {"artist": "PJ Harvey", "album": "To Bring You My Love"},
-  {"artist": "Fiona Apple", "album": "When the Pawn..."},
-  {"artist": "Fiona Apple", "album": "Fetch the Bolt Cutters"},
-  {"artist": "Alanis Morissette", "album": "Jagged Little Pill"},
-  {"artist": "Sinéad O'Connor", "album": "I Do Not Want What I Haven't Got"},
-  {"artist": "Aretha Franklin", "album": "I Never Loved a Man the Way I Love You"},
-  {"artist": "Otis Redding", "album": "Otis Blue"},
-  {"artist": "Sam Cooke", "album": "Portrait of a Legend"},
-  {"artist": "Ray Charles", "album": "Modern Sounds in Country and Western Music"},
-  {"artist": "James Brown", "album": "Live at the Apollo"},
-  {"artist": "Curtis Mayfield", "album": "Curtis"},
-  {"artist": "Sly and the Family Stone", "album": "There's a Riot Goin' On"},
-  {"artist": "Funkadelic", "album": "Maggot Brain"},
-  {"artist": "Earth, Wind & Fire", "album": "That's the Way of the World"},
-  {"artist": "Al Green", "album": "Call Me"},
-  {"artist": "Bill Withers", "album": "Still Bill"},
-  {"artist": "Miles Davis", "album": "Kind of Blue"},
-  {"artist": "Miles Davis", "album": "Bitches Brew"},
-  {"artist": "John Coltrane", "album": "A Love Supreme"},
-  {"artist": "Thelonious Monk", "album": "Brilliant Corners"},
-  {"artist": "Charles Mingus", "album": "Mingus Ah Um"},
-  {"artist": "Herbie Hancock", "album": "Head Hunters"},
-  {"artist": "Nina Simone", "album": "Wild Is the Wind"},
-  {"artist": "Billie Holiday", "album": "Lady in Satin"},
-  {"artist": "Ella Fitzgerald", "album": "Ella and Louis"},
-  {"artist": "Johnny Cash", "album": "At Folsom Prison"},
-  {"artist": "Dolly Parton", "album": "Coat of Many Colors"},
-  {"artist": "Willie Nelson", "album": "Red Headed Stranger"},
-  {"artist": "Fleetwood Mac", "album": "Tusk"},
-  {"artist": "Kacey Musgraves", "album": "Golden Hour"},
-  {"artist": "Chris Stapleton", "album": "Traveller"},
-  {"artist": "Sturgill Simpson", "album": "Metamodern Sounds in Country Music"},
-  {"artist": "Bob Marley and the Wailers", "album": "Exodus"},
-  {"artist": "Bob Marley and the Wailers", "album": "Legend"},
-  {"artist": "Peter Tosh", "album": "Legalize It"},
-  {"artist": "Burna Boy", "album": "African Giant"},
-  {"artist": "Fela Kuti", "album": "Zombie"},
-  {"artist": "Buena Vista Social Club", "album": "Buena Vista Social Club"},
-  {"artist": "Celia Cruz", "album": "Celia & Johnny"},
-  {"artist": "Bad Bunny", "album": "Un Verano Sin Ti"},
-  {"artist": "Rosalía", "album": "El Mal Querer"},
-  {"artist": "Shakira", "album": "Dónde Están los Ladrones?"},
-  {"artist": "BTS", "album": "Map of the Soul: 7"},
-  {"artist": "BLACKPINK", "album": "The Album"},
-  {"artist": "Ryuichi Sakamoto", "album": "B-2 Unit"},
-  {"artist": "Yellow Magic Orchestra", "album": "Solid State Survivor"},
-  {"artist": "Fishmans", "album": "Long Season"},
-  {"artist": "Sigur Rós", "album": "Ágætis byrjun"},
-  {"artist": "Röyksopp", "album": "Melody A.M."},
-  {"artist": "Air", "album": "Moon Safari"},
-  {"artist": "Kraftwerk", "album": "Trans-Europe Express"},
-  {"artist": "Kraftwerk", "album": "Autobahn"},
-  {"artist": "New Order", "album": "Power, Corruption & Lies"},
-  {"artist": "Joy Division", "album": "Unknown Pleasures"},
-  {"artist": "Depeche Mode", "album": "Violator"},
-  {"artist": "The Cure", "album": "Disintegration"},
-  {"artist": "Siouxsie and the Banshees", "album": "Juju"},
-  {"artist": "Bauhaus", "album": "In the Flat Field"},
-  {"artist": "Nine Inch Nails", "album": "The Downward Spiral"},
-  {"artist": "Nine Inch Nails", "album": "Pretty Hate Machine"},
-  {"artist": "Marilyn Manson", "album": "Antichrist Superstar"},
-  {"artist": "The Prodigy", "album": "The Fat of the Land"},
-  {"artist": "The Chemical Brothers", "album": "Dig Your Own Hole"},
-  {"artist": "Underworld", "album": "Dubnobasswithmyheadman"},
-  {"artist": "Moby", "album": "Play"},
-  {"artist": "Fatboy Slim", "album": "You've Come a Long Way, Baby"},
-  {"artist": "Massive Attack", "album": "Mezzanine"},
-  {"artist": "Gorillaz", "album": "Demon Days"},
-  {"artist": "The White Stripes", "album": "Elephant"},
-  {"artist": "The Black Keys", "album": "Brothers"},
-  {"artist": "Jack White", "album": "Blunderbuss"},
-  {"artist": "Franz Ferdinand", "album": "Franz Ferdinand"},
-  {"artist": "Arctic Monkeys", "album": "Whatever People Say I Am, That's What I'm Not"},
-  {"artist": "Arctic Monkeys", "album": "AM"},
-  {"artist": "Florence and the Machine", "album": "Lungs"},
-  {"artist": "Amy Macdonald", "album": "This Is the Life"},
-  {"artist": "Coldplay", "album": "A Rush of Blood to the Head"},
-  {"artist": "Muse", "album": "Absolution"},
-  {"artist": "Snow Patrol", "album": "Eyes Open"},
-  {"artist": "Elliott Smith", "album": "Either/Or"},
-  {"artist": "Nick Drake", "album": "Pink Moon"},
-  {"artist": "Cat Stevens", "album": "Tea for the Tillerman"},
-  {"artist": "James Taylor", "album": "Sweet Baby James"},
-  {"artist": "Crosby, Stills, Nash & Young", "album": "Déjà Vu"},
-  {"artist": "The Band", "album": "The Band"},
-  {"artist": "Grateful Dead", "album": "American Beauty"},
-  {"artist": "Jefferson Airplane", "album": "Surrealistic Pillow"},
-  {"artist": "Janis Joplin", "album": "Pearl"},
-  {"artist": "The Doors", "album": "The Doors"},
-  {"artist": "Creedence Clearwater Revival", "album": "Cosmo's Factory"},
-  {"artist": "Chic", "album": "C'est Chic"},
-  {"artist": "Donna Summer", "album": "Bad Girls"},
-  {"artist": "ABBA", "album": "Arrival"},
-  {"artist": "Fleetwood Mac", "album": "Fleetwood Mac"},
-  {"artist": "Genesis", "album": "Selling England by the Pound"},
-  {"artist": "Yes", "album": "Close to the Edge"},
-  {"artist": "King Crimson", "album": "In the Court of the Crimson King"},
-  {"artist": "Jethro Tull", "album": "Aqualung"},
-  {"artist": "Rush", "album": "Moving Pictures"},
-  {"artist": "Boston", "album": "Boston"},
-  {"artist": "Journey", "album": "Escape"},
-  {"artist": "Toto", "album": "Toto IV"},
-  {"artist": "Hall & Oates", "album": "H2O"},
-  {"artist": "Duran Duran", "album": "Rio"},
-  {"artist": "Talk Talk", "album": "Spirit of Eden"},
-  {"artist": "Tears for Fears", "album": "Songs from the Big Chair"},
-  {"artist": "Culture Club", "album": "Colour by Numbers"},
-  {"artist": "Eurythmics", "album": "Sweet Dreams (Are Made of This)"},
-  {"artist": "Sade", "album": "Diamond Life"},
-  {"artist": "George Michael", "album": "Listen Without Prejudice Vol. 1"},
-  {"artist": "Lauryn Hill", "album": "The Fugees – The Score"},
-  {"artist": "Alicia Keys", "album": "Songs in A Minor"},
-  {"artist": "Usher", "album": "Confessions"},
-  {"artist": "TLC", "album": "CrazySexyCool"},
-  {"artist": "Destiny's Child", "album": "The Writing's on the Wall"},
-  {"artist": "Mariah Carey", "album": "Daydream"},
-  {"artist": "Janet Jackson", "album": "Rhythm Nation 1814"},
-  {"artist": "Janet Jackson", "album": "The Velvet Rope"},
-  {"artist": "Diana Ross", "album": "Diana"},
-  {"artist": "Gladys Knight & the Pips", "album": "Imagination"},
-  {"artist": "Amy Winehouse", "album": "Frank"},
-  {"artist": "Sam Smith", "album": "In the Lonely Hour"},
-  {"artist": "Ed Sheeran", "album": "÷ (Divide)"},
-  {"artist": "Harry Styles", "album": "Fine Line"},
-  {"artist": "Olivia Rodrigo", "album": "SOUR"},
-  {"artist": "Doja Cat", "album": "Planet Her"},
-  {"artist": "Megan Thee Stallion", "album": "Good News"},
-  {"artist": "Cardi B", "album": "Invasion of Privacy"},
-  {"artist": "Playboi Carti", "album": "Whole Lotta Red"},
-  {"artist": "Lil Wayne", "album": "Tha Carter III"},
-  {"artist": "Future", "album": "DS2"},
-  {"artist": "Migos", "album": "Culture"},
-  {"artist": "21 Savage", "album": "Savage Mode"},
-  {"artist": "Chance the Rapper", "album": "Coloring Book"},
-  {"artist": "Vince Staples", "album": "Summertime '06"},
-  {"artist": "Danny Brown", "album": "Atrocity Exhibition"},
-  {"artist": "Death Grips", "album": "The Money Store"},
-  {"artist": "clipping.", "album": "Splendor & Misery"},
-  {"artist": "Run the Jewels", "album": "Run the Jewels 2"},
-  {"artist": "Flying Lotus", "album": "Cosmogramma"},
-  {"artist": "Thundercat", "album": "Drunk"},
-  {"artist": "Anderson .Paak", "album": "Malibu"},
-  {"artist": "Solange", "album": "A Seat at the Table"},
-  {"artist": "Janelle Monáe", "album": "The ArchAndroid"},
-  {"artist": "Childish Gambino", "album": "Awaken, My Love!"},
-  {"artist": "Kali Uchis", "album": "Isolation"},
-  {"artist": "Jorja Smith", "album": "Lost & Found"},
-  {"artist": "James Blake", "album": "James Blake"},
-  {"artist": "FKA twigs", "album": "LP1"},
-  {"artist": "Grimes", "album": "Visions"},
-  {"artist": "Charli XCX", "album": "Brat"},
-  {"artist": "Robyn", "album": "Body Talk"},
-  {"artist": "Carly Rae Jepsen", "album": "Emotion"},
-  {"artist": "Dua Lipa", "album": "Future Nostalgia"},
-  {"artist": "Ariana Grande", "album": "thank u, next"},
-  {"artist": "Katy Perry", "album": "Teenage Dream"},
-  {"artist": "Britney Spears", "album": "Blackout"},
-  {"artist": "Christina Aguilera", "album": "Stripped"},
-  {"artist": "Justin Timberlake", "album": "FutureSex/LoveSounds"},
-  {"artist": "*NSYNC", "album": "No Strings Attached"},
-  {"artist": "Backstreet Boys", "album": "Millennium"},
-  {"artist": "Spice Girls", "album": "Spice"},
-  {"artist": "No Doubt", "album": "Tragic Kingdom"},
-  {"artist": "Gwen Stefani", "album": "Love. Angel. Music. Baby."},
-  {"artist": "Avril Lavigne", "album": "Let Go"},
-  {"artist": "Sheryl Crow", "album": "Tuesday Night Music Club"},
-  {"artist": "Alanis Morissette", "album": "Supposed Former Infatuation Junkie"},
-  {"artist": "Tori Amos", "album": "Little Earthquakes"},
-  {"artist": "Hole", "album": "Live Through This"},
-  {"artist": "Bikini Kill", "album": "Pussy Whipped"},
-  {"artist": "Sleater-Kinney", "album": "The Woods"},
-  {"artist": "Yeah Yeah Yeahs", "album": "Fever to Tell"},
-  {"artist": "Karen O", "album": "Fever to Tell"},
-  {"artist": "Interpol", "album": "Antics"},
-  {"artist": "Bloc Party", "album": "Silent Alarm"},
-  {"artist": "The Killers", "album": "Hot Fuss"},
-  {"artist": "Kings of Leon", "album": "Only by the Night"},
-  {"artist": "Cage the Elephant", "album": "Melophobia"},
-  {"artist": "Alt-J", "album": "An Awesome Wave"},
-  {"artist": "Foals", "album": "Antidotes"},
-  {"artist": "Glass Animals", "album": "Dreamland"},
-  {"artist": "Two Door Cinema Club", "album": "Tourist History"},
-  {"artist": "Phoenix", "album": "Wolfgang Amadeus Phoenix"},
-  {"artist": "Metronomy", "album": "The English Riviera"},
-  {"artist": "Hot Chip", "album": "The Warning"},
-  {"artist": "Caribou", "album": "Swim"},
-  {"artist": "Four Tet", "album": "There Is Love in You"},
-  {"artist": "Jamie xx", "album": "In Colour"},
-  {"artist": "The xx", "album": "xx"},
-  {"artist": "Alabama Shakes", "album": "Boys & Girls"},
-  {"artist": "Gary Clark Jr.", "album": "Blak and Blu"},
-  {"artist": "Leon Bridges", "album": "Coming Home"},
-  {"artist": "Khruangbin", "album": "Con Todo El Mundo"},
-  {"artist": "Vulfpeck", "album": "Thrill of the Arts"},
-  {"artist": "Jamiroquai", "album": "Travelling Without Moving"},
-  {"artist": "Steely Dan", "album": "Gaucho"},
-  {"artist": "Toro y Moi", "album": "Causers of This"},
-  {"artist": "Washed Out", "album": "Within and Without"},
-  {"artist": "Beach House", "album": "Teen Dream"},
-  {"artist": "Beach House", "album": "Bloom"},
-  {"artist": "Real Estate", "album": "Days"},
-  {"artist": "DIIV", "album": "Oshin"},
-  {"artist": "Deerhunter", "album": "Halcyon Digest"},
-  {"artist": "Animal Collective", "album": "Merriweather Post Pavilion"},
-  {"artist": "Panda Bear", "album": "Person Pitch"},
-  {"artist": "Grizzly Bear", "album": "Veckatimest"},
-  {"artist": "Dirty Projectors", "album": "Bitte Orca"},
-  {"artist": "Sun Kil Moon", "album": "Benji"},
-  {"artist": "Phoebe Bridgers", "album": "Punisher"},
-  {"artist": "Big Thief", "album": "U.F.O.F."},
-  {"artist": "Waxahatchee", "album": "Saint Cloud"},
-  {"artist": "Mitski", "album": "Be the Cowboy"},
-  {"artist": "Japanese Breakfast", "album": "Soft Sounds from Another Planet"},
-  {"artist": "Car Seat Headrest", "album": "Teens of Denial"},
-  {"artist": "Courtney Barnett", "album": "Sometimes I Sit and Think, and Sometimes I Just Sit"},
-  {"artist": "Angel Olsen", "album": "My Woman"},
-  {"artist": "Sharon Van Etten", "album": "Are We There"},
-  {"artist": "St. Vincent", "album": "St. Vincent"},
-  {"artist": "St. Vincent", "album": "Masseduction"},
-  {"artist": "Lana Del Rey", "album": "Norman Fucking Rockwell!"},
-  {"artist": "Lana Del Rey", "album": "Born to Die"},
-  {"artist": "Halsey", "album": "Badlands"},
-  {"artist": "Melanie Martinez", "album": "Cry Baby"},
-  {"artist": "Willow", "album": "Ardipithecus"},
-  {"artist": "Steve Lacy", "album": "Apollo XXI"},
-  {"artist": "Kevin Abstract", "album": "American Boyfriend: A Suburban Love Story"},
-  {"artist": "BROCKHAMPTON", "album": "Saturation II"},
-  {"artist": "Injury Reserve", "album": "By the Time I Get to Phoenix"},
-  {"artist": "Denzel Curry", "album": "TA13OO"},
-  {"artist": "JPEGMAFIA", "album": "Veteran"},
-  {"artist": "Earl Sweatshirt", "album": "I Don't Like Shit, I Don't Go Outside"},
-  {"artist": "MF DOOM", "album": "Madvillainy"},
-  {"artist": "MF DOOM", "album": "Mm..Food"},
-  {"artist": "J Dilla", "album": "Donuts"},
-  {"artist": "Madlib", "album": "Shades of Blue"},
-  {"artist": "The Roots", "album": "Things Fall Apart"},
-  {"artist": "Common", "album": "Be"},
-  {"artist": "Mos Def", "album": "Black on Both Sides"},
-  {"artist": "Talib Kweli", "album": "Quality"},
-  {"artist": "GZA", "album": "Liquid Swords"},
-  {"artist": "Raekwon", "album": "Only Built 4 Cuban Linx..."},
-  {"artist": "Ghostface Killah", "album": "Supreme Clientele"},
-  {"artist": "De La Soul", "album": "3 Feet High and Rising"},
-  {"artist": "Jungle Brothers", "album": "Straight Out the Jungle"},
-  {"artist": "Slick Rick", "album": "The Great Adventures of Slick Rick"},
-  {"artist": "Run-D.M.C.", "album": "Raising Hell"},
-  {"artist": "LL Cool J", "album": "Radio"},
-  {"artist": "Ice Cube", "album": "AmeriKKKa's Most Wanted"},
-  {"artist": "Geto Boys", "album": "We Can't Be Stopped"},
-  {"artist": "UGK", "album": "Ridin' Dirty"},
-  {"artist": "Three 6 Mafia", "album": "Mystic Stylez"},
-  {"artist": "Goodie Mob", "album": "Soul Food"},
-  {"artist": "T.I.", "album": "King"},
-  {"artist": "Ludacris", "album": "Word of Mouf"},
-  {"artist": "Big Boi", "album": "Sir Lucious Left Foot: The Son of Chico Dusty"},
-  {"artist": "Andre 3000", "album": "New Blue Sun"}
+  {
+    "artist": "Radiohead",
+    "album": "Kid A"
+  },
+  {
+    "artist": "Radiohead",
+    "album": "In Rainbows"
+  },
+  {
+    "artist": "Radiohead",
+    "album": "OK Computer"
+  },
+  {
+    "artist": "The Besnard Lakes",
+    "album": "The Besnard Lakes Are the Dark Horse"
+  },
+  {
+    "artist": "The Besnard Lakes",
+    "album": "The Besnard Lakes Are the Roaring Night"
+  },
+  {
+    "artist": "ML Buch",
+    "album": "Suntub"
+  },
+  {
+    "artist": "ML Buch",
+    "album": "Skinned"
+  },
+  {
+    "artist": "Maria Somerville",
+    "album": "Luna"
+  },
+  {
+    "artist": "Maria Somerville",
+    "album": "All My People"
+  },
+  {
+    "artist": "Nine Inch Nails",
+    "album": "The Downward Spiral"
+  },
+  {
+    "artist": "Nine Inch Nails",
+    "album": "Pretty Hate Machine"
+  },
+  {
+    "artist": "Smerz",
+    "album": "Believer"
+  },
+  {
+    "artist": "Smerz",
+    "album": "Have fun"
+  },
+  {
+    "artist": "Rosalía",
+    "album": "El mal querer"
+  },
+  {
+    "artist": "Rosalía",
+    "album": "Motomami"
+  },
+  {
+    "artist": "Counting Crows",
+    "album": "August and Everything After"
+  },
+  {
+    "artist": "Jonny Greenwood",
+    "album": "There Will Be Blood"
+  },
+  {
+    "artist": "PinkPantheress",
+    "album": "Heaven knows"
+  },
+  {
+    "artist": "Alan Sparhawk",
+    "album": "White Roses, My God"
+  },
+  {
+    "artist": "Gelli Haha",
+    "album": "Switcheroo"
+  },
+  {
+    "artist": "Big Thief",
+    "album": "Dragon New Warm Mountain I Believe in You"
+  },
+  {
+    "artist": "Big Thief",
+    "album": "U.F.O.F."
+  },
+  {
+    "artist": "Julianna Barwick",
+    "album": "Nepenthe"
+  },
+  {
+    "artist": "Julianna Barwick",
+    "album": "Healing Is a Miracle"
+  },
+  {
+    "artist": "Dr. Octagon",
+    "album": "Dr. Octagonecologyst"
+  },
+  {
+    "artist": "Animal Collective",
+    "album": "Merriweather Post Pavilion"
+  },
+  {
+    "artist": "Animal Collective",
+    "album": "Strawberry Jam"
+  },
+  {
+    "artist": "Soulwax",
+    "album": "Nite Versions"
+  },
+  {
+    "artist": "The Beatles",
+    "album": "Abbey Road"
+  },
+  {
+    "artist": "The Beatles",
+    "album": "Revolver"
+  },
+  {
+    "artist": "Wet Leg",
+    "album": "Wet Leg"
+  },
+  {
+    "artist": "Blondshell",
+    "album": "Blondshell"
+  },
+  {
+    "artist": "Fever Ray",
+    "album": "Fever Ray"
+  },
+  {
+    "artist": "Fever Ray",
+    "album": "Plunge"
+  },
+  {
+    "artist": "Rerose",
+    "album": "Rerose"
+  },
+  {
+    "artist": "Brian Eno",
+    "album": "Another Green World"
+  },
+  {
+    "artist": "Brian Eno",
+    "album": "Ambient 1: Music for Airports"
+  },
+  {
+    "artist": "Brian Eno",
+    "album": "Here Come the Warm Jets"
+  },
+  {
+    "artist": "Clipse",
+    "album": "Hell Hath No Fury"
+  },
+  {
+    "artist": "Clipse",
+    "album": "Let God Sort Em Out"
+  },
+  {
+    "artist": "Fennesz",
+    "album": "Endless Summer"
+  },
+  {
+    "artist": "Fennesz",
+    "album": "Bécs"
+  },
+  {
+    "artist": "james K",
+    "album": "Random Girl"
+  },
+  {
+    "artist": "R.E.M.",
+    "album": "Automatic for the People"
+  },
+  {
+    "artist": "R.E.M.",
+    "album": "Murmur"
+  },
+  {
+    "artist": "Pavement",
+    "album": "Slanted and Enchanted"
+  },
+  {
+    "artist": "Pavement",
+    "album": "Crooked Rain, Crooked Rain"
+  },
+  {
+    "artist": "LCD Soundsystem",
+    "album": "Sound of Silver"
+  },
+  {
+    "artist": "Sabrina Carpenter",
+    "album": "Short n' Sweet"
+  },
+  {
+    "artist": "Solace Sonique",
+    "album": "Solace Sonique"
+  },
+  {
+    "artist": "Aldous Harding",
+    "album": "Designer"
+  },
+  {
+    "artist": "Aldous Harding",
+    "album": "Party"
+  },
+  {
+    "artist": "The Zombies",
+    "album": "Odessey and Oracle"
+  },
+  {
+    "artist": "EsDeeKid",
+    "album": "Kidenza"
+  },
+  {
+    "artist": "Daft Punk",
+    "album": "Discovery"
+  },
+  {
+    "artist": "Daft Punk",
+    "album": "Random Access Memories"
+  },
+  {
+    "artist": "Kanye West",
+    "album": "My Beautiful Dark Twisted Fantasy"
+  },
+  {
+    "artist": "Bad Bunny",
+    "album": "Un Verano Sin Ti"
+  },
+  {
+    "artist": "Girl Talk",
+    "album": "Feed the Animals"
+  },
+  {
+    "artist": "Olivia Rodrigo",
+    "album": "SOUR"
+  },
+  {
+    "artist": "Olivia Rodrigo",
+    "album": "GUTS"
+  },
+  {
+    "artist": "Michael Jackson",
+    "album": "Thriller"
+  },
+  {
+    "artist": "Bruce Springsteen",
+    "album": "Born to Run"
+  },
+  {
+    "artist": "Bruce Springsteen",
+    "album": "Nebraska"
+  },
+  {
+    "artist": "Björk",
+    "album": "Homogenic"
+  },
+  {
+    "artist": "Björk",
+    "album": "Post"
+  },
+  {
+    "artist": "Björk",
+    "album": "Vespertine"
+  },
+  {
+    "artist": "caroline",
+    "album": "caroline"
+  },
+  {
+    "artist": "The Strokes",
+    "album": "Is This It"
+  },
+  {
+    "artist": "The Strokes",
+    "album": "Room on Fire"
+  },
+  {
+    "artist": "billy woods",
+    "album": "Aethiopes"
+  },
+  {
+    "artist": "billy woods",
+    "album": "Maps"
+  },
+  {
+    "artist": "Fcukers",
+    "album": "Baggy$$"
+  },
+  {
+    "artist": "Weyes Blood",
+    "album": "Titanic Rising"
+  },
+  {
+    "artist": "The Chemical Brothers",
+    "album": "Dig Your Own Hole"
+  },
+  {
+    "artist": "Water From Your Eyes",
+    "album": "Everyone's Crushed"
+  },
+  {
+    "artist": "Turnstile",
+    "album": "Glow On"
+  },
+  {
+    "artist": "GZA",
+    "album": "Liquid Swords"
+  },
+  {
+    "artist": "Liars",
+    "album": "Drum's Not Dead"
+  },
+  {
+    "artist": "Grateful Dead",
+    "album": "American Beauty"
+  },
+  {
+    "artist": "Tyler, The Creator",
+    "album": "Igor"
+  },
+  {
+    "artist": "Tyler, The Creator",
+    "album": "Flower Boy"
+  },
+  {
+    "artist": "The New Pornographers",
+    "album": "Twin Cinema"
+  },
+  {
+    "artist": "Simon & Garfunkel",
+    "album": "Bridge Over Troubled Water"
+  },
+  {
+    "artist": "Charly García",
+    "album": "Clics Modernos"
+  },
+  {
+    "artist": "The Fiery Furnaces",
+    "album": "Blueberry Boat"
+  },
+  {
+    "artist": "Deltron 3030",
+    "album": "Deltron 3030"
+  },
+  {
+    "artist": "Phil Collins",
+    "album": "Face Value"
+  },
+  {
+    "artist": "Stereolab",
+    "album": "Emperor Tomato Ketchup"
+  },
+  {
+    "artist": "Dua Lipa",
+    "album": "Future Nostalgia"
+  },
+  {
+    "artist": "Lana Del Rey",
+    "album": "Norman Fucking Rockwell!"
+  },
+  {
+    "artist": "Low",
+    "album": "Double Negative"
+  },
+  {
+    "artist": "Low",
+    "album": "Hey What"
+  },
+  {
+    "artist": "Led Zeppelin",
+    "album": "Led Zeppelin IV"
+  },
+  {
+    "artist": "Stevie Wonder",
+    "album": "Songs in the Key of Life"
+  },
+  {
+    "artist": "Queen",
+    "album": "A Night at the Opera"
+  },
+  {
+    "artist": "Soundgarden",
+    "album": "Superunknown"
+  },
+  {
+    "artist": "Massive Attack",
+    "album": "Blue Lines"
+  },
+  {
+    "artist": "Snoop Dogg",
+    "album": "Doggystyle"
+  },
+  {
+    "artist": "Jay-Z",
+    "album": "The Blueprint"
+  },
+  {
+    "artist": "Frank Ocean",
+    "album": "Blonde"
+  },
+  {
+    "artist": "Erykah Badu",
+    "album": "Baduizm"
+  },
+  {
+    "artist": "George Michael",
+    "album": "Faith"
+  },
+  {
+    "artist": "Lady Gaga",
+    "album": "The Fame Monster"
+  },
+  {
+    "artist": "SZA",
+    "album": "Ctrl"
+  },
+  {
+    "artist": "Arcade Fire",
+    "album": "Funeral"
+  },
+  {
+    "artist": "MGMT",
+    "album": "Oracular Spectacular"
+  },
+  {
+    "artist": "Modest Mouse",
+    "album": "The Moon & Antarctica"
+  },
+  {
+    "artist": "Fall Out Boy",
+    "album": "From Under the Cork Tree"
+  },
+  {
+    "artist": "Red Hot Chili Peppers",
+    "album": "Blood Sugar Sex Magik"
+  },
+  {
+    "artist": "Iron Maiden",
+    "album": "The Number of the Beast"
+  },
+  {
+    "artist": "Tom Petty and the Heartbreakers",
+    "album": "Damn the Torpedoes"
+  },
+  {
+    "artist": "Ramones",
+    "album": "Ramones"
+  },
+  {
+    "artist": "Fiona Apple",
+    "album": "Fetch the Bolt Cutters"
+  },
+  {
+    "artist": "James Brown",
+    "album": "Live at the Apollo"
+  },
+  {
+    "artist": "Miles Davis",
+    "album": "Kind of Blue"
+  },
+  {
+    "artist": "Billie Holiday",
+    "album": "Lady in Satin"
+  },
+  {
+    "artist": "Chris Stapleton",
+    "album": "Traveller"
+  },
+  {
+    "artist": "Buena Vista Social Club",
+    "album": "Buena Vista Social Club"
+  },
+  {
+    "artist": "Fishmans",
+    "album": "Long Season"
+  },
+  {
+    "artist": "Joy Division",
+    "album": "Unknown Pleasures"
+  },
+  {
+    "artist": "Underworld",
+    "album": "Dubnobasswithmyheadman"
+  },
+  {
+    "artist": "Jack White",
+    "album": "Blunderbuss"
+  },
+  {
+    "artist": "Muse",
+    "album": "Absolution"
+  },
+  {
+    "artist": "The Band",
+    "album": "The Band"
+  },
+  {
+    "artist": "ABBA",
+    "album": "Arrival"
+  },
+  {
+    "artist": "Boston",
+    "album": "Boston"
+  },
+  {
+    "artist": "Culture Club",
+    "album": "Colour by Numbers"
+  },
+  {
+    "artist": "TLC",
+    "album": "CrazySexyCool"
+  },
+  {
+    "artist": "Amy Winehouse",
+    "album": "Frank"
+  },
+  {
+    "artist": "Playboi Carti",
+    "album": "Whole Lotta Red"
+  },
+  {
+    "artist": "Danny Brown",
+    "album": "Atrocity Exhibition"
+  },
+  {
+    "artist": "Solange",
+    "album": "A Seat at the Table"
+  },
+  {
+    "artist": "Grimes",
+    "album": "Visions"
+  },
+  {
+    "artist": "Christina Aguilera",
+    "album": "Stripped"
+  },
+  {
+    "artist": "Avril Lavigne",
+    "album": "Let Go"
+  },
+  {
+    "artist": "Yeah Yeah Yeahs",
+    "album": "Fever to Tell"
+  },
+  {
+    "artist": "Alt-J",
+    "album": "An Awesome Wave"
+  },
+  {
+    "artist": "Caribou",
+    "album": "Swim"
+  },
+  {
+    "artist": "Khruangbin",
+    "album": "Con Todo El Mundo"
+  },
+  {
+    "artist": "Beach House",
+    "album": "Bloom"
+  },
+  {
+    "artist": "Sun Kil Moon",
+    "album": "Benji"
+  },
+  {
+    "artist": "Angel Olsen",
+    "album": "My Woman"
+  },
+  {
+    "artist": "Steve Lacy",
+    "album": "Apollo XXI"
+  },
+  {
+    "artist": "MF DOOM",
+    "album": "Madvillainy"
+  },
+  {
+    "artist": "Talib Kweli",
+    "album": "Quality"
+  },
+  {
+    "artist": "LL Cool J",
+    "album": "Radio"
+  },
+  {
+    "artist": "Ludacris",
+    "album": "Word of Mouf"
+  }
 ]

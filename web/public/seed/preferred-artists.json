@@ -1,0 +1,383 @@
+{
+  "source": "Spotify StreamingHistory (~last year)",
+  "captured": "2026-07-04",
+  "caveats": [
+    "window is last ~year not all-time",
+    "all-time anchors (Pearl Jam, Bowie) underweighted",
+    "some entries are sleep/focus/podcast not taste"
+  ],
+  "by_plays": [
+    {
+      "rank": 1,
+      "artist": "Radiohead",
+      "plays": 733,
+      "hours": 30.5
+    },
+    {
+      "rank": 2,
+      "artist": "The Besnard Lakes",
+      "plays": 296,
+      "hours": 24.2
+    },
+    {
+      "rank": 3,
+      "artist": "ML Buch",
+      "plays": 293,
+      "hours": 15.1
+    },
+    {
+      "rank": 4,
+      "artist": "Maria Somerville",
+      "plays": 260,
+      "hours": 12.5
+    },
+    {
+      "rank": 5,
+      "artist": "Nine Inch Nails",
+      "plays": 218,
+      "hours": 10.0
+    },
+    {
+      "rank": 6,
+      "artist": "Smerz",
+      "plays": 206,
+      "hours": 8.8
+    },
+    {
+      "rank": 7,
+      "artist": "ROSALÍA",
+      "plays": 168,
+      "hours": 7.3
+    },
+    {
+      "rank": 8,
+      "artist": "Counting Crows",
+      "plays": 163,
+      "hours": 8.8
+    },
+    {
+      "rank": 9,
+      "artist": "Jonny Greenwood",
+      "plays": 140,
+      "hours": 5.7
+    },
+    {
+      "rank": 10,
+      "artist": "PinkPantheress",
+      "plays": 136,
+      "hours": 4.5
+    },
+    {
+      "rank": 11,
+      "artist": "Alan Sparhawk",
+      "plays": 128,
+      "hours": 5.9
+    },
+    {
+      "rank": 12,
+      "artist": "Gelli Haha",
+      "plays": 116,
+      "hours": 5.3
+    },
+    {
+      "rank": 13,
+      "artist": "Big Thief",
+      "plays": 115,
+      "hours": 5.1
+    },
+    {
+      "rank": 14,
+      "artist": "Julianna Barwick",
+      "plays": 110,
+      "hours": 9.3
+    },
+    {
+      "rank": 15,
+      "artist": "Dr. Octagon",
+      "plays": 105,
+      "hours": 4.9
+    },
+    {
+      "rank": 16,
+      "artist": "Animal Collective",
+      "plays": 103,
+      "hours": 5.6
+    },
+    {
+      "rank": 17,
+      "artist": "Soulwax",
+      "plays": 93,
+      "hours": 3.7
+    },
+    {
+      "rank": 18,
+      "artist": "The Beatles",
+      "plays": 92,
+      "hours": 1.9
+    },
+    {
+      "rank": 19,
+      "artist": "Wet Leg",
+      "plays": 87,
+      "hours": 3.2
+    },
+    {
+      "rank": 20,
+      "artist": "Blondshell",
+      "plays": 85,
+      "hours": 4.1
+    },
+    {
+      "rank": 21,
+      "artist": "Fever Ray",
+      "plays": 78,
+      "hours": 4.5
+    },
+    {
+      "rank": 22,
+      "artist": "Rerose",
+      "plays": 78,
+      "hours": 2.6
+    },
+    {
+      "rank": 23,
+      "artist": "Brian Eno",
+      "plays": 73,
+      "hours": 6.1
+    },
+    {
+      "rank": 24,
+      "artist": "Clipse",
+      "plays": 72,
+      "hours": 2.1
+    },
+    {
+      "rank": 25,
+      "artist": "Fennesz",
+      "plays": 69,
+      "hours": 5.7
+    },
+    {
+      "rank": 26,
+      "artist": "james K",
+      "plays": 67,
+      "hours": 3.3
+    },
+    {
+      "rank": 27,
+      "artist": "R.E.M.",
+      "plays": 67,
+      "hours": 3.0
+    },
+    {
+      "rank": 28,
+      "artist": "Pavement",
+      "plays": 67,
+      "hours": 2.9
+    },
+    {
+      "rank": 29,
+      "artist": "LCD Soundsystem",
+      "plays": 66,
+      "hours": 3.6
+    },
+    {
+      "rank": 30,
+      "artist": "Sabrina Carpenter",
+      "plays": 64,
+      "hours": 0.4
+    },
+    {
+      "rank": 31,
+      "artist": "Solace Sonique",
+      "plays": 63,
+      "hours": 2.2
+    },
+    {
+      "rank": 32,
+      "artist": "Aldous Harding",
+      "plays": 60,
+      "hours": 3.5
+    },
+    {
+      "rank": 33,
+      "artist": "The Zombies",
+      "plays": 60,
+      "hours": 2.2
+    },
+    {
+      "rank": 34,
+      "artist": "EsDeeKid",
+      "plays": 60,
+      "hours": 1.7
+    },
+    {
+      "rank": 35,
+      "artist": "Daft Punk",
+      "plays": 59,
+      "hours": 2.9
+    },
+    {
+      "rank": 36,
+      "artist": "Misted Minds",
+      "plays": 58,
+      "hours": 2.6
+    },
+    {
+      "rank": 37,
+      "artist": "Kanye West",
+      "plays": 57,
+      "hours": 1.7
+    },
+    {
+      "rank": 38,
+      "artist": "Bad Bunny",
+      "plays": 54,
+      "hours": 1.8
+    },
+    {
+      "rank": 39,
+      "artist": "Girl Talk",
+      "plays": 53,
+      "hours": 2.6
+    },
+    {
+      "rank": 40,
+      "artist": "Olivia Rodrigo",
+      "plays": 48,
+      "hours": 1.7
+    },
+    {
+      "rank": 41,
+      "artist": "sweetHz",
+      "plays": 45,
+      "hours": 1.9
+    },
+    {
+      "rank": 42,
+      "artist": "Michael Jackson",
+      "plays": 44,
+      "hours": 2.1
+    },
+    {
+      "rank": 43,
+      "artist": "Bruce Springsteen",
+      "plays": 44,
+      "hours": 1.6
+    },
+    {
+      "rank": 44,
+      "artist": "Björk",
+      "plays": 41,
+      "hours": 2.6
+    },
+    {
+      "rank": 45,
+      "artist": "caroline",
+      "plays": 41,
+      "hours": 2.6
+    },
+    {
+      "rank": 46,
+      "artist": "The Strokes",
+      "plays": 41,
+      "hours": 2.0
+    },
+    {
+      "rank": 47,
+      "artist": "The Crystal Teardrop",
+      "plays": 40,
+      "hours": 2.0
+    },
+    {
+      "rank": 48,
+      "artist": "billy woods",
+      "plays": 40,
+      "hours": 1.5
+    },
+    {
+      "rank": 49,
+      "artist": "Fcukers",
+      "plays": 40,
+      "hours": 1.1
+    },
+    {
+      "rank": 50,
+      "artist": "Weyes Blood",
+      "plays": 39,
+      "hours": 2.5
+    },
+    {
+      "rank": 51,
+      "artist": "The Chemical Brothers",
+      "plays": 39,
+      "hours": 1.8
+    },
+    {
+      "rank": 52,
+      "artist": "Water From Your Eyes",
+      "plays": 39,
+      "hours": 1.4
+    },
+    {
+      "rank": 53,
+      "artist": "Turnstile",
+      "plays": 39,
+      "hours": 1.2
+    },
+    {
+      "rank": 54,
+      "artist": "GZA",
+      "plays": 38,
+      "hours": 1.6
+    },
+    {
+      "rank": 55,
+      "artist": "Liars",
+      "plays": 38,
+      "hours": 1.5
+    },
+    {
+      "rank": 56,
+      "artist": "Grateful Dead",
+      "plays": 37,
+      "hours": 1.5
+    },
+    {
+      "rank": 57,
+      "artist": "Tyler, The Creator",
+      "plays": 37,
+      "hours": 1.0
+    },
+    {
+      "rank": 58,
+      "artist": "The New Pornographers",
+      "plays": 36,
+      "hours": 1.5
+    },
+    {
+      "rank": 59,
+      "artist": "Simon & Garfunkel",
+      "plays": 36,
+      "hours": 1.4
+    },
+    {
+      "rank": 60,
+      "artist": "Charly García",
+      "plays": 35,
+      "hours": 1.9
+    }
+  ],
+  "hours_only_extras": [
+    "Sleep Fruits Music",
+    "Dr. Andrew Huberman",
+    "The Fiery Furnaces",
+    "Deltron 3030",
+    "Phil Collins",
+    "Stereolab",
+    "New Lab",
+    "Dua Lipa",
+    "Lana Del Rey",
+    "Low"
+  ]
+}
