@@ -1,6 +1,8 @@
 import type { Album, Comparison, RankingState } from '../ranking/types';
 import { applyPick, nextComparison } from '../ranking/insertion';
+import { setAsideAlbum } from '../ranking/setAside';
 import { saveRanking } from '../storage';
+import type { ListName } from '../lists';
 
 /** Given the current state, seed the next unranked candidate(s) until a real
  * comparison exists (or the pool is exhausted). Owned by main.ts, which
@@ -55,7 +57,8 @@ export function mountPickLoop(
   initialState: RankingState,
   initialComparison: Comparison | null,
   bootstrap: BootstrapFn,
-  onStateChange: (state: RankingState) => void
+  onStateChange: (state: RankingState) => void,
+  recordSetAside: (album: Album, which: ListName) => void
 ): PickLoopController {
   let state = initialState;
   let comparison = initialComparison;
@@ -64,10 +67,10 @@ export function mountPickLoop(
   let sides: DisplayOrder | null = comparison ? assignSides(comparison) : null;
   let activeKeyHandler: ((event: KeyboardEvent) => void) | null = null;
 
-  function handlePick(winnerMbid: string): void {
-    state = applyPick(state, winnerMbid);
-    saveRanking(state);
-
+  /** Advance to the next comparison after a state mutation, re-bootstrapping
+   * (which re-reads the CURRENT exclusion set) when the current placement
+   * finalized or was cancelled. Shared by pick and set-aside. */
+  function advance(): void {
     let next = nextComparison(state);
     if (!next) {
       const bootstrapped = bootstrap(state);
@@ -82,11 +85,34 @@ export function mountPickLoop(
     render();
   }
 
-  function buildCard(album: Album, onSelect: () => void): HTMLButtonElement {
-    const card = document.createElement('button');
-    card.type = 'button';
+  function handlePick(winnerMbid: string): void {
+    state = applyPick(state, winnerMbid);
+    saveRanking(state);
+    advance();
+  }
+
+  function handleSetAside(album: Album, which: ListName): void {
+    // Record to the saved list FIRST so the album is excluded before the
+    // re-bootstrap runs (bootstrap reads the current exclusion set), then
+    // drop it from the ranking state (setAsideAlbum also cancels any
+    // in-progress placement, which is what keeps lo/hi from dangling).
+    recordSetAside(album, which);
+    state = setAsideAlbum(state, album.mbid);
+    saveRanking(state);
+    advance();
+  }
+
+  function buildCard(album: Album, onSelect: () => void): HTMLDivElement {
+    // A <div> container, not a <button>: the secondary action buttons cannot
+    // be nested inside a button (invalid HTML). The cover/title/artist live
+    // in their own pick button.
+    const card = document.createElement('div');
     card.className = 'pick-card';
-    card.addEventListener('click', onSelect);
+
+    const pickButton = document.createElement('button');
+    pickButton.type = 'button';
+    pickButton.className = 'pick-select';
+    pickButton.addEventListener('click', onSelect);
 
     const coverWrap = document.createElement('div');
     coverWrap.className = 'pick-cover-wrap';
@@ -109,7 +135,25 @@ export function mountPickLoop(
     artist.className = 'pick-artist';
     artist.textContent = album.primary_artist_name;
 
-    card.append(coverWrap, title, artist);
+    pickButton.append(coverWrap, title, artist);
+
+    const actions = document.createElement('div');
+    actions.className = 'pick-actions';
+
+    const notHeardBtn = document.createElement('button');
+    notHeardBtn.type = 'button';
+    notHeardBtn.className = 'pick-action';
+    notHeardBtn.textContent = "Haven't heard";
+    notHeardBtn.addEventListener('click', () => handleSetAside(album, 'notHeard'));
+
+    const wantBtn = document.createElement('button');
+    wantBtn.type = 'button';
+    wantBtn.className = 'pick-action';
+    wantBtn.textContent = 'Want to listen';
+    wantBtn.addEventListener('click', () => handleSetAside(album, 'wantToListen'));
+
+    actions.append(notHeardBtn, wantBtn);
+    card.append(pickButton, actions);
     return card;
   }
 

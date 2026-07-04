@@ -26,21 +26,33 @@ body {
   margin: 0;
 }
 
-.view-toggle {
-  align-self: flex-start;
+/* Four-view switcher (Picking / Ranked / Want to listen / Haven't heard) */
+
+.view-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.view-tab {
   min-height: 44px;
-  padding: 0 16px;
+  padding: 0 12px;
   border: 1px solid var(--color-border-btn);
   border-radius: var(--radius-md);
   background: var(--color-bg);
   color: var(--color-fg);
   font-family: var(--font-mono);
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   cursor: pointer;
 }
 
-.view-toggle:hover {
+.view-tab:hover {
   background: var(--color-bg-alt);
+}
+
+.view-tab-active {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
 
 .app-stage {
@@ -68,19 +80,59 @@ body {
   flex-direction: column;
   align-items: stretch;
   gap: 8px;
-  min-height: 44px;
+  min-width: 0;
   padding: 12px;
   border: 1px solid var(--color-border-btn);
   border-radius: var(--radius-md);
   background: var(--color-bg);
+}
+
+/* The primary clickable "pick" control. A real button so the whole
+   cover+title+artist is tappable; the secondary flag buttons live OUTSIDE
+   it (a button cannot legally nest buttons). */
+.pick-select {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  min-height: 44px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--color-fg);
   font-family: var(--font-mono);
   text-align: left;
   cursor: pointer;
 }
 
-.pick-card:hover {
+.pick-select:hover {
+  color: var(--color-accent);
+}
+
+/* Secondary actions: stacked vertically so each stays a full-width, easily
+   tappable target and never forces horizontal overflow at 360px. */
+.pick-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pick-action {
+  min-height: 44px;
+  padding: 0 8px;
+  border: 1px solid var(--color-border-btn);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.pick-action:hover {
   background: var(--color-bg-alt);
+  color: var(--color-fg);
 }
 
 .pick-cover-wrap {
@@ -156,5 +208,74 @@ body {
 }
 
 .ranked-empty {
+  color: var(--color-muted);
+}
+
+/* Set-aside list views (Want to listen / Haven't heard) */
+
+.saved-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.saved-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.saved-thumb {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-alt);
+}
+
+.saved-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.saved-title {
+  margin: 0;
+  font-weight: 600;
+  color: var(--color-fg);
+  overflow-wrap: anywhere;
+}
+
+.saved-artist {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.saved-mark {
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border-btn);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.saved-mark:hover {
+  background: var(--color-bg-alt);
+  color: var(--color-fg);
+}
+
+.saved-empty {
   color: var(--color-muted);
 }
