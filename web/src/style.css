@@ -214,6 +214,47 @@ body {
   color: var(--color-fg);
 }
 
+.candidate-place {
+  display: flex;
+  gap: 8px;
+}
+
+.candidate-place-input {
+  flex: 0 0 72px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border-btn);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-mono);
+  font-size: 1rem;
+}
+
+.candidate-place-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.candidate-place-button {
+  flex: 1 1 auto;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border-btn);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.candidate-place-button:hover {
+  background: var(--color-bg-alt);
+  color: var(--color-fg);
+}
+
 .candidate-done {
   margin: 0;
   color: var(--color-muted);

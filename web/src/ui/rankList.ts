@@ -294,6 +294,39 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     return btn;
   }
 
+  function buildNumberPlace(): HTMLElement {
+    const maxRank = opts.getRanked().length + 1;
+    const form = document.createElement('form');
+    form.className = 'candidate-place';
+
+    const input = document.createElement('input');
+    input.className = 'candidate-place-input';
+    input.type = 'number';
+    input.inputMode = 'numeric';
+    input.min = '1';
+    input.max = String(maxRank);
+    input.placeholder = '#';
+    input.setAttribute('aria-label', 'Rank position');
+
+    const btn = document.createElement('button');
+    btn.type = 'submit';
+    btn.className = 'candidate-place-button';
+    btn.textContent = 'Place';
+
+    form.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      const rank = Number(input.value);
+      if (!Number.isInteger(rank) || rank < 1) {
+        showStatus(`Enter 1-${maxRank}.`);
+        return;
+      }
+      opts.onPlace(Math.min(rank, maxRank) - 1);
+    });
+
+    form.append(input, btn);
+    return form;
+  }
+
   /** The set-aside + skip row, shared by the drag card and the assisted card. */
   function buildActions(album: Album): HTMLElement {
     const actions = document.createElement('div');
@@ -330,7 +363,7 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     label.className = 'candidate-label';
     label.textContent = 'Next album: drag into your list';
 
-    card.append(label, buildDragBody(album), buildActions(album));
+    card.append(label, buildDragBody(album), buildNumberPlace(), buildActions(album));
     return card;
   }
 
@@ -390,7 +423,7 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     hint.className = 'assist-hint';
     hint.textContent = 'or drag to place';
 
-    card.append(label, choose, buildDragBody(album), hint, buildActions(album));
+    card.append(label, choose, buildDragBody(album), hint, buildNumberPlace(), buildActions(album));
     return card;
   }
 
