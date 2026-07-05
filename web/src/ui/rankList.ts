@@ -1,4 +1,5 @@
 import type { Album } from '../ranking/types';
+import { computeSubRanks, type SubRank } from '../ranking/subRank';
 import type { ListName } from '../lists';
 import {
   startAssist,
@@ -64,6 +65,17 @@ type DragState = {
 function subtitle(album: Album): string {
   const year = album.release_year != null ? String(album.release_year) : '';
   return year ? `${album.primary_artist_name} · ${year}` : album.primary_artist_name;
+}
+
+function rankedSubtitle(album: Album, subRank: SubRank | undefined): string {
+  const base = subtitle(album);
+  if (!subRank) return base;
+
+  const parts = [`A${subRank.artistRank}/${subRank.artistTotal}`];
+  if (subRank.yearRank != null && subRank.yearTotal != null) {
+    parts.push(`#${subRank.yearRank}/${subRank.yearTotal}`);
+  }
+  return `${base} · ${parts.join(' · ')}`;
 }
 
 export function mountRankList(container: HTMLElement, opts: RankListOptions): RankListController {
@@ -231,7 +243,7 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     window.addEventListener('pointercancel', onPointerUp);
   }
 
-  function buildRow(album: Album, index: number): HTMLLIElement {
+  function buildRow(album: Album, index: number, subRanks: Map<string, SubRank>): HTMLLIElement {
     const li = document.createElement('li');
     li.className = 'rank-row';
 
@@ -246,7 +258,7 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     title.textContent = album.title;
     const sub = document.createElement('p');
     sub.className = 'rank-sub';
-    sub.textContent = subtitle(album);
+    sub.textContent = rankedSubtitle(album, subRanks.get(album.mbid));
     meta.append(title, sub);
 
     // A dedicated grip so the row body still flick-scrolls on touch; only the
@@ -390,7 +402,8 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
       empty.textContent = 'Your ranked list is empty. Drag the next album in, or tap it to start.';
       listEl.append(empty);
     } else {
-      ranked.forEach((album, i) => listEl.append(buildRow(album, i)));
+      const subRanks = computeSubRanks(ranked);
+      ranked.forEach((album, i) => listEl.append(buildRow(album, i, subRanks)));
     }
     listCol.append(listEl);
 
