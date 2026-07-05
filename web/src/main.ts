@@ -5,7 +5,7 @@ import { setAsideAlbum } from './ranking/setAside';
 import { loadSeedPool, loadPreferredArtists, playsMapFromPreferred, pickCandidate } from './seed';
 import type { ArtistPlays } from './seed';
 import { loadRanking, saveRanking } from './storage';
-import { getOrCreateSession } from './session';
+import { getOrCreateSession, isValidSessionId, setSession } from './session';
 import {
   loadLists,
   saveLists,
@@ -30,13 +30,56 @@ import { loadRankingSnapshot, saveRankingSnapshot } from './rankingSync';
 
 type ViewMode = 'ranked' | ListName;
 
+type RestoreSnapshot = { state: RankingState; lists: SavedLists };
+
+/**
+ * Outcome of attempting to restore a ranking from a user-pasted restore code.
+ * `restored` carries the recovered snapshot; every other status leaves the
+ * caller's current state untouched.
+ */
+export type RestoreOutcome =
+  | { status: 'invalid' }
+  | { status: 'not-found' }
+  | { status: 'error' }
+  | ({ status: 'restored' } & RestoreSnapshot);
+
+/**
+ * DOM-free core of the "Restore from code" flow, so it can be unit-tested
+ * without a browser. Validates the code shape, loads the server snapshot for
+ * that session, and only adopts the session (via `deps.setSession`) when a
+ * snapshot is actually found. A thrown load is treated as a transient server
+ * error; a `null` load is a genuine "no ranking saved under this code".
+ */
+export async function restoreFromCode(
+  code: string,
+  pool: Album[],
+  deps: {
+    setSession: (id: string) => unknown;
+    load: (id: string, pool: Album[]) => Promise<RestoreSnapshot | null>;
+  }
+): Promise<RestoreOutcome> {
+  if (!isValidSessionId(code)) return { status: 'invalid' };
+  const id = code.trim();
+
+  let snapshot: RestoreSnapshot | null;
+  try {
+    snapshot = await deps.load(id, pool);
+  } catch {
+    return { status: 'error' };
+  }
+  if (!snapshot) return { status: 'not-found' };
+
+  deps.setSession(id);
+  return { status: 'restored', state: snapshot.state, lists: snapshot.lists };
+}
+
 async function main(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>('#app');
   if (!app) {
     throw new Error('#app mount point not found');
   }
 
-  const session = getOrCreateSession();
+  let session = getOrCreateSession();
   void flushAtomQueue();
 
   const pool = await loadSeedPool();
@@ -105,10 +148,13 @@ async function main(): Promise<void> {
   const backupControls = document.createElement('div');
   backupControls.className = 'backup-controls';
 
+  const restorePanel = document.createElement('div');
+  restorePanel.className = 'restore-panel';
+
   const stage = document.createElement('div');
   stage.className = 'app-stage';
 
-  shell.append(heading, nav, backupControls, stage);
+  shell.append(heading, nav, backupControls, restorePanel, stage);
   app.textContent = '';
   app.append(shell);
 
@@ -315,6 +361,142 @@ async function main(): Promise<void> {
     backupControls.append(exportBtn, importBtn, priorityBtn, importInput);
   }
 
+  // Rebuilt on each render so the displayed restore code always reflects the
+  // live session id. The message paragraph is recreated each time, so callers
+  // that want a message to survive a re-render must set it AFTER re-rendering.
+  let restoreMessage: HTMLParagraphElement | null = null;
+
+  function setRestoreMessage(text: string): void {
+    if (restoreMessage) restoreMessage.textContent = text;
+  }
+
+  async function handleRestore(rawCode: string): Promise<void> {
+    setRestoreMessage('');
+    const code = rawCode.trim();
+
+    if (!isValidSessionId(code)) {
+      setRestoreMessage("That doesn't look like a valid restore code.");
+      return;
+    }
+
+    // Destructive-replace guard: only when there is a current ranking to lose.
+    // confirm() is the one allowed modal; every other signal stays inline.
+    if (state.ranked.length > 0) {
+      const ok = window.confirm(
+        'Replace your current ranking with the one saved under this restore code?'
+      );
+      if (!ok) return;
+    }
+
+    const outcome = await restoreFromCode(code, pool, {
+      setSession: (id) => {
+        session = setSession(id);
+      },
+      load: loadRankingSnapshot,
+    });
+
+    if (outcome.status === 'invalid') {
+      setRestoreMessage("That doesn't look like a valid restore code.");
+      return;
+    }
+    if (outcome.status === 'error') {
+      setRestoreMessage("Couldn't reach the server, try again.");
+      return;
+    }
+    if (outcome.status === 'not-found') {
+      setRestoreMessage('No saved ranking found for that code.');
+      return;
+    }
+
+    // Restored: adopt the recovered snapshot, persist locally, and re-render
+    // every surface so nav counts, the ranked view, and the restore code field
+    // all reflect the newly-attached session.
+    state = outcome.state;
+    lists = outcome.lists;
+    saveRanking(state);
+    saveLists(lists);
+    reselectCandidate();
+    renderBackupControls();
+    renderRestorePanel();
+    showView('ranked');
+    setRestoreMessage('Ranking restored to this device.');
+  }
+
+  function renderRestorePanel(): void {
+    restorePanel.textContent = '';
+
+    const label = document.createElement('p');
+    label.className = 'restore-label';
+    label.textContent =
+      'Your restore code, save this to recover your ranking on another device.';
+
+    const codeRow = document.createElement('div');
+    codeRow.className = 'restore-code-row';
+
+    const codeField = document.createElement('input');
+    codeField.type = 'text';
+    codeField.readOnly = true;
+    codeField.value = session.session_id;
+    codeField.className = 'restore-code-field';
+    codeField.setAttribute('aria-label', 'Your restore code');
+    codeField.addEventListener('focus', () => codeField.select());
+
+    const copyBtn = document.createElement('button');
+    copyBtn.type = 'button';
+    copyBtn.className = 'backup-button';
+    copyBtn.textContent = 'Copy';
+    copyBtn.addEventListener('click', async () => {
+      try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          await navigator.clipboard.writeText(session.session_id);
+        } else {
+          codeField.focus();
+          codeField.select();
+          document.execCommand('copy');
+        }
+        setRestoreMessage('Restore code copied.');
+      } catch {
+        // Clipboard blocked (permissions, insecure context): leave the code
+        // selected so the player can copy it by hand.
+        codeField.focus();
+        codeField.select();
+        setRestoreMessage('Select the code above and copy it manually.');
+      }
+    });
+
+    codeRow.append(codeField, copyBtn);
+
+    const form = document.createElement('form');
+    form.className = 'restore-form';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'restore-input';
+    input.placeholder = 'Paste a restore code';
+    input.setAttribute('aria-label', 'Restore from code');
+    input.autocomplete = 'off';
+
+    const restoreBtn = document.createElement('button');
+    restoreBtn.type = 'submit';
+    restoreBtn.className = 'backup-button';
+    restoreBtn.textContent = 'Restore from code';
+
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      void handleRestore(input.value);
+    });
+
+    form.append(input, restoreBtn);
+
+    const message = document.createElement('p');
+    message.className = 'restore-message';
+    message.setAttribute('role', 'status');
+    message.setAttribute('aria-live', 'polite');
+    restoreMessage = message;
+
+    restorePanel.append(label, codeRow, form, message);
+  }
+
   function renderNav(): void {
     nav.textContent = '';
     const items: Array<{ mode: ViewMode; label: string }> = [
@@ -336,6 +518,7 @@ async function main(): Promise<void> {
 
   renderNav();
   renderBackupControls();
+  renderRestorePanel();
 }
 
 if (typeof document !== 'undefined') {

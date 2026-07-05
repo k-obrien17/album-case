@@ -52,3 +52,31 @@ export function getOrCreateSession(): Session {
   writeStoredSession(session);
   return session;
 }
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * True when `s` looks like a canonical UUID (the shape `crypto.randomUUID`
+ * mints). Used to validate a user-pasted restore code before trusting it as a
+ * session id.
+ */
+export function isValidSessionId(s: unknown): s is string {
+  return typeof s === 'string' && UUID_RE.test(s.trim());
+}
+
+/**
+ * Adopt an explicit session id (the player's restore code) and persist it to
+ * `tastetest-session`, so a wiped browser or a new device can reattach to a
+ * server-side ranking snapshot. Preserves the existing `created_at` when the
+ * id is unchanged; otherwise stamps a fresh one. Returns the written session.
+ */
+export function setSession(id: string): Session {
+  const trimmed = id.trim();
+  const existing = readStoredSession();
+  const created_at =
+    existing && existing.session_id === trimmed ? existing.created_at : Date.now();
+
+  const session: Session = { session_id: trimmed, created_at };
+  writeStoredSession(session);
+  return session;
+}
