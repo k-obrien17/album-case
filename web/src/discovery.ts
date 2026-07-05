@@ -1,4 +1,5 @@
 import type { Album } from './ranking/types';
+import { getWriteKey, writeKeyHeaders } from './writeKey';
 
 function asAlbumArray(value: unknown): Album[] {
   return Array.isArray(value) ? (value as Album[]) : [];
@@ -26,11 +27,13 @@ export async function discoverArtist(
   artistName: string,
   knownMbids: string[]
 ): Promise<Album[]> {
+  if (!getWriteKey()) return [];
+
   let response: Response;
   try {
     response = await fetch('/api/discover-artist', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...writeKeyHeaders() },
       body: JSON.stringify({
         session_id: sessionId,
         artist_name: artistName,

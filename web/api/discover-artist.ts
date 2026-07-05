@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@libsql/client';
 import { SCHEMA_STATEMENTS } from './_schema.js';
 import { isLpReleaseGroup, mergeDiscovered, type ReleaseGroup, type DiscoveredAlbum } from './_lp.js';
+import { requireWriteKey } from './_writeKey.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const USER_AGENT = 'AlbumCase/0.1 (keith@totalemphasis.com)';
@@ -160,6 +161,8 @@ async function handleGet(req: VercelRequest, res: VercelResponse): Promise<void>
 }
 
 async function handlePost(req: VercelRequest, res: VercelResponse): Promise<void> {
+  if (!requireWriteKey(req, res)) return;
+
   const validated = validatePost(parseBody(req));
   if (!validated.ok) {
     res.status(400).json({ error: validated.message });

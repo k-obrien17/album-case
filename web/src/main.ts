@@ -27,6 +27,7 @@ import {
 } from './priority';
 import { loadRankingSnapshot, saveRankingSnapshot } from './rankingSync';
 import { loadDiscoveredAlbums, discoverArtist } from './discovery';
+import { clearWriteKey, hasWriteKey, setWriteKey } from './writeKey';
 import {
   addBlockedArtist,
   blockedArtistMbids,
@@ -436,6 +437,30 @@ async function main(): Promise<void> {
       btn.addEventListener('click', () => showView(mode));
       nav.append(btn);
     }
+
+    const writeUnlocked = hasWriteKey();
+    const writeBtn = document.createElement('button');
+    writeBtn.type = 'button';
+    writeBtn.className = writeUnlocked ? 'view-tab write-tab write-tab-active' : 'view-tab write-tab';
+    writeBtn.textContent = writeUnlocked ? 'Lock writes' : 'Unlock writes';
+    writeBtn.title = writeUnlocked ? 'Clear the stored write key from this browser' : 'Store the write key in this browser';
+    writeBtn.addEventListener('click', () => {
+      if (hasWriteKey()) {
+        clearWriteKey();
+        rankList.showStatus('Writes locked.');
+        renderNav();
+        return;
+      }
+
+      const secret = window.prompt('Enter the Album Case write key');
+      if (!secret || !secret.trim()) return;
+      setWriteKey(secret.trim());
+      rankList.showStatus('Writes unlocked.');
+      renderNav();
+      void persistRankingState();
+      void flushAtomQueue();
+    });
+    nav.append(writeBtn);
   }
 
   renderNav();

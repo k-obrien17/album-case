@@ -45,6 +45,12 @@ TURSO_DATABASE_URL=
 TURSO_AUTH_TOKEN=
 ```
 
+The deployed app also uses a private write key:
+
+```bash
+ALBUM_CASE_WRITE_KEY=
+```
+
 ## Build And Test
 
 ```bash

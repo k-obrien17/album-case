@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Album } from './ranking/types';
 import { discoverArtist, loadDiscoveredAlbums } from './discovery';
+import { clearWriteKey, setWriteKey } from './writeKey';
 
 function album(mbid: string): Album {
   return {
@@ -50,10 +51,12 @@ describe('loadDiscoveredAlbums', () => {
 
 describe('discoverArtist', () => {
   afterEach(() => {
+    clearWriteKey();
     vi.restoreAllMocks();
   });
 
   it('posts the artist name and known mbids, returns the albums', async () => {
+    setWriteKey('secret-123');
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ albums: [album('b')] }),
@@ -77,6 +80,7 @@ describe('discoverArtist', () => {
   });
 
   it('returns an empty array on a network failure', async () => {
+    setWriteKey('secret-123');
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
 
     const result = await discoverArtist('11111111-1111-4111-8111-111111111111', 'Radiohead', []);

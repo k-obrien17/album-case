@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { enqueueAtom, flushAtomQueue, type AtomPayload } from './atoms';
+import { clearWriteKey, setWriteKey } from './writeKey';
 
 const QUEUE_KEY = 'tastetest-atom-queue';
 
@@ -11,6 +12,7 @@ const atom: AtomPayload = {
 };
 
 beforeEach(() => {
+  setWriteKey('secret-123');
   const store = new Map<string, string>();
   Object.defineProperty(globalThis, 'localStorage', {
     configurable: true,
@@ -24,6 +26,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  clearWriteKey();
   localStorage.clear();
   vi.restoreAllMocks();
   // @ts-expect-error - restore the default Node test environment.

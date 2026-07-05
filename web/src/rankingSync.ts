@@ -1,5 +1,6 @@
 import type { SavedLists } from './lists';
 import type { Album, RankingState } from './ranking/types';
+import { getWriteKey, writeKeyHeaders } from './writeKey';
 
 /**
  * The snapshot carries FULL album records (not just mbids). The server is the
@@ -57,10 +58,12 @@ export async function saveRankingSnapshot(
   state: RankingState,
   lists: SavedLists
 ): Promise<void> {
+  if (!getWriteKey()) return;
+
   try {
     const response = await fetch('/api/ranking', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...writeKeyHeaders() },
       body: JSON.stringify(snapshotPayload(sessionId, state, lists)),
     });
     // Fire-and-forget, but not silently-blind: surface a non-2xx so a 400/500

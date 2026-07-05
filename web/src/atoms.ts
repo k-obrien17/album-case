@@ -1,3 +1,5 @@
+import { getWriteKey, writeKeyHeaders } from './writeKey';
+
 const ATOM_QUEUE_KEY = 'tastetest-atom-queue';
 
 export type AtomPayload = {
@@ -40,6 +42,7 @@ export function enqueueAtom(atom: AtomPayload): void {
 
 export async function flushAtomQueue(): Promise<void> {
   if (activeFlush) return activeFlush;
+  if (!getWriteKey()) return;
 
   activeFlush = (async () => {
     let queue = loadQueue();
@@ -49,7 +52,7 @@ export async function flushAtomQueue(): Promise<void> {
       try {
         response = await fetch('/api/atom', {
           method: 'POST',
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json', ...writeKeyHeaders() },
           body: JSON.stringify(atom),
         });
       } catch {

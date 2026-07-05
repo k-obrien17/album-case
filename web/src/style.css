@@ -55,6 +55,15 @@ body {
   color: var(--color-accent);
 }
 
+.write-tab {
+  margin-left: auto;
+}
+
+.write-tab-active {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
 .backup-controls {
   display: flex;
   flex-wrap: wrap;

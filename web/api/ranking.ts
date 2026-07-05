@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@libsql/client';
 import allowlist from './_allowlist.json' with { type: 'json' };
 import { SCHEMA_STATEMENTS } from './_schema.js';
+import { requireWriteKey } from './_writeKey.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // The allowlist gates /api/atom only. Ranking snapshots deliberately do NOT
@@ -171,6 +172,8 @@ WHERE session_id = ?
 }
 
 async function handlePost(req: VercelRequest, res: VercelResponse): Promise<void> {
+  if (!requireWriteKey(req, res)) return;
+
   const validated = validate(parseBody(req));
   if (!validated.ok) {
     res.status(400).json({ error: validated.message });
