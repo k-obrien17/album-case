@@ -9,19 +9,19 @@ Working, deployed, on the right account. `cd web && npm run build` green, **90 t
 **Data (safe, authoritative in Turso):** `ranking_snapshots` keyed by `OWNER_ID = c0ffee00-0000-4000-8000-000000000001` — as of last check **107 ranked + 16 want-to-listen + 63 haven't-heard** (full album records, survives seed changes, same DB across every deployment). Desktop backups: `~/Desktop/tastetest-ALL-origins-backup-2026-07-05.json`, `tastetest-ranking-backup-2026-07-04.json`, `tastetest-import.json`, `tastetest-live.json`.
 
 ## Next concrete step
-**Cleanup + lock-down (Keith's actions; needs account switches):**
-1. **Delete 3 leftover projects in the OLD "Eighth Chair" account** (`! vercel login` back into it → dashboard → each → Settings → Delete):
-   - `web` (old Taste Test deploy — still reaches the same Turso data via the old URL, so deleting closes that door)
-   - `taste-test` (empty placeholder that couldn't be CLI-removed)
-   - `world-cup-squads` (stale duplicate; the real one is already under Keith's account)
-2. **Enable Deployment Protection on `music-library`** (vercel.com → music-library → Settings → Deployment Protection → Vercel Authentication → On). Closes the HIGH security finding (OWNER_ID is a public constant, `/api/ranking` has no auth → anyone with the URL can read/overwrite). Until then, keep the URL private.
-3. Optional: rotate the Turso token in `web/.env.local` (live rw credential).
+**Cleanup + lock-down: DONE (confirmed 2026-07-05).**
+- ✅ 3 leftover projects deleted from the OLD "Eighth Chair" account (`web`, `taste-test`, `world-cup-squads`).
+- ✅ Deployment Protection enabled on `music-library` (Vercel Authentication → On). HIGH security finding (public `OWNER_ID`, unauthenticated `/api/ranking`) is closed.
+- ⏭ Turso token rotation in `web/.env.local` still optional/outstanding, not done.
+- CLI confirmed still logged into `k-obrien17` / Keith O'Brien's projects post-cleanup (no account-switch stranding).
+
+Remaining work is doc/repo hygiene, not app or account risk — see Open questions.
 
 ## Open questions
-- **Security (HIGH):** single-owner + public constant = no real access control. Deployment Protection is the fix; real accounts only if it goes public/multi-user.
 - **Doc drift:** `.planning/PROJECT.md` still describes an anonymous public product; `.planning/STATE.md` still says "Phase 2, Plan 2 of 4." The build went well beyond/around GSD. Reconcile docs to reality (personal tool vs public product) before the next big push.
 - **Branch:** all work on `design-system-te`, unpushed, well ahead of `origin`. Decide when to merge to `main`.
 - `world-cup-fantasy` repo's `.vercel` is ALSO linked to the same `world-cup-squads` project — two repos → one project. Untangle sometime so the wrong repo isn't deployed over it.
+- **Unresolved:** an `8th-chair` project exists *in Keith's own account* (`8th-chair-keith-obriens-projects.vercel.app`) — separate from the 3 deleted old-account leftovers. Not yet identified/confirmed as intentional or stray.
 
 ## Account / deploy facts (important context)
 - **Both apps now live under "Keith O'Brien's projects"** (team `team_gqKcSmYlv1K3peiDwzDuT1Gl`): Taste Test = `music-library` (https://music-library-tau-three.vercel.app); World Cup Squads = `world-cup-squads` (https://world-cup-squads-theta.vercel.app, was already there).
@@ -53,7 +53,7 @@ Working, deployed, on the right account. `cd web && npm run build` green, **90 t
 - Local scaffolding already torn down (dev servers 4173/5173/4190 stopped, isolated worktree removed).
 
 ## Reason for handoff
-Context clear. App built, deployed, moved to Keith's own Vercel account (music-library); data safe in Turso (107 ranked); only account-cleanup + Deployment Protection remain, all Keith-side.
+Cleanup confirmed done: old-account leftovers deleted, Deployment Protection on. Remaining items are doc drift + branch merge decision, no urgency.
 
 ## Updated
-2026-07-05T14:43:42Z
+2026-07-05T14:56:13Z
