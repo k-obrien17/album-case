@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@libsql/client';
-import allowlist from './_allowlist.json';
+import allowlist from './_allowlist.json' with { type: 'json' };
 import { SCHEMA_STATEMENTS } from './_schema';
 
 const MECHANISM = 'drag_to_place';
