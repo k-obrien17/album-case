@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@libsql/client';
 import allowlist from './_allowlist.json' with { type: 'json' };
 import { SCHEMA_STATEMENTS } from './_schema.js';
+import { publicWritesAllowed, blockWrite } from './_writeGate.js';
 
 const MECHANISM = 'drag_to_place';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -82,6 +83,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     res.status(405).json({ error: 'method_not_allowed' });
+    return;
+  }
+
+  if (!publicWritesAllowed()) {
+    blockWrite(res);
     return;
   }
 
