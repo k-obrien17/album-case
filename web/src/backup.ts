@@ -20,6 +20,26 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
+/** Coerce a stored backup entry into a valid Album record. Requires the
+ * identifying fields; tolerates a missing/loose year or cover. Returns null
+ * only when the entry isn't a usable album at all. */
+function asAlbum(item: unknown): Album | null {
+  if (!isObject(item) || typeof item.mbid !== 'string') return null;
+  if (typeof item.title !== 'string' || typeof item.primary_artist_name !== 'string') return null;
+  return {
+    mbid: item.mbid,
+    title: item.title,
+    primary_artist_name: item.primary_artist_name,
+    release_year: typeof item.release_year === 'number' ? item.release_year : null,
+    cover_url: typeof item.cover_url === 'string' ? item.cover_url : '',
+  };
+}
+
+/** Resolve a stored album list against the current pool. A backup must
+ * survive seed changes: if an album is still in the seed we prefer the pool's
+ * canonical record (fresh cover, etc.), otherwise we keep the stored record so
+ * a previously-ranked album that left the seed is never dropped. Only a
+ * malformed entry (not a valid album) rejects the import. */
 function canonicalAlbums(value: unknown, pool: Album[]): Album[] | null {
   if (!Array.isArray(value)) return null;
 
@@ -28,11 +48,10 @@ function canonicalAlbums(value: unknown, pool: Album[]): Album[] | null {
   const albums: Album[] = [];
 
   for (const item of value) {
-    if (!isObject(item) || typeof item.mbid !== 'string') return null;
-    const album = byId.get(item.mbid);
-    if (!album || seen.has(album.mbid)) return null;
-    seen.add(album.mbid);
-    albums.push(album);
+    const stored = asAlbum(item);
+    if (!stored || seen.has(stored.mbid)) return null;
+    seen.add(stored.mbid);
+    albums.push(byId.get(stored.mbid) ?? stored);
   }
 
   return albums;
@@ -71,7 +90,7 @@ export function parseRankingBackup(raw: string, pool: Album[]): ParseResult {
 
   const rankingSource = isObject(payload.ranking) ? payload.ranking : payload;
   const ranked = canonicalAlbums(rankingSource.ranked, pool);
-  if (!ranked) return { ok: false, error: 'backup contains albums outside the current seed' };
+  if (!ranked) return { ok: false, error: 'backup contains a malformed or duplicate album entry' };
 
   const lists = parseLists(payload.lists, pool);
   return {

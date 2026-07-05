@@ -49,8 +49,24 @@ describe('ranking backups', () => {
     });
   });
 
-  it('rejects albums outside the current seed', () => {
-    const parsed = parseRankingBackup(JSON.stringify({ ranked: [album('missing')], pending: null }), pool);
+  it('preserves a previously-ranked album that is no longer in the seed', () => {
+    // A backup must survive a seed change: an album ranked under an older seed
+    // is kept from its stored record rather than dropped.
+    const gone = album('gone');
+    const parsed = parseRankingBackup(JSON.stringify({ ranked: [album('a'), gone], pending: null }), pool);
+
+    expect(parsed).toEqual({
+      ok: true,
+      state: { ranked: [album('a'), gone], pending: null },
+      lists: null,
+    });
+  });
+
+  it('rejects a malformed album entry (missing title)', () => {
+    const parsed = parseRankingBackup(
+      JSON.stringify({ ranked: [{ mbid: 'x', primary_artist_name: 'A' }], pending: null }),
+      pool
+    );
 
     expect(parsed.ok).toBe(false);
   });
