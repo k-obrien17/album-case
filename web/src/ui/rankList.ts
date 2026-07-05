@@ -30,6 +30,8 @@ export type RankListOptions = {
   onSetAside: (album: Album, which: ListName) => void;
   /** Defer the candidate for this session without saving it anywhere. */
   onSkip: (album: Album) => void;
+  /** Hide this artist's remaining albums from future candidate selection. */
+  onBlockArtist: (album: Album) => void;
   /** Record a single assisted this-or-that answer as a pairwise atom. */
   onCompare?: (winnerMbid: string, loserMbid: string) => void;
   /** Discover and queue the rest of this album's artist's other LPs. */
@@ -335,6 +337,7 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
       actionButton("Haven't heard", () => opts.onSetAside(album, 'notHeard')),
       actionButton('Want to listen', () => opts.onSetAside(album, 'wantToListen')),
       actionButton("Don't care to rank", () => opts.onSetAside(album, 'dontCare')),
+      actionButton(`No more ${album.primary_artist_name}`, () => opts.onBlockArtist(album)),
       actionButton('Skip for now', () => opts.onSkip(album))
     );
     return actions;

@@ -27,6 +27,12 @@ import {
 } from './priority';
 import { loadRankingSnapshot, saveRankingSnapshot } from './rankingSync';
 import { loadDiscoveredAlbums, discoverArtist } from './discovery';
+import {
+  addBlockedArtist,
+  blockedArtistMbids,
+  loadBlockedArtists,
+  saveBlockedArtists,
+} from './artistBlocks';
 
 type ViewMode = 'ranked' | ListName;
 
@@ -130,6 +136,7 @@ async function main(): Promise<void> {
   // holds local data, seed it up to the server.
   const cachedState: RankingState = loadRanking() ?? { ranked: [], pending: null };
   const cachedLists = loadLists();
+  let blockedArtists = loadBlockedArtists();
   const serverSnapshot = await loadRankingSnapshot(OWNER_ID);
   const discovered = await loadDiscoveredAlbums(OWNER_ID);
   const knownPoolIds = new Set(pool.map((album) => album.mbid));
@@ -199,6 +206,7 @@ async function main(): Promise<void> {
   function reselectCandidate(): void {
     // Selection excludes set-aside lists AND session-deferred skips.
     const excluded = excludedMbids(lists);
+    for (const mbid of blockedArtistMbids(pool, blockedArtists)) excluded.add(mbid);
     for (const mbid of deferred) excluded.add(mbid);
     candidate = pickFrom(excluded);
 
@@ -206,7 +214,9 @@ async function main(): Promise<void> {
     // declaring the pool finished. Skips are a soft "later", not a set-aside.
     if (!candidate && deferred.size > 0) {
       deferred.clear();
-      candidate = pickFrom(excludedMbids(lists));
+      const retryExcluded = excludedMbids(lists);
+      for (const mbid of blockedArtistMbids(pool, blockedArtists)) retryExcluded.add(mbid);
+      candidate = pickFrom(retryExcluded);
     }
   }
 
@@ -218,6 +228,21 @@ async function main(): Promise<void> {
   function persistLists(): void {
     saveLists(lists);
     void saveRankingSnapshot(session.session_id, state, lists);
+  }
+
+  function removeBlockedFromPriorityQueue(): void {
+    const blockedIds = blockedArtistMbids(pool, blockedArtists);
+    priorityQueue = priorityQueue.filter((mbid) => !blockedIds.has(mbid));
+    savePriorityQueue(priorityQueue);
+  }
+
+  function handleBlockArtist(album: Album): void {
+    blockedArtists = addBlockedArtist(blockedArtists, album.primary_artist_name);
+    saveBlockedArtists(blockedArtists);
+    deferred.delete(album.mbid);
+    removeBlockedFromPriorityQueue();
+    reselectCandidate();
+    rankList.showStatus(`No more ${album.primary_artist_name} albums.`);
   }
 
   async function handleDiscoverArtist(album: Album): Promise<void> {
@@ -301,6 +326,9 @@ async function main(): Promise<void> {
       deferred.add(album.mbid);
       reselectCandidate();
       rankList.render();
+    },
+    onBlockArtist: (album) => {
+      handleBlockArtist(album);
     },
     onCompare: (winnerMbid, loserMbid) => {
       enqueueAtom({
