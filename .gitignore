@@ -8,3 +8,6 @@ __pycache__/
 !.env.example
 data/*.db
 data/*.db-*
+
+# session scratch (recovered personal ranking data — never commit)
+scratchpad/
