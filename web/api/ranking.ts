@@ -4,11 +4,24 @@ import allowlist from './_allowlist.json' with { type: 'json' };
 import { SCHEMA_STATEMENTS } from './_schema.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const allowedMbids = new Set<string>(allowlist);
+// The allowlist gates /api/atom only. Ranking snapshots deliberately do NOT
+// gate on it: the server stores whatever FULL album records the owner has
+// placed, so the saved list survives seed/allowlist changes. Import retained
+// for parity with the atom handler's Vercel-ESM JSON import.
+void allowlist;
+
+type Album = {
+  mbid: string;
+  title: string;
+  primary_artist_name: string;
+  release_year: number | null;
+  cover_url: string;
+};
 
 type SnapshotLists = {
-  wantToListen: string[];
-  notHeard: string[];
+  wantToListen: Album[];
+  notHeard: Album[];
+  dontCare: Album[];
 };
 
 type RankingBody = {
@@ -52,47 +65,69 @@ function isSessionId(value: unknown): value is string {
   return typeof value === 'string' && UUID_RE.test(value);
 }
 
-function parseMbidList(value: unknown): string[] | null {
+function isObject(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+// Coerce a client-sent entry into a full Album record. Requires the
+// identifying fields (mbid, title, artist); tolerates a loose year/cover.
+function parseAlbum(value: unknown): Album | null {
+  if (!isObject(value)) return null;
+  const { mbid, title, primary_artist_name: artist, release_year: year, cover_url: cover } = value;
+  if (typeof mbid !== 'string' || !UUID_RE.test(mbid)) return null;
+  if (typeof title !== 'string' || typeof artist !== 'string') return null;
+  return {
+    mbid,
+    title,
+    primary_artist_name: artist,
+    release_year: typeof year === 'number' ? year : null,
+    cover_url: typeof cover === 'string' ? cover : '',
+  };
+}
+
+// A list of full album records, de-duped by mbid within the list.
+function parseAlbumList(value: unknown): Album[] | null {
   if (!Array.isArray(value)) return null;
   const seen = new Set<string>();
-  const ids: string[] = [];
+  const albums: Album[] = [];
   for (const item of value) {
-    if (typeof item !== 'string' || !UUID_RE.test(item) || !allowedMbids.has(item) || seen.has(item)) {
-      return null;
-    }
-    seen.add(item);
-    ids.push(item);
+    const album = parseAlbum(item);
+    if (!album || seen.has(album.mbid)) return null;
+    seen.add(album.mbid);
+    albums.push(album);
   }
-  return ids;
+  return albums;
 }
 
 function parseLists(value: unknown): SnapshotLists | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-  const candidate = value as Partial<Record<keyof SnapshotLists, unknown>>;
-  const wantToListen = parseMbidList(candidate.wantToListen);
-  const notHeard = parseMbidList(candidate.notHeard);
-  if (!wantToListen || !notHeard) return null;
-  return { wantToListen, notHeard };
+  if (!isObject(value)) return null;
+  const wantToListen = parseAlbumList(value.wantToListen);
+  const notHeard = parseAlbumList(value.notHeard);
+  const dontCare = parseAlbumList(value.dontCare);
+  if (!wantToListen || !notHeard || !dontCare) return null;
+  return { wantToListen, notHeard, dontCare };
 }
 
 function validate(body: RankingBody | null):
-  | { ok: true; sessionId: string; ranked: string[]; lists: SnapshotLists }
+  | { ok: true; sessionId: string; ranked: Album[]; lists: SnapshotLists }
   | { ok: false; message: string } {
   if (!body) return { ok: false, message: 'invalid_json' };
   if (!isSessionId(body.session_id)) return { ok: false, message: 'invalid_session' };
 
-  const ranked = parseMbidList(body.ranked);
+  const ranked = parseAlbumList(body.ranked);
   const lists = parseLists(body.lists);
   if (!ranked || !lists) return { ok: false, message: 'invalid_snapshot' };
 
-  const rankedIds = new Set(ranked);
-  if (lists.wantToListen.some((id) => rankedIds.has(id)) || lists.notHeard.some((id) => rankedIds.has(id))) {
+  const rankedIds = new Set(ranked.map((album) => album.mbid));
+  const saved = [...lists.wantToListen, ...lists.notHeard, ...lists.dontCare];
+  if (saved.some((album) => rankedIds.has(album.mbid))) {
     return { ok: false, message: 'ranked_album_in_saved_list' };
   }
 
-  const wantIds = new Set(lists.wantToListen);
-  if (lists.notHeard.some((id) => wantIds.has(id))) {
-    return { ok: false, message: 'duplicate_saved_album' };
+  const savedIds = new Set<string>();
+  for (const album of saved) {
+    if (savedIds.has(album.mbid)) return { ok: false, message: 'duplicate_saved_album' };
+    savedIds.add(album.mbid);
   }
 
   return { ok: true, sessionId: body.session_id, ranked, lists };
@@ -120,10 +155,16 @@ WHERE session_id = ?
     return;
   }
 
+  const ranked = JSON.parse(String(row.ranking_json)) as Album[];
+  const lists = JSON.parse(String(row.lists_json)) as Partial<SnapshotLists>;
   res.status(200).json({
     snapshot: {
-      ranked: JSON.parse(String(row.ranking_json)) as string[],
-      lists: JSON.parse(String(row.lists_json)) as SnapshotLists,
+      ranked,
+      lists: {
+        wantToListen: lists.wantToListen ?? [],
+        notHeard: lists.notHeard ?? [],
+        dontCare: lists.dontCare ?? [],
+      },
       updated_at: Number(row.updated_at),
     },
   });

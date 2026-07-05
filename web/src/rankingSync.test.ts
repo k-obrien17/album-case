@@ -14,7 +14,7 @@ function album(mbid: string): Album {
 }
 
 describe('ranking snapshot payload', () => {
-  it('serializes only MBIDs plus session id', () => {
+  it('serializes FULL album records (not just mbids) plus session id', () => {
     const state: RankingState = { ranked: [album('a'), album('b')], pending: null };
     const lists: SavedLists = {
       wantToListen: [album('c')],
@@ -24,11 +24,11 @@ describe('ranking snapshot payload', () => {
 
     expect(snapshotPayload('session-1', state, lists)).toEqual({
       session_id: 'session-1',
-      ranked: ['a', 'b'],
+      ranked: [album('a'), album('b')],
       lists: {
-        wantToListen: ['c'],
-        notHeard: ['d'],
-        dontCare: ['e'],
+        wantToListen: [album('c')],
+        notHeard: [album('d')],
+        dontCare: [album('e')],
       },
     });
   });
@@ -37,6 +37,75 @@ describe('ranking snapshot payload', () => {
 describe('loadRankingSnapshot', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it('returns full album records including dontCare, no seed pool needed', async () => {
+    const snapshot = {
+      ranked: [album('a')],
+      lists: {
+        wantToListen: [album('b')],
+        notHeard: [album('c')],
+        dontCare: [album('d')],
+      },
+      updated_at: 123,
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ snapshot }),
+      } as unknown as Response)
+    );
+
+    const result = await loadRankingSnapshot('11111111-1111-4111-8111-111111111111');
+
+    expect(result).toEqual({
+      ranked: [album('a')],
+      lists: {
+        wantToListen: [album('b')],
+        notHeard: [album('c')],
+        dontCare: [album('d')],
+      },
+    });
+  });
+
+  it('defaults a missing dontCare bucket to an empty list (older snapshot)', async () => {
+    const snapshot = {
+      ranked: [album('a')],
+      lists: { wantToListen: [], notHeard: [] },
+      updated_at: 1,
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ snapshot }),
+      } as unknown as Response)
+    );
+
+    const result = await loadRankingSnapshot('11111111-1111-4111-8111-111111111111');
+
+    expect(result).toEqual({
+      ranked: [album('a')],
+      lists: { wantToListen: [], notHeard: [], dontCare: [] },
+    });
+  });
+
+  it('returns null when the server has no snapshot', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ snapshot: null }),
+      } as unknown as Response)
+    );
+
+    const result = await loadRankingSnapshot('11111111-1111-4111-8111-111111111111');
+
+    expect(result).toBeNull();
   });
 
   it('returns null without throwing on a 200 non-JSON response (SPA/HTML fallback)', async () => {
@@ -51,7 +120,7 @@ describe('loadRankingSnapshot', () => {
       } as unknown as Response)
     );
 
-    const result = await loadRankingSnapshot('11111111-1111-4111-8111-111111111111', [album('a')]);
+    const result = await loadRankingSnapshot('11111111-1111-4111-8111-111111111111');
 
     expect(result).toBeNull();
   });

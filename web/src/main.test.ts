@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { restoreFromCode } from './main';
+import { resolveInitialState, restoreFromCode } from './main';
 import type { SavedLists } from './lists';
 import type { Album, RankingState } from './ranking/types';
 
@@ -14,6 +14,44 @@ function album(mbid: string): Album {
 }
 
 const VALID = '66666666-6666-4666-8666-666666666666';
+
+describe('resolveInitialState (server-authoritative load-on-open)', () => {
+  it('prefers the full server snapshot over the localStorage cache', () => {
+    const server = {
+      ranked: [album('a')],
+      lists: {
+        wantToListen: [album('b')],
+        notHeard: [],
+        dontCare: [album('c')],
+      } as SavedLists,
+    };
+    const cached = {
+      state: { ranked: [album('x')], pending: null } as RankingState,
+      lists: { wantToListen: [], notHeard: [], dontCare: [] } as SavedLists,
+    };
+
+    const resolved = resolveInitialState(server, cached);
+
+    expect(resolved.fromServer).toBe(true);
+    expect(resolved.state.ranked).toEqual([album('a')]);
+    // dontCare round-trips through the snapshot into the resolved state.
+    expect(resolved.lists.dontCare).toEqual([album('c')]);
+    expect(resolved.lists.wantToListen).toEqual([album('b')]);
+  });
+
+  it('falls back to the localStorage cache when the server has nothing', () => {
+    const cached = {
+      state: { ranked: [album('x')], pending: null } as RankingState,
+      lists: { wantToListen: [album('y')], notHeard: [], dontCare: [] } as SavedLists,
+    };
+
+    const resolved = resolveInitialState(null, cached);
+
+    expect(resolved.fromServer).toBe(false);
+    expect(resolved.state.ranked).toEqual([album('x')]);
+    expect(resolved.lists.wantToListen).toEqual([album('y')]);
+  });
+});
 
 describe('restoreFromCode', () => {
   it('rejects an invalid code without loading or adopting a session', async () => {

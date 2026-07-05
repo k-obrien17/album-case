@@ -1,3 +1,5 @@
+import { OWNER_ID } from './owner';
+
 /** An anonymous, zero-setup player session (no account, no PII). */
 export type Session = {
   session_id: string;
@@ -37,18 +39,18 @@ function writeStoredSession(session: Session): void {
 }
 
 /**
- * Read the player's existing anonymous session from `tastetest-session`, or
- * create and persist a new one. Idempotent: repeated calls within the same
- * page load (or across reloads, once persisted) return the same session.
+ * Return the single owner session. Taste Test is a single-user app: every
+ * browser and device resolves to the same fixed `OWNER_ID`, so opening the app
+ * anywhere loads the one server-owned list -- no per-device random id, no
+ * restore ceremony. `created_at` is preserved across reloads (stamped once on
+ * first visit); the id is always `OWNER_ID`.
  */
 export function getOrCreateSession(): Session {
   const existing = readStoredSession();
-  if (existing) return existing;
+  const created_at =
+    existing && existing.session_id === OWNER_ID ? existing.created_at : Date.now();
 
-  const session: Session = {
-    session_id: crypto.randomUUID(),
-    created_at: Date.now(),
-  };
+  const session: Session = { session_id: OWNER_ID, created_at };
   writeStoredSession(session);
   return session;
 }
