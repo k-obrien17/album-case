@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@libsql/client';
 import allowlist from './_allowlist.json' with { type: 'json' };
-import { SCHEMA_STATEMENTS } from './_schema';
+import { SCHEMA_STATEMENTS } from './_schema.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const allowedMbids = new Set<string>(allowlist);
