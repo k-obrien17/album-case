@@ -8,7 +8,7 @@ an artist through MusicBrainz.
 
 ## Live App
 
-https://music-library-tau-three.vercel.app
+https://album-case.vercel.app
 
 ## Features
 

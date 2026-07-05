@@ -1,6 +1,6 @@
 /* =============================================================================
    Total Emphasis bridge — hand-owned. Loaded LAST so it wins the cascade.
-   Maps random-music-rankings' own CSS variables onto the TE core tokens
+   Maps Album Case's own CSS variables onto the TE core tokens
    (te-tokens.css). Core tier only: brand layer restyle. App structure,
    logic, and functional/category colors (tier S/A/B/C, "no") are preserved.
    ========================================================================== */
