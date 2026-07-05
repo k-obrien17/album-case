@@ -18,6 +18,8 @@ Containment in place:
 - GitHub repo is private.
 - All mutating endpoints (`POST /api/ranking`, `POST /api/atom`, `POST /api/discover-artist`) are gated behind `ALLOW_PUBLIC_WRITES` (see `api/_writeGate.ts`). Unless that env var is exactly `"true"`, they return `503` before touching Turso or MusicBrainz. It's set to `false` in Vercel Production and Preview. Reads (`GET`) are unaffected.
 
+Vercel Password Protection was evaluated as an additional layer but requires the "Advanced Deployment Protection" add-on, not enabled on this team — a paid upgrade, not a toggle. Deliberately not pursued for now; the write kill switch is considered sufficient containment. Revisit only if the plan is upgraded for other reasons.
+
 This is temporary containment, not a fix. Permanent fix: add a real owner-write gate (signed cookie or server-side token validation) so only the actual owner can write, then remove the kill switch.
 
 ## Features
