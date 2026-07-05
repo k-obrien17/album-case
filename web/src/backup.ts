@@ -42,8 +42,11 @@ function parseLists(value: unknown, pool: Album[]): SavedLists | null {
   if (!isObject(value)) return null;
   const wantToListen = canonicalAlbums(value.wantToListen, pool);
   const notHeard = canonicalAlbums(value.notHeard, pool);
-  if (!wantToListen || !notHeard) return null;
-  return { wantToListen, notHeard };
+  // dontCare was added after v1 backups shipped; a missing key is a valid
+  // older file, so default to an empty list rather than rejecting the import.
+  const dontCare = value.dontCare === undefined ? [] : canonicalAlbums(value.dontCare, pool);
+  if (!wantToListen || !notHeard || !dontCare) return null;
+  return { wantToListen, notHeard, dontCare };
 }
 
 export function createRankingBackup(state: RankingState, lists: SavedLists): string {

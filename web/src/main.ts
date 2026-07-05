@@ -28,7 +28,7 @@ import {
 } from './priority';
 import { loadRankingSnapshot, saveRankingSnapshot } from './rankingSync';
 
-type ViewMode = 'ranked' | 'wantToListen' | 'notHeard';
+type ViewMode = 'ranked' | ListName;
 
 async function main(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>('#app');
@@ -73,13 +73,24 @@ async function main(): Promise<void> {
     lists = snapshot.lists;
     saveRanking(state);
     saveLists(lists);
-  } else if (state.ranked.length > 0 || lists.wantToListen.length > 0 || lists.notHeard.length > 0) {
+  } else if (
+    state.ranked.length > 0 ||
+    lists.wantToListen.length > 0 ||
+    lists.notHeard.length > 0 ||
+    lists.dontCare.length > 0
+  ) {
     void saveRankingSnapshot(session.session_id, state, lists);
   }
   // First-visit correctness: an empty list plus a first candidate, never a
   // blank screen. Priority albums are offered first; random eligible albums
   // are the fallback.
   let candidate: Album | null = null;
+
+  // Session-only "Skip for now" set: deferred albums are excluded from
+  // selection but NEVER written to the saved lists or excludedMbids. When the
+  // fresh pool drains, deferred albums are re-offered (see reselectCandidate)
+  // rather than showing "you've placed everything" prematurely.
+  const deferred = new Set<string>();
 
   const shell = document.createElement('div');
   shell.className = 'app-shell';
@@ -103,13 +114,27 @@ async function main(): Promise<void> {
 
   let view: ViewMode = 'ranked';
 
-  function reselectCandidate(): void {
-    const excluded = excludedMbids(lists);
+  function pickFrom(excluded: Set<string>): Album | null {
     const priority = nextPriorityCandidate(priorityQueue, pool, state.ranked, excluded);
     priorityQueue = priority.queue;
     savePriorityQueue(priorityQueue);
-    candidate =
-      priority.candidate ?? pickCandidate(pool, state.ranked, excluded, Math.random, playsByArtist);
+    return (
+      priority.candidate ?? pickCandidate(pool, state.ranked, excluded, Math.random, playsByArtist)
+    );
+  }
+
+  function reselectCandidate(): void {
+    // Selection excludes set-aside lists AND session-deferred skips.
+    const excluded = excludedMbids(lists);
+    for (const mbid of deferred) excluded.add(mbid);
+    candidate = pickFrom(excluded);
+
+    // Fresh pool drained but skips remain: rotate deferred back in rather than
+    // declaring the pool finished. Skips are a soft "later", not a set-aside.
+    if (!candidate && deferred.size > 0) {
+      deferred.clear();
+      candidate = pickFrom(excludedMbids(lists));
+    }
   }
 
   function persistRankingState(): void {
@@ -177,6 +202,21 @@ async function main(): Promise<void> {
       renderNav();
       renderBackupControls();
     },
+    onSkip: (album) => {
+      // Non-destructive: defer for this session only. Not saved to any list,
+      // not added to excludedMbids, not persisted -- it reappears on drain.
+      deferred.add(album.mbid);
+      reselectCandidate();
+      rankList.render();
+    },
+    onCompare: (winnerMbid, loserMbid) => {
+      enqueueAtom({
+        entity_a: winnerMbid,
+        entity_b: loserMbid,
+        winner: winnerMbid,
+        session_id: session.session_id,
+      });
+    },
   });
 
   function markAsHeard(album: Album, which: ListName): void {
@@ -190,8 +230,7 @@ async function main(): Promise<void> {
   }
 
   function renderCurrentSavedList(which: ListName): void {
-    const albums = which === 'wantToListen' ? lists.wantToListen : lists.notHeard;
-    renderSavedList(stage, albums, (album) => markAsHeard(album, which));
+    renderSavedList(stage, lists[which], (album) => markAsHeard(album, which));
   }
 
   function showView(next: ViewMode): void {
@@ -282,6 +321,7 @@ async function main(): Promise<void> {
       { mode: 'ranked', label: `Ranked list (${state.ranked.length})` },
       { mode: 'wantToListen', label: `Want to listen (${lists.wantToListen.length})` },
       { mode: 'notHeard', label: `Haven't heard (${lists.notHeard.length})` },
+      { mode: 'dontCare', label: `Don't care (${lists.dontCare.length})` },
     ];
 
     for (const { mode, label } of items) {

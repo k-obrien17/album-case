@@ -171,6 +171,37 @@ body {
   color: var(--color-muted);
 }
 
+/* Assisted this-or-that placement (long lists): two large prefer buttons. */
+.assist-choose {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.assist-choice {
+  flex: 1 1 45%;
+  min-height: 56px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border-btn);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.assist-choice:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.assist-hint {
+  margin: 0;
+  color: var(--color-faint);
+  font-size: 0.72rem;
+}
+
 .rank-list {
   list-style: none;
   margin: 0;

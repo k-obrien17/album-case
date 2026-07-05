@@ -7,6 +7,7 @@ type SnapshotPayload = {
   lists: {
     wantToListen: string[];
     notHeard: string[];
+    dontCare: string[];
   };
 };
 
@@ -16,6 +17,7 @@ type SnapshotResponse = {
     lists: {
       wantToListen: string[];
       notHeard: string[];
+      dontCare?: string[];
     };
     updated_at: number;
   };
@@ -47,6 +49,7 @@ export function snapshotPayload(
     lists: {
       wantToListen: lists.wantToListen.map((album) => album.mbid),
       notHeard: lists.notHeard.map((album) => album.mbid),
+      dontCare: lists.dontCare.map((album) => album.mbid),
     },
   };
 }
@@ -98,10 +101,12 @@ export async function loadRankingSnapshot(
   const ranked = albumsFromIds(body.snapshot.ranked, pool);
   const wantToListen = albumsFromIds(body.snapshot.lists.wantToListen, pool);
   const notHeard = albumsFromIds(body.snapshot.lists.notHeard, pool);
-  if (!ranked || !wantToListen || !notHeard) return null;
+  // Older snapshots predate dontCare; a missing list is an empty list.
+  const dontCare = albumsFromIds(body.snapshot.lists.dontCare ?? [], pool);
+  if (!ranked || !wantToListen || !notHeard || !dontCare) return null;
 
   return {
     state: { ranked, pending: null },
-    lists: { wantToListen, notHeard },
+    lists: { wantToListen, notHeard, dontCare },
   };
 }

@@ -16,7 +16,11 @@ function album(mbid: string): Album {
 describe('ranking snapshot payload', () => {
   it('serializes only MBIDs plus session id', () => {
     const state: RankingState = { ranked: [album('a'), album('b')], pending: null };
-    const lists: SavedLists = { wantToListen: [album('c')], notHeard: [album('d')] };
+    const lists: SavedLists = {
+      wantToListen: [album('c')],
+      notHeard: [album('d')],
+      dontCare: [album('e')],
+    };
 
     expect(snapshotPayload('session-1', state, lists)).toEqual({
       session_id: 'session-1',
@@ -24,6 +28,7 @@ describe('ranking snapshot payload', () => {
       lists: {
         wantToListen: ['c'],
         notHeard: ['d'],
+        dontCare: ['e'],
       },
     });
   });

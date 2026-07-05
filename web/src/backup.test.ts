@@ -14,7 +14,7 @@ function album(mbid: string): Album {
 }
 
 const pool = [album('a'), album('b'), album('c'), album('d')];
-const lists: SavedLists = { wantToListen: [album('c')], notHeard: [album('d')] };
+const lists: SavedLists = { wantToListen: [album('c')], notHeard: [album('d')], dontCare: [] };
 
 describe('ranking backups', () => {
   it('exports and imports a ranking backup bundle', () => {
@@ -31,6 +31,21 @@ describe('ranking backups', () => {
       ok: true,
       state: { ranked: [album('b'), album('a')], pending: null },
       lists: null,
+    });
+  });
+
+  it('defaults a legacy lists bundle with no dontCare to an empty dontCare list', () => {
+    const raw = JSON.stringify({
+      version: 1,
+      ranking: { ranked: [album('a')], pending: null },
+      lists: { wantToListen: [album('c')], notHeard: [] },
+    });
+    const parsed = parseRankingBackup(raw, pool);
+
+    expect(parsed).toEqual({
+      ok: true,
+      state: { ranked: [album('a')], pending: null },
+      lists: { wantToListen: [album('c')], notHeard: [], dontCare: [] },
     });
   });
 

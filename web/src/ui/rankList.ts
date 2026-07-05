@@ -1,5 +1,13 @@
 import type { Album } from '../ranking/types';
 import type { ListName } from '../lists';
+import {
+  startAssist,
+  assistOpponent,
+  assistResolved,
+  assistPick,
+  assistIndex,
+  type AssistPlacement,
+} from '../ranking/assist';
 
 /**
  * Drag-to-place ranked list. Pointer-events based (works with touch AND
@@ -19,7 +27,18 @@ export type RankListOptions = {
   onReorder: (from: number, to: number) => void;
   /** Set the candidate aside into a saved list. */
   onSetAside: (album: Album, which: ListName) => void;
+  /** Defer the candidate for this session without saving it anywhere. */
+  onSkip: (album: Album) => void;
+  /** Record a single assisted this-or-that answer as a pairwise atom. */
+  onCompare?: (winnerMbid: string, loserMbid: string) => void;
 };
+
+/**
+ * At/above this ranked-list length, assisted this-or-that placement is the
+ * default (a few log2(n) taps instead of dragging across a long list). Below
+ * it, manual drag/tap is fine. Drag + row grips stay available in both modes.
+ */
+const ASSIST_THRESHOLD = 8;
 
 export type RankListController = {
   render: () => void;
@@ -58,6 +77,9 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
   let drag: DragState | null = null;
   let scrollRaf = 0;
   let scrollDir = 0;
+  // Active assisted this-or-that placement (long lists only). Reset whenever
+  // the candidate changes or the list drops below the assist threshold.
+  let assist: AssistPlacement | null = null;
 
   function positionGhost(x: number, y: number): void {
     if (!drag) return;
@@ -240,15 +262,30 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     return li;
   }
 
-  function buildCandidate(album: Album): HTMLElement {
-    const card = document.createElement('div');
-    card.className = 'candidate';
+  function actionButton(text: string, onClick: () => void): HTMLButtonElement {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'candidate-action';
+    btn.textContent = text;
+    btn.addEventListener('click', onClick);
+    return btn;
+  }
 
-    const label = document.createElement('p');
-    label.className = 'candidate-label';
-    label.textContent = 'Next album: drag into your list';
+  /** The set-aside + skip row, shared by the drag card and the assisted card. */
+  function buildActions(album: Album): HTMLElement {
+    const actions = document.createElement('div');
+    actions.className = 'candidate-actions';
+    actions.append(
+      actionButton("Haven't heard", () => opts.onSetAside(album, 'notHeard')),
+      actionButton('Want to listen', () => opts.onSetAside(album, 'wantToListen')),
+      actionButton("Don't care to rank", () => opts.onSetAside(album, 'dontCare')),
+      actionButton('Skip for now', () => opts.onSkip(album))
+    );
+    return actions;
+  }
 
-    // The draggable body (title + artist/year). touch-action:none via CSS.
+  /** A draggable candidate body (title + artist/year). touch-action:none via CSS. */
+  function buildDragBody(album: Album): HTMLElement {
     const body = document.createElement('div');
     body.className = 'candidate-drag';
     const title = document.createElement('p');
@@ -259,22 +296,78 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     sub.textContent = subtitle(album);
     body.append(title, sub);
     body.addEventListener('pointerdown', (ev) => startDrag({ type: 'candidate' }, album, ev));
+    return body;
+  }
 
-    const actions = document.createElement('div');
-    actions.className = 'candidate-actions';
-    const notHeard = document.createElement('button');
-    notHeard.type = 'button';
-    notHeard.className = 'candidate-action';
-    notHeard.textContent = "Haven't heard";
-    notHeard.addEventListener('click', () => opts.onSetAside(album, 'notHeard'));
-    const want = document.createElement('button');
-    want.type = 'button';
-    want.className = 'candidate-action';
-    want.textContent = 'Want to listen';
-    want.addEventListener('click', () => opts.onSetAside(album, 'wantToListen'));
-    actions.append(notHeard, want);
+  function buildCandidate(album: Album): HTMLElement {
+    const card = document.createElement('div');
+    card.className = 'candidate';
 
-    card.append(label, body, actions);
+    const label = document.createElement('p');
+    label.className = 'candidate-label';
+    label.textContent = 'Next album: drag into your list';
+
+    card.append(label, buildDragBody(album), buildActions(album));
+    return card;
+  }
+
+  function answerAssist(winnerMbid: string): void {
+    if (!assist) return;
+    const opponent = assistOpponent(assist);
+    if (opponent) {
+      const loserMbid = winnerMbid === assist.album.mbid ? opponent.mbid : assist.album.mbid;
+      opts.onCompare?.(winnerMbid, loserMbid);
+    }
+    assist = assistPick(assist, winnerMbid);
+    if (assistResolved(assist)) {
+      const index = assistIndex(assist);
+      assist = null;
+      opts.onPlace(index); // fires neighbor atoms, reselects, re-renders
+    } else {
+      render();
+    }
+  }
+
+  /** Assisted this-or-that card: candidate vs the current search-window album. */
+  function buildAssisted(album: Album): HTMLElement {
+    const card = document.createElement('div');
+    card.className = 'candidate';
+
+    const label = document.createElement('p');
+    label.className = 'candidate-label';
+    label.textContent = 'Which do you prefer?';
+
+    const opponent = assist ? assistOpponent(assist) : null;
+    if (!opponent) {
+      // Resolved with nothing to compare (e.g. empty list): place at the end.
+      const index = assist ? assistIndex(assist) : opts.getRanked().length;
+      assist = null;
+      opts.onPlace(index);
+      return card;
+    }
+
+    const choose = document.createElement('div');
+    choose.className = 'assist-choose';
+
+    const preferCandidate = document.createElement('button');
+    preferCandidate.type = 'button';
+    preferCandidate.className = 'assist-choice';
+    preferCandidate.textContent = album.title;
+    preferCandidate.addEventListener('click', () => answerAssist(album.mbid));
+
+    const preferOpponent = document.createElement('button');
+    preferOpponent.type = 'button';
+    preferOpponent.className = 'assist-choice';
+    preferOpponent.textContent = opponent.title;
+    preferOpponent.addEventListener('click', () => answerAssist(opponent.mbid));
+
+    choose.append(preferCandidate, preferOpponent);
+
+    const hint = document.createElement('p');
+    hint.className = 'assist-hint';
+    hint.textContent = 'or drag to place';
+
+    card.append(label, choose, buildDragBody(album), hint, buildActions(album));
     return card;
   }
 
@@ -305,8 +398,18 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     candidateCol.className = 'candidate-col';
     const candidate = opts.getCandidate();
     if (candidate) {
-      candidateCol.append(buildCandidate(candidate));
+      // Long list -> assisted this-or-that by default; short list -> drag/tap.
+      if (ranked.length >= ASSIST_THRESHOLD) {
+        if (!assist || assist.album.mbid !== candidate.mbid) {
+          assist = startAssist(ranked, candidate);
+        }
+        candidateCol.append(buildAssisted(candidate));
+      } else {
+        assist = null;
+        candidateCol.append(buildCandidate(candidate));
+      }
     } else {
+      assist = null;
       const done = document.createElement('p');
       done.className = 'candidate-done';
       done.textContent = 'You have placed every album in the pool.';
@@ -324,6 +427,7 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
       drag.ghost.remove();
       drag = null;
     }
+    assist = null;
     indicator.remove();
   }
 

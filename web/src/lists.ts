@@ -1,21 +1,22 @@
 import type { Album } from './ranking/types';
 
 /** Which set-aside list an album belongs to. */
-export type ListName = 'wantToListen' | 'notHeard';
+export type ListName = 'wantToListen' | 'notHeard' | 'dontCare';
 
 /**
- * The two set-aside lists. Full Album records are stored (not just mbids) so
+ * The set-aside lists. Full Album records are stored (not just mbids) so
  * the list views render covers/titles/artists without refetching the seed.
  */
 export type SavedLists = {
   wantToListen: Album[];
   notHeard: Album[];
+  dontCare: Album[];
 };
 
 const LISTS_KEY = 'tastetest-lists';
 
 function emptyLists(): SavedLists {
-  return { wantToListen: [], notHeard: [] };
+  return { wantToListen: [], notHeard: [], dontCare: [] };
 }
 
 // In-memory fallback mirrors storage.ts: localStorage may be unavailable
@@ -38,6 +39,7 @@ export function loadLists(): SavedLists {
     return {
       wantToListen: parsed.wantToListen ?? [],
       notHeard: parsed.notHeard ?? [],
+      dontCare: parsed.dontCare ?? [],
     };
   } catch (err) {
     console.warn('tastetest: failed to read set-aside lists from localStorage, using in-memory lists', err);
@@ -82,11 +84,12 @@ export function removeFromList(lists: SavedLists, mbid: string, which: ListName)
   };
 }
 
-/** The union of every mbid across both set-aside lists -- albums to exclude
+/** The union of every mbid across all set-aside lists -- albums to exclude
  * from the ranking pool. */
 export function excludedMbids(lists: SavedLists): Set<string> {
   const ids = new Set<string>();
   for (const album of lists.wantToListen) ids.add(album.mbid);
   for (const album of lists.notHeard) ids.add(album.mbid);
+  for (const album of lists.dontCare) ids.add(album.mbid);
   return ids;
 }
