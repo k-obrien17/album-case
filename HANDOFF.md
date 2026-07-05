@@ -1,51 +1,44 @@
 # Handoff
 
 ## Current task
-Taste Test is deployed (https://music-library-tau-three.vercel.app) and cleanup/lock-down from the last session is done. This session added two new features via brainstorm → spec → plan → Codex-execution: **artist/year rank badges** on the ranked list, and an **artist discography discovery button** ("rank the rest of their albums" via a live MusicBrainz lookup). Codex executed both plans directly on `main` while this session was still writing them, and also added one extra, unplanned feature ("place candidate by rank number") on its own initiative.
+Taste Test (Music Library) is deployed at https://music-library-tau-three.vercel.app. A security containment pass just landed: the app previously had no owner-write auth (a fixed client-side owner/session ID meant anyone with the URL could mutate the canonical ranking), so the repo was flipped to private and a write kill switch (`ALLOW_PUBLIC_WRITES`) was added to gate every mutating endpoint. This session itself did no code work — it only answered a "what's the URL?" question by finding it in README.md/HANDOFF.md.
 
 ## Status
-Working tree is clean. Build (`cd web && npm run build`) is green, full test suite passes: **107 tests, 17 files** (up from 90 — new: `subRank.test.ts`, `api/_lp.test.ts`, `discovery.test.ts`). Both planned features match their specs/plans exactly, verified by reading the actual diffs against the plan documents. The rank-number-placement commit (`8b8a1d6`) was **not** reviewed in detail — it's outside both plans, added by Codex without a spec.
+Working tree clean except two pre-existing untracked scratch files (`elo-demo.html`, `pairwise-demo.html`, unrelated to this or the last session). `ALLOW_PUBLIC_WRITES` is set to `false` in Vercel Production and Preview — **this means the live app cannot currently write at all, including for Keith.** There is no owner bypass yet; the kill switch blocks everyone equally until a real owner-write gate (signed cookie / server token) replaces it. Reads (`GET`) still work.
 
-**Not yet tested:** the discovery button's live path (MusicBrainz artist search + release-group browse + Turso persistence) hasn't been exercised end-to-end against a running `vercel dev` — only unit-testable pieces (`_lp.ts`'s LP filter/merge logic) have real test coverage. The manual verification steps are in the plan doc (Task 3 Step 3, Task 7 Step 7).
-
-**Not pushed:** `main` is **86 commits ahead of `origin/main`** — everything from the earlier `design-system-te` merge through tonight's two new features is still local-only.
+The previous session's "smoke-test the discovery button live" next-step is superseded: with writes globally disabled in prod, that test can't complete against the deployed app right now (would need `ALLOW_PUBLIC_WRITES=true` locally via `vercel dev` + `.env.local`, or a temporary prod flip).
 
 ## Next concrete step
-Smoke-test the discovery button live (`cd web && vercel dev`, needs `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` in `.env.local`): click "▶" on a ranked row for an artist with more albums than the seed (e.g. Radiohead), confirm a real album (e.g. "The Bends") surfaces as the next candidate, reload the page and confirm it's still there (proves the Turso round-trip). Then decide whether to push `main` to `origin` (`! git push origin main` — guarded, needs your explicit go-ahead) and/or deploy.
+Decide the permanent owner-write fix (signed-cookie or server-token gate) so Keith can write again without exposing the endpoint to the public — README.md already documents this as the intended permanent fix. Until then, local writes are only testable via `vercel dev` with `ALLOW_PUBLIC_WRITES=true` in `web/.env.local`.
 
 ## Open questions
-- **Review the unplanned commit:** `8b8a1d6 feat: place candidate by rank number` (`web/src/ui/rankList.ts` + `style.css`, 76 lines) — Codex added this without a spec or plan. Worth reading before it ships.
-- **Doc drift (carried over):** `.planning/PROJECT.md` still describes an anonymous public product; `.planning/STATE.md` still says "Phase 2, Plan 2 of 4." Reality is a personal single-user tool with two new features beyond the original roadmap. Reconcile before the next big push.
-- **`8th-chair` project mystery (carried over):** exists in Keith's own Vercel account (`8th-chair-keith-obriens-projects.vercel.app`), separate from the old-account leftovers already deleted. Never confirmed as intentional or stray.
+- **Permanent write-auth design:** signed-cookie vs server-token — not yet decided, just flagged in README/`_writeGate.ts` comments.
+- **Push the 2 local-only commits:** `main` is 2 commits ahead of `origin/main` (`670bd68` security containment, `9c63fd4` password-protection decision doc) — not yet pushed. Guarded operation, needs explicit go-ahead (`! git push origin main`).
+- **Doc drift (carried over, unconfirmed still true):** `.planning/PROJECT.md` may still describe an anonymous public product; `.planning/STATE.md` may still say "Phase 2, Plan 2 of 4" — reality is a personal single-user tool. Not re-verified this session.
+- **`8th-chair` project mystery (carried over):** exists in Keith's own Vercel account, separate from old-account leftovers already deleted. Never confirmed intentional or stray.
 - **`world-cup-fantasy`/`world-cup-squads` entanglement (carried over):** two repos point at one Vercel project. Untangle sometime.
 - Optional: Turso token rotation in `web/.env.local`, still outstanding.
 
 ## Don't forget
-- **New this session:** `discovered_albums` Turso table (session_id + mbid primary key, full album records — same seed-independence reasoning as `ranking_snapshots`). `web/api/discover-artist.ts` handles both `GET` (list previously-discovered albums for a session) and `POST` (live-discover one artist's LPs + persist + return). `/api/atom`'s allowlist check now also queries `discovered_albums`, not just the static `_allowlist.json`.
-- **LP definition:** MusicBrainz `primary-type: Album` with no `secondary-types` — same rule `build-seed.py` already used for the curated seed, reused via the new pure helper `web/api/_lp.ts`.
-- **Architecture note:** the discovery button makes one live MusicBrainz call from the running app — a deliberate, documented exception to `DATA-SOURCES.md`'s "don't query a live vendor catalog" rule (see `docs/superpowers/specs/2026-07-05-artist-discography-button-design.md` for the reasoning). Don't "fix" this later by routing it through an offline pipeline unless the product direction changes back toward the public/multi-user vision.
-- `OWNER_ID` (`web/src/owner.ts`) is still the single-owner key everywhere, including the new `discovered_albums` table's `session_id` column.
+- **Write kill switch blocks Keith too, not just the public.** `ALLOW_PUBLIC_WRITES=false` is a blanket gate with no owner exception — the deployed app is effectively read-only until either the permanent fix ships or the flag is temporarily flipped.
+- Vercel Password Protection was evaluated and deliberately deferred (requires paid Advanced Deployment Protection add-on) — write kill switch judged sufficient containment for now. Revisit only if the plan tier changes for other reasons.
+- **Discovery button architecture note (carried over):** the discovery button makes one live MusicBrainz call from the running app — a deliberate, documented exception to `DATA-SOURCES.md`'s "don't query a live vendor catalog" rule. Don't route it through an offline pipeline unless the product direction shifts back toward public/multi-user.
+- `OWNER_ID` (`web/src/owner.ts`) is still the single-owner key everywhere, including `discovered_albums`'s `session_id` column.
 - Two load-bearing Vercel-ESM fixes in `api/*.ts` from prior sessions: `import ... with { type: 'json' }` and `from './_schema.js'`. Don't revert.
 - Legacy calibration tool (`index.html`/`app.js`/`artists.js`/`scoring/`) is unrelated and untouched.
 
 ## Files touched this session
-- `docs/superpowers/specs/2026-07-05-rank-badges-design.md` — new spec
-- `docs/superpowers/specs/2026-07-05-artist-discography-button-design.md` — new spec
-- `docs/superpowers/plans/2026-07-05-rank-badges.md` — new implementation plan
-- `docs/superpowers/plans/2026-07-05-artist-discography-button.md` — new implementation plan
-- `HANDOFF.md` — this file, updated across the session (cleanup confirmation, then this rewrite)
-
-Everything else (`web/src/ranking/subRank.ts`, `web/src/ui/rankList.ts`, `web/api/_schema.ts`, `web/api/_lp.ts`, `web/api/discover-artist.ts`, `web/api/atom.ts`, `web/src/discovery.ts`, `web/src/main.ts`, `web/src/style.css`) was written and committed by **Codex**, executing the two plans above — not edited directly in this session, only reviewed.
+None. This session only answered a question (the deployed app URL) by reading README.md/HANDOFF.md — no edits.
 
 ## Git state
-- Branch: `main` (the `design-system-te` branch was fast-forward merged into `main` earlier this session).
-- Last commit: `8b8a1d6 feat: place candidate by rank number`.
+- Branch: `main`.
+- Last commit: `9c63fd4 docs: record Password Protection decision`.
 - Uncommitted changes: no (working tree clean).
-- Untracked, intentionally left: `elo-demo.html`, `pairwise-demo.html` (pre-existing scratch files, not from this session).
-- Ahead of `origin/main`: 86 commits, nothing pushed.
+- Untracked, intentionally left: `elo-demo.html`, `pairwise-demo.html` (pre-existing scratch files).
+- Ahead of `origin/main`: 2 commits (`670bd68`, `9c63fd4`), not yet pushed.
 
 ## Reason for handoff
-Session paused after Codex finished executing both plans live and Keith confirmed the build succeeded. Next step is smoke-testing the discovery button and deciding on the `origin` push — both explicitly deferred to Keith rather than done automatically (push is a guarded operation; the live Turso/MusicBrainz test needs Keith's env setup).
+Session paused after a quick question ("what's the URL?"); refreshed this file since it had gone stale relative to the security containment work done between sessions (wrong HEAD, wrong ahead-count, missing the write-kill-switch context).
 
 ## Updated
-2026-07-05T16:41:54Z
+2026-07-05T17:00:00Z
