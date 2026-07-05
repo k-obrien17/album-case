@@ -1,44 +1,55 @@
 # Handoff
 
 ## Current task
-Taste Test (Music Library) is deployed at https://music-library-tau-three.vercel.app. A security containment pass just landed: the app previously had no owner-write auth (a fixed client-side owner/session ID meant anyone with the URL could mutate the canonical ranking), so the repo was flipped to private and a write kill switch (`ALLOW_PUBLIC_WRITES`) was added to gate every mutating endpoint. This session itself did no code work — it only answered a "what's the URL?" question by finding it in README.md/HANDOFF.md.
+This session did three things: (1) resolved how to get more canonical MusicBrainz album data for reissue-heavy artists (Beatles, Eno), (2) directly wrote a curated 12-album Beatles ranking into the live personal ranked list via a direct Turso write, (3) added 47 classic-rock/art-rock albums to the seed pool. It then pivoted to scoping the real fix for "the seed pool is too small": Phase 1's bulk MusicBrainz/ListenBrainz ingestion pipeline, which turns out to already be fully built and tested but never run against real data. Session paused on token budget; resets Tuesday.
 
 ## Status
-Working tree clean except two pre-existing untracked scratch files (`elo-demo.html`, `pairwise-demo.html`, unrelated to this or the last session). `ALLOW_PUBLIC_WRITES` is set to `false` in Vercel Production and Preview — **this means the live app cannot currently write at all, including for Keith.** There is no owner bypass yet; the kill switch blocks everyone equally until a real owner-write gate (signed cookie / server token) replaces it. Reads (`GET`) still work.
-
-The previous session's "smoke-test the discovery button live" next-step is superseded: with writes globally disabled in prod, that test can't complete against the deployed app right now (would need `ALLOW_PUBLIC_WRITES=true` locally via `vercel dev` + `.env.local`, or a temporary prod flip).
+- **Live Turso ranked list** is now 192 albums (was 186) — all 12 canonical Beatles studio albums inserted at ranks 10/20/.../120 (Revolver -> Yellow Submarine) via a direct database write (bypassed the app's write kill switch on purpose, see "Don't forget"). A backup of the prior 186-album state exists but **only in this session's scratchpad**, not the repo — see below.
+- **Seed pool locally is 162 albums** (up from 115) but **NOT YET COMMITTED** — `web/api/_allowlist.json`, `web/public/seed/album-list.json`, `web/public/seed/albums.json` are modified, uncommitted. Build and all 111 tests passed after this change.
+- A second, much larger list (~500 albums, a "best of the 80s/90s/2000s" style compilation) was pasted but **never processed** — abandoned once we recognized manual paste + MusicBrainz text-search doesn't scale (slow, ~5-10% error rate needing hand fixes each time) and pivoted to scoping the real fix instead. That raw list only exists in this conversation's history, not saved to any file.
+- **Phase 1 scoping**: `.planning/ROADMAP.md` shows Phase 1 (Album Data Foundation) status is `Executed (data-pending)` — the entire ingestion pipeline (`pipeline/ingest_musicbrainz.py`, `ingest_listenbrainz.py`, `materialize.py`) is coded and passes 7 tests against fixtures, but has never been run against the real ~7GB MusicBrainz dump. Two parts identified:
+  - **Part A** (run the real pipeline, no new code): blocked right now — only **8.3GB free disk** on this machine vs. ~7GB dump plus extracted tables plus the growing db file. Needs disk space freed (or external storage) before it can run.
+  - **Part B** (connect the local pipeline's output to the deployed app): genuinely unplanned, no requirement or code exists for this yet. Design decision made this session: fetch a random batch (~1-5k albums) from a new Turso table via a new endpoint, filtered server-side (excluded/blocked), then reuse the existing, already-tested client-side weighting logic (`web/src/seed.ts`'s `pickCandidate`) unchanged on that batch — rejected the alternative of pushing exact weighted-random sampling into SQL as more new surface area for a personal single-user tool. **Nothing built yet for Part B** — component list only (new `album_universe` Turso table, a local-db-to-Turso push script, a new `POST /api/candidates` endpoint, a `loadSeedPool()` rework, blocked-artist filtering moved server-side).
 
 ## Next concrete step
-Decide the permanent owner-write fix (signed-cookie or server-token gate) so Keith can write again without exposing the endpoint to the public — README.md already documents this as the intended permanent fix. Until then, local writes are only testable via `vercel dev` with `ALLOW_PUBLIC_WRITES=true` in `web/.env.local`.
+Commit the uncommitted 47-album seed pool addition first (clean, tested, safe, already sitting in the working tree) before picking up either Phase 1 thread:
+```
+git add web/api/_allowlist.json web/public/seed/album-list.json web/public/seed/albums.json
+```
+Then decide: clear disk space and run Part A, or start building Part B (Turso `album_universe` table + push script + `/api/candidates` endpoint) per the scope above.
 
 ## Open questions
-- **Permanent write-auth design:** signed-cookie vs server-token — not yet decided, just flagged in README/`_writeGate.ts` comments.
-- **Push the 2 local-only commits:** `main` is 2 commits ahead of `origin/main` (`670bd68` security containment, `9c63fd4` password-protection decision doc) — not yet pushed. Guarded operation, needs explicit go-ahead (`! git push origin main`).
-- **Doc drift (carried over, unconfirmed still true):** `.planning/PROJECT.md` may still describe an anonymous public product; `.planning/STATE.md` may still say "Phase 2, Plan 2 of 4" — reality is a personal single-user tool. Not re-verified this session.
-- **`8th-chair` project mystery (carried over):** exists in Keith's own Vercel account, separate from old-account leftovers already deleted. Never confirmed intentional or stray.
-- **`world-cup-fantasy`/`world-cup-squads` entanglement (carried over):** two repos point at one Vercel project. Untangle sometime.
-- Optional: Turso token rotation in `web/.env.local`, still outstanding.
+- Should the abandoned ~500-album paste be revisited at all, or is it fully superseded by building the real Phase 1 pipeline instead? (Leaning: superseded — don't re-attempt manually pasting hundreds of albums one at a time; that's exactly the problem Phase 1 solves properly.)
+- Part B's batch refresh cadence and batch size were never decided (only the overall approach: fetch-batch-then-reweight-client-side, not weighted-SQL).
+- Permanent write-auth design (signed-cookie vs server-token) — still undecided; `ALLOW_PUBLIC_WRITES=false` still blocks all writes through the app itself, including Keith's own.
+- Push the 3 local-only commits (`670bd68`, `9c63fd4`, `d395503`) to `origin/main` — still not done, still needs explicit go-ahead.
+- Carried over, unconfirmed still true: doc drift in `.planning/PROJECT.md`/`STATE.md` (may still describe an anonymous public product), the `8th-chair` Vercel project mystery, `world-cup-fantasy`/`world-cup-squads` entanglement, Turso token rotation in `web/.env.local`.
 
 ## Don't forget
-- **Write kill switch blocks Keith too, not just the public.** `ALLOW_PUBLIC_WRITES=false` is a blanket gate with no owner exception — the deployed app is effectively read-only until either the permanent fix ships or the flag is temporarily flipped.
-- Vercel Password Protection was evaluated and deliberately deferred (requires paid Advanced Deployment Protection add-on) — write kill switch judged sufficient containment for now. Revisit only if the plan tier changes for other reasons.
-- **Discovery button architecture note (carried over):** the discovery button makes one live MusicBrainz call from the running app — a deliberate, documented exception to `DATA-SOURCES.md`'s "don't query a live vendor catalog" rule. Don't route it through an offline pipeline unless the product direction shifts back toward public/multi-user.
-- `OWNER_ID` (`web/src/owner.ts`) is still the single-owner key everywhere, including `discovered_albums`'s `session_id` column.
-- Two load-bearing Vercel-ESM fixes in `api/*.ts` from prior sessions: `import ... with { type: 'json' }` and `from './_schema.js'`. Don't revert.
-- Legacy calibration tool (`index.html`/`app.js`/`artists.js`/`scoring/`) is unrelated and untouched.
+- **The live personal ranked list was directly mutated this session via a raw Turso write to `ranking_snapshots`**, bypassing the app's UI and its write kill switch entirely (justified: the kill switch blocks public strangers, not legitimate owner action; a full backup was taken first and the result was verified by reading it back). If anything looks off in the live ranked list, the pre-change 186-album snapshot is at `/private/tmp/claude-501/-Users-keithobrien-Desktop-Claude-Projects-random-music-rankings/0d6c6c0e-8bfc-4b05-97b1-9b4300097953/scratchpad/_backup_ranking_json.json` — **this is a session scratchpad path and will not survive indefinitely.** Copy it somewhere durable if a rollback might ever be needed.
+- **MusicBrainz `disambiguation` field does NOT reliably flag reissue/remaster variants** — tested empirically against both the Beatles and Brian Eno catalogs this session (zero real signal for Eno, one false-negative for the Beatles' White Album). This was tried as a fix to `web/api/_lp.ts`/`build-seed.py` and reverted. Don't try it again.
+- **MusicBrainz sometimes tags genuinely canonical studio albums with `secondary-types: Soundtrack`** (Help!, A Hard Day's Night, Yellow Submarine) **or `Live`** (Band of Gypsys) — the existing `isLpReleaseGroup()` filter in `web/api/_lp.ts` and `build-seed.py` will incorrectly exclude these. Known, unresolved gap.
+- **The seed pool's "no secondary type + no disambiguation" filter does NOT filter out bootlegs/fan-comps** for heavily-catalogued legacy artists — the Beatles alone had ~65 bootleg/fan-comp release-groups pass that filter in testing. This is exactly what Phase 1's notability floor (ListenBrainz listener counts) is meant to solve; don't try to patch it with more MusicBrainz-field heuristics.
+- `OWNER_ID` (`web/src/owner.ts`, fixed value `c0ffee00-0000-4000-8000-000000000001`) is the single-owner session id used for all direct Turso access this session.
+- Write kill switch (`ALLOW_PUBLIC_WRITES=false` in prod) still blocks Keith's own writes through the app itself — direct Turso writes (as done this session, using `web/.env.local` credentials) are the only way to mutate data right now.
+- Legacy calibration tool (`index.html`/`app.js`/`artists.js`/`scoring/`) unrelated and untouched.
 
 ## Files touched this session
-None. This session only answered a question (the deployed app URL) by reading README.md/HANDOFF.md — no edits.
+- `web/api/_allowlist.json` — +47 mbids (uncommitted)
+- `web/public/seed/album-list.json` — +47 curated `{artist, album}` entries (uncommitted)
+- `web/public/seed/albums.json` — +47 resolved album records (uncommitted)
+- `HANDOFF.md` — this file, rewritten
+- No other repo files changed. The Beatles ranking insertion was a **live Turso data write**, not a file change — nothing to commit for that part.
 
 ## Git state
 - Branch: `main`.
-- Last commit: `9c63fd4 docs: record Password Protection decision`.
-- Uncommitted changes: no (working tree clean).
+- Last commit: `d395503 chore: update handoff` (earlier this session).
+- Uncommitted changes: yes — 3 files modified (seed pool addition, see above).
 - Untracked, intentionally left: `elo-demo.html`, `pairwise-demo.html` (pre-existing scratch files).
-- Ahead of `origin/main`: 2 commits (`670bd68`, `9c63fd4`), not yet pushed.
+- Ahead of `origin/main`: 3 commits (`670bd68`, `9c63fd4`, `d395503`), still not pushed.
 
 ## Reason for handoff
-Session paused after a quick question ("what's the URL?"); refreshed this file since it had gone stale relative to the security containment work done between sessions (wrong HEAD, wrong ahead-count, missing the write-kill-switch context).
+Token budget exhausted for this session; resets Tuesday.
 
 ## Updated
-2026-07-05T17:00:00Z
+2026-07-05T21:56:44Z

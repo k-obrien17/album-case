@@ -803,5 +803,334 @@
     "primary_artist_name": "Madvillain",
     "release_year": 2002,
     "cover_url": "https://coverartarchive.org/release-group/ab570ccb-b06b-3746-8147-4903163ba895/front-500"
+  },
+  {
+    "mbid": "b6a3952b-9977-351c-a80a-73e023143858",
+    "title": "After the Gold Rush",
+    "primary_artist_name": "Neil Young",
+    "release_year": 1970,
+    "cover_url": "https://coverartarchive.org/release-group/b6a3952b-9977-351c-a80a-73e023143858/front-500"
+  },
+  {
+    "mbid": "94a36264-ab82-34b7-ae9d-2320803c4516",
+    "title": "Rock Bottom",
+    "primary_artist_name": "Robert Wyatt",
+    "release_year": 1974,
+    "cover_url": "https://coverartarchive.org/release-group/94a36264-ab82-34b7-ae9d-2320803c4516/front-500"
+  },
+  {
+    "mbid": "09c88c6d-090e-378d-b104-7966eb5d33d2",
+    "title": "The Idiot",
+    "primary_artist_name": "Iggy Pop",
+    "release_year": 1977,
+    "cover_url": "https://coverartarchive.org/release-group/09c88c6d-090e-378d-b104-7966eb5d33d2/front-500"
+  },
+  {
+    "mbid": "e65ee097-180e-3116-8b68-599b177947b8",
+    "title": "Starless and Bible Black",
+    "primary_artist_name": "King Crimson",
+    "release_year": 1974,
+    "cover_url": "https://coverartarchive.org/release-group/e65ee097-180e-3116-8b68-599b177947b8/front-500"
+  },
+  {
+    "mbid": "d147e89b-90ca-35b6-9f7b-3e34b8edf63f",
+    "title": "Die Mensch\u00b7Maschine",
+    "primary_artist_name": "Kraftwerk",
+    "release_year": 1978,
+    "cover_url": "https://coverartarchive.org/release-group/d147e89b-90ca-35b6-9f7b-3e34b8edf63f/front-500"
+  },
+  {
+    "mbid": "4f1038db-a822-3111-8b3e-0a13beaa027e",
+    "title": "20 Jazz Funk Greats",
+    "primary_artist_name": "Throbbing Gristle",
+    "release_year": 1979,
+    "cover_url": "https://coverartarchive.org/release-group/4f1038db-a822-3111-8b3e-0a13beaa027e/front-500"
+  },
+  {
+    "mbid": "60a754f9-50e1-346a-97db-925a1e2ad7e0",
+    "title": "Q: Are We Not Men? A: We Are Devo!",
+    "primary_artist_name": "DEVO",
+    "release_year": 1978,
+    "cover_url": "https://coverartarchive.org/release-group/60a754f9-50e1-346a-97db-925a1e2ad7e0/front-500"
+  },
+  {
+    "mbid": "eea2d61e-2106-32b7-8834-6cf0e50eb9ff",
+    "title": "From Here to Eternity",
+    "primary_artist_name": "Giorgio Moroder",
+    "release_year": 1977,
+    "cover_url": "https://coverartarchive.org/release-group/eea2d61e-2106-32b7-8834-6cf0e50eb9ff/front-500"
+  },
+  {
+    "mbid": "72fd9993-17b8-3402-9f8d-c39cb3d2c27e",
+    "title": "For Your Pleasure",
+    "primary_artist_name": "Roxy Music",
+    "release_year": 1973,
+    "cover_url": "https://coverartarchive.org/release-group/72fd9993-17b8-3402-9f8d-c39cb3d2c27e/front-500"
+  },
+  {
+    "mbid": "42d725fb-a8b7-388c-8866-3b02789af326",
+    "title": "Blue",
+    "primary_artist_name": "Joni Mitchell",
+    "release_year": 1971,
+    "cover_url": "https://coverartarchive.org/release-group/42d725fb-a8b7-388c-8866-3b02789af326/front-500"
+  },
+  {
+    "mbid": "30e3a3dc-f544-3bc0-b574-c680cfeb64fe",
+    "title": "154",
+    "primary_artist_name": "Wire",
+    "release_year": 1979,
+    "cover_url": "https://coverartarchive.org/release-group/30e3a3dc-f544-3bc0-b574-c680cfeb64fe/front-500"
+  },
+  {
+    "mbid": "156cbf68-eaea-3f6a-852e-aa6afbd779db",
+    "title": "Raw Power",
+    "primary_artist_name": "Iggy and The Stooges",
+    "release_year": 1973,
+    "cover_url": "https://coverartarchive.org/release-group/156cbf68-eaea-3f6a-852e-aa6afbd779db/front-500"
+  },
+  {
+    "mbid": "d4b0f3e2-e3eb-3531-b305-ed8105cb5be4",
+    "title": "All Things Must Pass",
+    "primary_artist_name": "George Harrison",
+    "release_year": 1970,
+    "cover_url": "https://coverartarchive.org/release-group/d4b0f3e2-e3eb-3531-b305-ed8105cb5be4/front-500"
+  },
+  {
+    "mbid": "6c9ae3dd-32ad-472c-96be-69d0a3536261",
+    "title": "The Rise and Fall of Ziggy Stardust and the Spiders From Mars",
+    "primary_artist_name": "David Bowie",
+    "release_year": 1972,
+    "cover_url": "https://coverartarchive.org/release-group/6c9ae3dd-32ad-472c-96be-69d0a3536261/front-500"
+  },
+  {
+    "mbid": "743b0b2e-a23a-3182-950e-232f8cb0dfb7",
+    "title": "Hunky Dory",
+    "primary_artist_name": "David Bowie",
+    "release_year": 1971,
+    "cover_url": "https://coverartarchive.org/release-group/743b0b2e-a23a-3182-950e-232f8cb0dfb7/front-500"
+  },
+  {
+    "mbid": "d1c0b3db-6b93-3b9d-9479-0d60486120cb",
+    "title": "Sail Away",
+    "primary_artist_name": "Randy Newman",
+    "release_year": 1972,
+    "cover_url": "https://coverartarchive.org/release-group/d1c0b3db-6b93-3b9d-9479-0d60486120cb/front-500"
+  },
+  {
+    "mbid": "50f8710f-3ae6-319b-85a7-afe783f13449",
+    "title": "Aladdin Sane",
+    "primary_artist_name": "David Bowie",
+    "release_year": 1973,
+    "cover_url": "https://coverartarchive.org/release-group/50f8710f-3ae6-319b-85a7-afe783f13449/front-500"
+  },
+  {
+    "mbid": "0c1a4d70-5926-3ae8-aa25-466fe65639fe",
+    "title": "Parallel Lines",
+    "primary_artist_name": "Blondie",
+    "release_year": 1978,
+    "cover_url": "https://coverartarchive.org/release-group/0c1a4d70-5926-3ae8-aa25-466fe65639fe/front-500"
+  },
+  {
+    "mbid": "9b5006e5-b276-3a05-bcdd-8d986842320b",
+    "title": "Houses of the Holy",
+    "primary_artist_name": "Led Zeppelin",
+    "release_year": 1973,
+    "cover_url": "https://coverartarchive.org/release-group/9b5006e5-b276-3a05-bcdd-8d986842320b/front-500"
+  },
+  {
+    "mbid": "964ccc52-2873-3bce-a806-73d71532c539",
+    "title": "Songs of Love and Hate",
+    "primary_artist_name": "Leonard Cohen",
+    "release_year": 1971,
+    "cover_url": "https://coverartarchive.org/release-group/964ccc52-2873-3bce-a806-73d71532c539/front-500"
+  },
+  {
+    "mbid": "43a0e8b5-6059-397f-81e6-b8df5a648496",
+    "title": "Van Halen",
+    "primary_artist_name": "Van Halen",
+    "release_year": 1978,
+    "cover_url": "https://coverartarchive.org/release-group/43a0e8b5-6059-397f-81e6-b8df5a648496/front-500"
+  },
+  {
+    "mbid": "89bc97c8-921a-3758-8481-3b39c564e297",
+    "title": "Red",
+    "primary_artist_name": "King Crimson",
+    "release_year": 1974,
+    "cover_url": "https://coverartarchive.org/release-group/89bc97c8-921a-3758-8481-3b39c564e297/front-500"
+  },
+  {
+    "mbid": "d428149d-7ad9-3fbe-85de-acbee37ab050",
+    "title": "The Payback",
+    "primary_artist_name": "James Brown",
+    "release_year": 1973,
+    "cover_url": "https://coverartarchive.org/release-group/d428149d-7ad9-3fbe-85de-acbee37ab050/front-500"
+  },
+  {
+    "mbid": "f5093c06-23e3-404f-aeaa-40f72885ee3a",
+    "title": "The Dark Side of the Moon",
+    "primary_artist_name": "Pink Floyd",
+    "release_year": 1973,
+    "cover_url": "https://coverartarchive.org/release-group/f5093c06-23e3-404f-aeaa-40f72885ee3a/front-500"
+  },
+  {
+    "mbid": "75ec1e72-cc7d-37b6-bebd-a1131b578e7b",
+    "title": "Faust IV",
+    "primary_artist_name": "Faust",
+    "release_year": 1973,
+    "cover_url": "https://coverartarchive.org/release-group/75ec1e72-cc7d-37b6-bebd-a1131b578e7b/front-500"
+  },
+  {
+    "mbid": "322f18bb-5491-38e9-9044-c0a468651eec",
+    "title": "Head Hunters",
+    "primary_artist_name": "Herbie Hancock",
+    "release_year": 1973,
+    "cover_url": "https://coverartarchive.org/release-group/322f18bb-5491-38e9-9044-c0a468651eec/front-500"
+  },
+  {
+    "mbid": "4e98c9b4-92f6-3049-b9da-a1088b623672",
+    "title": "Meddle",
+    "primary_artist_name": "Pink Floyd",
+    "release_year": 1971,
+    "cover_url": "https://coverartarchive.org/release-group/4e98c9b4-92f6-3049-b9da-a1088b623672/front-500"
+  },
+  {
+    "mbid": "f4174531-b783-3786-b75f-4fe61a8f6333",
+    "title": "On the Beach",
+    "primary_artist_name": "Neil Young",
+    "release_year": 1974,
+    "cover_url": "https://coverartarchive.org/release-group/f4174531-b783-3786-b75f-4fe61a8f6333/front-500"
+  },
+  {
+    "mbid": "15dc9ccf-e33b-3f4d-8c81-8346388d0b29",
+    "title": "Lust for Life",
+    "primary_artist_name": "Iggy Pop",
+    "release_year": 1977,
+    "cover_url": "https://coverartarchive.org/release-group/15dc9ccf-e33b-3f4d-8c81-8346388d0b29/front-500"
+  },
+  {
+    "mbid": "bec7e911-3209-32c6-8523-7694cde62a1c",
+    "title": "Zuckerzeit",
+    "primary_artist_name": "Cluster",
+    "release_year": 1974,
+    "cover_url": "https://coverartarchive.org/release-group/bec7e911-3209-32c6-8523-7694cde62a1c/front-500"
+  },
+  {
+    "mbid": "36172f3d-9b55-37f1-9fd4-0cbd2f3af0ce",
+    "title": "The Cars",
+    "primary_artist_name": "The Cars",
+    "release_year": 1978,
+    "cover_url": "https://coverartarchive.org/release-group/36172f3d-9b55-37f1-9fd4-0cbd2f3af0ce/front-500"
+  },
+  {
+    "mbid": "a42b6a80-b542-344c-921d-15a07fdb580e",
+    "title": "Surf's Up",
+    "primary_artist_name": "The Beach Boys",
+    "release_year": 1971,
+    "cover_url": "https://coverartarchive.org/release-group/a42b6a80-b542-344c-921d-15a07fdb580e/front-500"
+  },
+  {
+    "mbid": "8be83468-4917-390d-82b6-d890f058cd22",
+    "title": "John Lennon/Plastic Ono Band",
+    "primary_artist_name": "John Lennon",
+    "release_year": 1970,
+    "cover_url": "https://coverartarchive.org/release-group/8be83468-4917-390d-82b6-d890f058cd22/front-500"
+  },
+  {
+    "mbid": "dd959091-dba1-32b8-8159-0090959ce75b",
+    "title": "Rocket to Russia",
+    "primary_artist_name": "Ramones",
+    "release_year": 1977,
+    "cover_url": "https://coverartarchive.org/release-group/dd959091-dba1-32b8-8159-0090959ce75b/front-500"
+  },
+  {
+    "mbid": "0ecf90fb-59ad-3194-b96b-57ad00e8bf1e",
+    "title": "Jack Johnson",
+    "primary_artist_name": "Miles Davis",
+    "release_year": 1971,
+    "cover_url": "https://coverartarchive.org/release-group/0ecf90fb-59ad-3194-b96b-57ad00e8bf1e/front-500"
+  },
+  {
+    "mbid": "602d0c54-2901-3469-a683-a5a50f3e5260",
+    "title": "Paul Simon",
+    "primary_artist_name": "Paul Simon",
+    "release_year": 1972,
+    "cover_url": "https://coverartarchive.org/release-group/602d0c54-2901-3469-a683-a5a50f3e5260/front-500"
+  },
+  {
+    "mbid": "aa41b178-9f16-3dc4-84b6-e9ad8b5be4b8",
+    "title": "Future Days",
+    "primary_artist_name": "Can",
+    "release_year": 1973,
+    "cover_url": "https://coverartarchive.org/release-group/aa41b178-9f16-3dc4-84b6-e9ad8b5be4b8/front-500"
+  },
+  {
+    "mbid": "d742fded-00e7-3746-a63d-aa2def3fdbcc",
+    "title": "Bryter Layter",
+    "primary_artist_name": "Nick Drake",
+    "release_year": 1971,
+    "cover_url": "https://coverartarchive.org/release-group/d742fded-00e7-3746-a63d-aa2def3fdbcc/front-500"
+  },
+  {
+    "mbid": "3a31800f-1916-3f4c-a7ae-26b783d00670",
+    "title": "Cosmo\u2019s Factory",
+    "primary_artist_name": "Creedence Clearwater Revival",
+    "release_year": 1970,
+    "cover_url": "https://coverartarchive.org/release-group/3a31800f-1916-3f4c-a7ae-26b783d00670/front-500"
+  },
+  {
+    "mbid": "5e8117f4-a87f-3732-be5f-313c7e5b308d",
+    "title": "This Year\u2019s Model",
+    "primary_artist_name": "Elvis Costello",
+    "release_year": 1978,
+    "cover_url": "https://coverartarchive.org/release-group/5e8117f4-a87f-3732-be5f-313c7e5b308d/front-500"
+  },
+  {
+    "mbid": "e959a4b3-6306-3c45-9df6-e7241dae9ea3",
+    "title": "Never Mind the Bollocks Here\u2019s the Sex Pistols",
+    "primary_artist_name": "Sex Pistols",
+    "release_year": 1977,
+    "cover_url": "https://coverartarchive.org/release-group/e959a4b3-6306-3c45-9df6-e7241dae9ea3/front-500"
+  },
+  {
+    "mbid": "c52726bf-b188-373a-8cf0-95c3ed422fba",
+    "title": "3rd",
+    "primary_artist_name": "Big Star",
+    "release_year": 1978,
+    "cover_url": "https://coverartarchive.org/release-group/c52726bf-b188-373a-8cf0-95c3ed422fba/front-500"
+  },
+  {
+    "mbid": "19a185f4-f683-3d00-9571-7378ea276068",
+    "title": "Nilsson Schmilsson",
+    "primary_artist_name": "Nilsson",
+    "release_year": 1971,
+    "cover_url": "https://coverartarchive.org/release-group/19a185f4-f683-3d00-9571-7378ea276068/front-500"
+  },
+  {
+    "mbid": "b16d9280-f25e-3648-8a8e-1141efd55669",
+    "title": "Expensive Shit",
+    "primary_artist_name": "Fela Ransome Kuti",
+    "release_year": 1975,
+    "cover_url": "https://coverartarchive.org/release-group/b16d9280-f25e-3648-8a8e-1141efd55669/front-500"
+  },
+  {
+    "mbid": "4885c9c3-5026-3bc6-a5bc-1d7ac896dab1",
+    "title": "Music for 18 Musicians",
+    "primary_artist_name": "Steve Reich",
+    "release_year": 1978,
+    "cover_url": "https://coverartarchive.org/release-group/4885c9c3-5026-3bc6-a5bc-1d7ac896dab1/front-500"
+  },
+  {
+    "mbid": "06eada6a-7bff-34ef-8311-a0435833061f",
+    "title": "Band of Gypsys",
+    "primary_artist_name": "Jimi Hendrix",
+    "release_year": 1970,
+    "cover_url": "https://coverartarchive.org/release-group/06eada6a-7bff-34ef-8311-a0435833061f/front-500"
+  },
+  {
+    "mbid": "517cbfb2-2279-4af9-8ca7-1c4c1a444925",
+    "title": "Zombie",
+    "primary_artist_name": "F\u1eb9la",
+    "release_year": 1976,
+    "cover_url": "https://coverartarchive.org/release-group/517cbfb2-2279-4af9-8ca7-1c4c1a444925/front-500"
   }
 ]
