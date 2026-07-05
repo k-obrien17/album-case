@@ -5,6 +5,10 @@
   },
   {
     "artist": "Radiohead",
+    "album": "Amnesiac"
+  },
+  {
+    "artist": "Radiohead",
     "album": "In Rainbows"
   },
   {
@@ -29,7 +33,7 @@
   },
   {
     "artist": "Maria Somerville",
-    "album": "Luna"
+    "album": "Luster"
   },
   {
     "artist": "Maria Somerville",
@@ -41,15 +45,15 @@
   },
   {
     "artist": "Nine Inch Nails",
+    "album": "The Fragile"
+  },
+  {
+    "artist": "Nine Inch Nails",
     "album": "Pretty Hate Machine"
   },
   {
     "artist": "Smerz",
     "album": "Believer"
-  },
-  {
-    "artist": "Smerz",
-    "album": "Have fun"
   },
   {
     "artist": "Rosalía",
@@ -65,7 +69,7 @@
   },
   {
     "artist": "Jonny Greenwood",
-    "album": "There Will Be Blood"
+    "album": "Phantom Thread"
   },
   {
     "artist": "PinkPantheress",
@@ -136,14 +140,6 @@
     "album": "Plunge"
   },
   {
-    "artist": "Rerose",
-    "album": "Rerose"
-  },
-  {
-    "artist": "Brian Eno",
-    "album": "Another Green World"
-  },
-  {
     "artist": "Brian Eno",
     "album": "Ambient 1: Music for Airports"
   },
@@ -192,12 +188,12 @@
     "album": "Sound of Silver"
   },
   {
-    "artist": "Sabrina Carpenter",
-    "album": "Short n' Sweet"
+    "artist": "LCD Soundsystem",
+    "album": "This Is Happening"
   },
   {
-    "artist": "Solace Sonique",
-    "album": "Solace Sonique"
+    "artist": "Sabrina Carpenter",
+    "album": "Short n' Sweet"
   },
   {
     "artist": "Aldous Harding",
@@ -212,10 +208,6 @@
     "album": "Odessey and Oracle"
   },
   {
-    "artist": "EsDeeKid",
-    "album": "Kidenza"
-  },
-  {
     "artist": "Daft Punk",
     "album": "Discovery"
   },
@@ -226,6 +218,10 @@
   {
     "artist": "Kanye West",
     "album": "My Beautiful Dark Twisted Fantasy"
+  },
+  {
+    "artist": "Kanye West",
+    "album": "Late Registration"
   },
   {
     "artist": "Bad Bunny",
@@ -286,10 +282,6 @@
   {
     "artist": "billy woods",
     "album": "Maps"
-  },
-  {
-    "artist": "Fcukers",
-    "album": "Baggy$$"
   },
   {
     "artist": "Weyes Blood",
@@ -372,48 +364,16 @@
     "album": "Hey What"
   },
   {
-    "artist": "Led Zeppelin",
-    "album": "Led Zeppelin IV"
-  },
-  {
     "artist": "Stevie Wonder",
     "album": "Songs in the Key of Life"
-  },
-  {
-    "artist": "Queen",
-    "album": "A Night at the Opera"
-  },
-  {
-    "artist": "Soundgarden",
-    "album": "Superunknown"
   },
   {
     "artist": "Massive Attack",
     "album": "Blue Lines"
   },
   {
-    "artist": "Snoop Dogg",
-    "album": "Doggystyle"
-  },
-  {
-    "artist": "Jay-Z",
-    "album": "The Blueprint"
-  },
-  {
     "artist": "Frank Ocean",
     "album": "Blonde"
-  },
-  {
-    "artist": "Erykah Badu",
-    "album": "Baduizm"
-  },
-  {
-    "artist": "George Michael",
-    "album": "Faith"
-  },
-  {
-    "artist": "Lady Gaga",
-    "album": "The Fame Monster"
   },
   {
     "artist": "SZA",
@@ -424,56 +384,16 @@
     "album": "Funeral"
   },
   {
-    "artist": "MGMT",
-    "album": "Oracular Spectacular"
-  },
-  {
     "artist": "Modest Mouse",
     "album": "The Moon & Antarctica"
-  },
-  {
-    "artist": "Fall Out Boy",
-    "album": "From Under the Cork Tree"
-  },
-  {
-    "artist": "Red Hot Chili Peppers",
-    "album": "Blood Sugar Sex Magik"
-  },
-  {
-    "artist": "Iron Maiden",
-    "album": "The Number of the Beast"
-  },
-  {
-    "artist": "Tom Petty and the Heartbreakers",
-    "album": "Damn the Torpedoes"
-  },
-  {
-    "artist": "Ramones",
-    "album": "Ramones"
   },
   {
     "artist": "Fiona Apple",
     "album": "Fetch the Bolt Cutters"
   },
   {
-    "artist": "James Brown",
-    "album": "Live at the Apollo"
-  },
-  {
     "artist": "Miles Davis",
     "album": "Kind of Blue"
-  },
-  {
-    "artist": "Billie Holiday",
-    "album": "Lady in Satin"
-  },
-  {
-    "artist": "Chris Stapleton",
-    "album": "Traveller"
-  },
-  {
-    "artist": "Buena Vista Social Club",
-    "album": "Buena Vista Social Club"
   },
   {
     "artist": "Fishmans",
@@ -488,40 +408,8 @@
     "album": "Dubnobasswithmyheadman"
   },
   {
-    "artist": "Jack White",
-    "album": "Blunderbuss"
-  },
-  {
-    "artist": "Muse",
-    "album": "Absolution"
-  },
-  {
-    "artist": "The Band",
-    "album": "The Band"
-  },
-  {
-    "artist": "ABBA",
-    "album": "Arrival"
-  },
-  {
-    "artist": "Boston",
-    "album": "Boston"
-  },
-  {
-    "artist": "Culture Club",
-    "album": "Colour by Numbers"
-  },
-  {
-    "artist": "TLC",
-    "album": "CrazySexyCool"
-  },
-  {
     "artist": "Amy Winehouse",
     "album": "Frank"
-  },
-  {
-    "artist": "Playboi Carti",
-    "album": "Whole Lotta Red"
   },
   {
     "artist": "Danny Brown",
@@ -534,14 +422,6 @@
   {
     "artist": "Grimes",
     "album": "Visions"
-  },
-  {
-    "artist": "Christina Aguilera",
-    "album": "Stripped"
-  },
-  {
-    "artist": "Avril Lavigne",
-    "album": "Let Go"
   },
   {
     "artist": "Yeah Yeah Yeahs",
@@ -576,19 +456,7 @@
     "album": "Apollo XXI"
   },
   {
-    "artist": "MF DOOM",
+    "artist": "Madvillain",
     "album": "Madvillainy"
-  },
-  {
-    "artist": "Talib Kweli",
-    "album": "Quality"
-  },
-  {
-    "artist": "LL Cool J",
-    "album": "Radio"
-  },
-  {
-    "artist": "Ludacris",
-    "album": "Word of Mouf"
   }
 ]

@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { Album } from './ranking/types';
-import { nextPriorityCandidate, priorityQueueFromArtistText } from './priority';
+import {
+  artistKeys,
+  nextPriorityCandidate,
+  priorityQueueFromArtists,
+  priorityQueueFromArtistText,
+} from './priority';
 
 function album(mbid: string, artist: string, title = `Title ${mbid}`): Album {
   return {
@@ -36,6 +41,35 @@ describe('priority queue from artist text', () => {
 
   it('ignores unknown artists', () => {
     expect(priorityQueueFromArtistText('Ben Frost / The Clean', pool)).toEqual([]);
+  });
+
+  it('matches a slash-credited album ("Genius/GZA") from its listed member ("GZA")', () => {
+    const slashPool = [album('gza', 'Genius/GZA', 'Liquid Swords')];
+    expect(priorityQueueFromArtistText('GZA', slashPool)).toEqual(['gza']);
+  });
+});
+
+describe('artistKeys', () => {
+  it('splits slash-credits so either member can match', () => {
+    expect(artistKeys('Genius/GZA')).toContain('gza');
+    expect(artistKeys('Jonny Greenwood')).toEqual(['jonny greenwood']);
+  });
+});
+
+describe('priorityQueueFromArtists (auto-seed)', () => {
+  it('yields the highest-priority artist first, slash-aware', () => {
+    const seedPool = [
+      album('x1', 'Some Canon Band'),
+      album('gza', 'Genius/GZA', 'Liquid Swords'),
+      album('r1', 'Radiohead', 'Kid A'),
+      album('gw', 'Jonny Greenwood', 'There Will Be Blood'),
+    ];
+    // Ordered highest-plays first: Radiohead, GZA, Jonny Greenwood.
+    expect(priorityQueueFromArtists(['Radiohead', 'GZA', 'Jonny Greenwood'], seedPool)).toEqual([
+      'r1',
+      'gza',
+      'gw',
+    ]);
   });
 });
 

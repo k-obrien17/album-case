@@ -2,7 +2,8 @@ import './style.css';
 import type { Album, RankingState } from './ranking/types';
 import { insertAt, moveItem } from './ranking/order';
 import { setAsideAlbum } from './ranking/setAside';
-import { loadSeedPool, pickCandidate } from './seed';
+import { loadSeedPool, loadPreferredArtists, playsMapFromPreferred, pickCandidate } from './seed';
+import type { ArtistPlays } from './seed';
 import { loadRanking, saveRanking } from './storage';
 import { getOrCreateSession } from './session';
 import {
@@ -21,6 +22,7 @@ import { createRankingBackup, parseRankingBackup } from './backup';
 import {
   loadPriorityQueue,
   nextPriorityCandidate,
+  priorityQueueFromArtists,
   priorityQueueFromArtistText,
   savePriorityQueue,
 } from './priority';
@@ -38,8 +40,29 @@ async function main(): Promise<void> {
   void flushAtomQueue();
 
   const pool = await loadSeedPool();
+
+  // Keith's play-weighted artist list drives both weighted selection and the
+  // auto-seeded priority queue. Degrade gracefully to uniform/random if it
+  // can't be loaded -- the loop must never blank out over a missing sidecar.
+  let preferred: ArtistPlays[] = [];
+  try {
+    preferred = await loadPreferredArtists();
+  } catch (err) {
+    console.warn('tastetest: failed to load preferred artists, using uniform selection', err);
+  }
+  const playsByArtist = playsMapFromPreferred(preferred);
+
   let lists: SavedLists = loadLists();
   let priorityQueue = loadPriorityQueue();
+  // First-visit default: front-load Keith's most-played artists with no manual
+  // paste. Manual "Prioritize artists" still overrides this later.
+  if (priorityQueue.length === 0 && preferred.length > 0) {
+    priorityQueue = priorityQueueFromArtists(
+      preferred.map((entry) => entry.artist),
+      pool
+    );
+    savePriorityQueue(priorityQueue);
+  }
   const restored = loadRanking();
   // The drag-to-place flow keeps the ranking as the ordered `ranked` array;
   // `pending` is always null.
@@ -85,7 +108,8 @@ async function main(): Promise<void> {
     const priority = nextPriorityCandidate(priorityQueue, pool, state.ranked, excluded);
     priorityQueue = priority.queue;
     savePriorityQueue(priorityQueue);
-    candidate = priority.candidate ?? pickCandidate(pool, state.ranked, excluded);
+    candidate =
+      priority.candidate ?? pickCandidate(pool, state.ranked, excluded, Math.random, playsByArtist);
   }
 
   function persistRankingState(): void {

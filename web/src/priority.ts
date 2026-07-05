@@ -14,6 +14,32 @@ function normalize(value: string): string {
     .trim();
 }
 
+/**
+ * Normalized match keys for an artist credit. Slash-credits are split so a
+ * name that MusicBrainz records jointly still matches either member: e.g.
+ * "Genius/GZA" yields ["genius gza", "genius", "gza"], so a preferred-artist
+ * list that only says "GZA" still lines up with the credited album.
+ */
+export function artistKeys(name: string): string[] {
+  const keys = new Set<string>();
+  const full = normalize(name);
+  if (full) keys.add(full);
+  for (const part of name.split('/')) {
+    const key = normalize(part);
+    if (key) keys.add(key);
+  }
+  return [...keys];
+}
+
+function earliestIndex(haystack: string, keys: string[]): number {
+  let best = -1;
+  for (const key of keys) {
+    const i = haystack.indexOf(key);
+    if (i >= 0 && (best === -1 || i < best)) best = i;
+  }
+  return best;
+}
+
 function dedupe(ids: string[]): string[] {
   const seen = new Set<string>();
   return ids.filter((id) => {
@@ -50,19 +76,51 @@ export function priorityQueueFromArtistText(input: string, pool: Album[]): strin
   const haystack = normalize(input);
   if (!haystack) return [];
 
-  const byArtist = new Map<string, { artist: string; albums: Album[] }>();
+  const byArtist = new Map<string, { artist: string; albums: Album[]; keys: string[] }>();
   for (const album of pool) {
-    const key = normalize(album.primary_artist_name);
-    const entry = byArtist.get(key) ?? { artist: album.primary_artist_name, albums: [] };
+    const primaryKey = normalize(album.primary_artist_name);
+    const entry =
+      byArtist.get(primaryKey) ??
+      { artist: album.primary_artist_name, albums: [], keys: artistKeys(album.primary_artist_name) };
     entry.albums.push(album);
-    byArtist.set(key, entry);
+    byArtist.set(primaryKey, entry);
   }
 
-  return Array.from(byArtist.entries())
-    .map(([key, entry]) => ({ ...entry, index: haystack.indexOf(key) }))
+  return Array.from(byArtist.values())
+    .map((entry) => ({ ...entry, index: earliestIndex(haystack, entry.keys) }))
     .filter((entry) => entry.index >= 0)
     .sort((a, b) => a.index - b.index || a.artist.localeCompare(b.artist))
     .flatMap((entry) => entry.albums.map((album) => album.mbid));
+}
+
+/**
+ * Build a priority queue from an ordered list of artist names (highest
+ * priority first), returning the matched seed MBIDs in that order. Used to
+ * auto-seed the queue from Keith's most-played artists so the default loop
+ * front-loads his taste with no manual paste. Slash-aware via `artistKeys`.
+ */
+export function priorityQueueFromArtists(orderedArtists: string[], pool: Album[]): string[] {
+  const byKey = new Map<string, string[]>();
+  for (const album of pool) {
+    for (const key of artistKeys(album.primary_artist_name)) {
+      const list = byKey.get(key) ?? [];
+      list.push(album.mbid);
+      byKey.set(key, list);
+    }
+  }
+
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const name of orderedArtists) {
+    for (const key of artistKeys(name)) {
+      for (const mbid of byKey.get(key) ?? []) {
+        if (seen.has(mbid)) continue;
+        seen.add(mbid);
+        out.push(mbid);
+      }
+    }
+  }
+  return out;
 }
 
 export function nextPriorityCandidate(
