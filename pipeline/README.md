@@ -1,4 +1,4 @@
-# Pipeline: materializing the Taste Test album universe
+# Pipeline: materializing the Album Case album universe
 
 Three CLIs, run in order, turn the CC0 MusicBrainz + ListenBrainz bulk
 dumps into `data/tastetest.db`'s `entities` table: `ingest_musicbrainz.py`

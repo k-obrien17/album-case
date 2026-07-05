@@ -1,8 +1,8 @@
-# Music Library
+# Album Case
 
-A personal album-ranking app for building and maintaining a ranked music library.
+A personal album-ranking app for building and maintaining a ranked album library.
 
-Music Library starts from a curated seed pool, lets albums be ranked one at a
+Album Case starts from a curated seed pool, lets albums be ranked one at a
 time, saves the canonical ranking to Turso, and can discover more studio LPs by
 an artist through MusicBrainz.
 

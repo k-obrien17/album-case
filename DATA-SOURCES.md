@@ -1,6 +1,6 @@
 # Data sources
 
-The database map for Taste Test's data foundation. Verified July 2026. Two research passes (open-license datasets + commercial APIs) confirmed current status, licensing, and recent changes.
+The database map for Album Case's data foundation. Verified July 2026. Two research passes (open-license datasets + commercial APIs) confirmed current status, licensing, and recent changes.
 
 This doc feeds the **data-foundation** build phase (see `PRODUCT.md` "Subsystems"). It answers: what powers the app, what each source provides, what may be stored vs only rendered live, and the one architecture rule that follows from "everything I reference ends up in my database."
 

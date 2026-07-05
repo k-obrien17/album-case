@@ -22,7 +22,7 @@ def chips(tags):
 
 parts = []
 parts.append(f"""<!doctype html><meta charset=utf-8>
-<title>Taste Test — Clustering POC</title>
+<title>Album Case — Clustering POC</title>
 <style>
  body{{font:15px/1.5 -apple-system,system-ui,sans-serif;max-width:860px;margin:2rem auto;padding:0 1rem;color:#1a1a1a}}
  h1{{font-size:1.5rem}} h2{{margin-top:2rem;border-bottom:2px solid #eee;padding-bottom:.3rem}}
@@ -36,7 +36,7 @@ parts.append(f"""<!doctype html><meta charset=utf-8>
  .empty{{color:#999;font-style:italic}}
  .verdict{{background:#f0f7ff;border-left:4px solid #57f;padding:.8rem 1rem;margin:1rem 0}}
 </style>
-<h1>Taste Test — Clustering POC</h1>
+<h1>Album Case — Clustering POC</h1>
 <p class=meta>{d['n_resolved']}/{d['n_seeds']} seeds resolved ·
  similarity graph: {d['graph']['nodes']} nodes, {d['graph']['edges']} edges ·
  source: MusicBrainz (identity+tags) + ListenBrainz CC0 similarity (Louvain communities)</p>

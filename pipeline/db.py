@@ -1,4 +1,4 @@
-"""SQLite connection + schema initialization for the Taste Test serving store.
+"""SQLite connection + schema initialization for the Album Case serving store.
 
 The store is a single SQLite file (see .planning/PROJECT.md store decision).
 `connect()` opens a connection with sane pragmas; `init_db()` applies the DDL

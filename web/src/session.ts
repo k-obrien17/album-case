@@ -6,7 +6,7 @@ export type Session = {
   created_at: number;
 };
 
-const SESSION_KEY = 'tastetest-session';
+const SESSION_KEY = 'albumcase-session';
 
 // In-memory fallback used whenever localStorage is unavailable or throws
 // (private browsing, quota exceeded, or a non-browser environment such as a
@@ -21,7 +21,7 @@ function readStoredSession(): Session | null {
     const raw = localStorage.getItem(SESSION_KEY);
     return raw ? (JSON.parse(raw) as Session) : null;
   } catch (err) {
-    console.warn('tastetest: failed to read session from localStorage, using in-memory session', err);
+    console.warn('albumcase: failed to read session from localStorage, using in-memory session', err);
     return memorySession;
   }
 }
@@ -34,12 +34,12 @@ function writeStoredSession(session: Session): void {
   try {
     localStorage.setItem(SESSION_KEY, JSON.stringify(session));
   } catch (err) {
-    console.warn('tastetest: failed to persist session to localStorage, continuing in-memory', err);
+    console.warn('albumcase: failed to persist session to localStorage, continuing in-memory', err);
   }
 }
 
 /**
- * Return the single owner session. Taste Test is a single-user app: every
+ * Return the single owner session. Album Case is a single-user app: every
  * browser and device resolves to the same fixed `OWNER_ID`, so opening the app
  * anywhere loads the one server-owned list -- no per-device random id, no
  * restore ceremony. `created_at` is preserved across reloads (stamped once on
@@ -68,7 +68,7 @@ export function isValidSessionId(s: unknown): s is string {
 
 /**
  * Adopt an explicit session id (the player's restore code) and persist it to
- * `tastetest-session`, so a wiped browser or a new device can reattach to a
+ * `albumcase-session`, so a wiped browser or a new device can reattach to a
  * server-side ranking snapshot. Preserves the existing `created_at` when the
  * id is unchanged; otherwise stamps a fresh one. Returns the written session.
  */

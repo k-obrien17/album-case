@@ -1,4 +1,4 @@
-// Random Music Rankings: artist calibration game (5-up ranking mode).
+// Album Case: legacy artist calibration game (5-up ranking mode).
 // Reads the inlined artist pool (window.CALIBRATION_ARTISTS), shuffles once,
 // presents five artists per screen. You reorder them to compare, rate each into
 // a tier, add notes and songs to flag, then advance to the next five. Persists

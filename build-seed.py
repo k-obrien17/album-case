@@ -1,5 +1,5 @@
 """Resolve the curated `web/public/seed/album-list.json` "artist / album" pairs
-to real MusicBrainz release-group MBIDs, and emit the Taste Test seed dataset.
+to real MusicBrainz release-group MBIDs, and emit the Album Case seed dataset.
 
 TEMPORARY BOOTSTRAP (see web/public/seed/README.md): this is the MVP's
 static album source while Phase 1's real universe dump is data-pending. It
@@ -39,7 +39,7 @@ ALBUMS_OUT_PATH = ROOT / "web" / "public" / "seed" / "albums.json"
 ALLOWLIST_OUT_PATH = ROOT / "web" / "api" / "_allowlist.json"
 
 MB_SEARCH_URL = "https://musicbrainz.org/ws/2/release-group/"
-USER_AGENT = "TasteTest/0.1 (keith@totalemphasis.com)"
+USER_AGENT = "AlbumCase/0.1 (keith@totalemphasis.com)"
 REQUEST_INTERVAL_SECONDS = 1.1  # MusicBrainz etiquette: max ~1 req/sec
 
 

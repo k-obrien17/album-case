@@ -1,7 +1,7 @@
 /**
  * The single, fixed owner identity for this personal, single-user app.
  *
- * Taste Test persists like a personal media library: one server-owned list,
+ * Album Case persists like a personal media library: one server-owned list,
  * no accounts, no restore codes. Every browser and device resolves to this
  * same id, so opening the app anywhere loads the one canonical ranking.
  *

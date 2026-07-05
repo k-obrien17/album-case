@@ -261,7 +261,7 @@ import { SCHEMA_STATEMENTS } from './_schema.js';
 import { isLpReleaseGroup, mergeDiscovered, type ReleaseGroup, type DiscoveredAlbum } from './_lp.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const USER_AGENT = 'TasteTest/0.1 (keith@totalemphasis.com)';
+const USER_AGENT = 'AlbumCase/0.1 (keith@totalemphasis.com)';
 const MB_BASE = 'https://musicbrainz.org/ws/2';
 
 function coverUrlFor(mbid: string): string {

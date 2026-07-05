@@ -1,4 +1,4 @@
-"""Validate the emitted Taste Test seed dataset.
+"""Validate the emitted Album Case seed dataset.
 
 Run after `python3 build-seed.py` has produced
 `web/public/seed/albums.json` and `web/api/_allowlist.json`.

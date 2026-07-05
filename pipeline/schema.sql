@@ -1,4 +1,4 @@
--- Taste Test serving store schema.
+-- Album Case serving store schema.
 --
 -- Design notes (see .planning/PROJECT.md Key Decisions, DATA-SOURCES.md):
 -- - `entities` is polymorphic: keyed by (entity_type, mbid) so 'album' rows now

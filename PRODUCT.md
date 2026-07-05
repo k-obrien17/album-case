@@ -1,6 +1,6 @@
-# Taste Test (working name) — Product Definition (draft)
+# Album Case — Product Definition (draft)
 
-Formerly "Random Music Rankings." Renamed because nothing is random anymore: it is curated/generated vibe-clusters plus crowd data. Repo/dir still use the old slug.
+Formerly "Random Music Rankings" and "Taste Test." Renamed because the rankable unit is now the album, and the product is about building a personal, browsable case of records. Repo/dir still use the old slug.
 
 Status: design draft, 2026-05-21. Living doc. Captures decisions from the pivot conversation; open questions are marked and not yet answered.
 
@@ -99,7 +99,7 @@ The spine without tiers: the clustered ranking/rating game (default clusters + m
 
 ## Name (decided, Q9)
 
-- **Working name: Taste Test.** Music taste + the ranking/testing act; friendly and broad. Common phrase, so verify domain/handle availability and consider a distinguishing TLD before committing.
+- **Name: Album Case.** Album-first, concrete, and flexible enough for ranking, discovery, and a personal collection surface.
 
 ## Parked (the "becomes")
 
@@ -117,5 +117,5 @@ The spine without tiers: the clustered ranking/rating game (default clusters + m
 6. ANSWERED (Q6): primary = **culture insights/charts**; secondary = **licensable dataset**.
 7. ANSWERED (Q7): audience = **music nerds / enthusiasts**.
 8. ANSWERED (Q8): money = **not yet, keep it free**.
-9. ANSWERED (Q9): name = **Taste Test** (working).
+9. ANSWERED (Q9): name = **Album Case**.
 10. **OPEN (Q10):** project class for ship-standard. Now a **public app with optional light accounts + a server-side datastore**, so auth security, privacy policy, and consent are all in scope (heavier than the old `static-site`). Resolve via `/ship-standard` once Q5 lands.

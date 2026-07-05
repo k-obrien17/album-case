@@ -1,7 +1,7 @@
 TEMPORARY BOOTSTRAP SEED — not the permanent catalog.
 
 This directory holds a curated static album source (`albums.json`) used to
-unblock the Taste Test pick loop while Phase 1's real materialized universe
+unblock the Album Case pick loop while Phase 1's real materialized universe
 is data-pending (the ~7GB MusicBrainz/ListenBrainz dump is an operator step
 that has not yet run against the production store — see `.planning/STATE.md`
 and `.planning/phases/02-this-or-that-ranking-mvp/02-CONTEXT.md`).

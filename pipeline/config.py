@@ -1,4 +1,4 @@
-"""Tunable thresholds for the Taste Test data pipeline.
+"""Tunable thresholds for the Album Case data pipeline.
 
 Keeping these as named constants (not magic numbers buried in a query)
 makes the notability floor auditable and re-tunable without touching

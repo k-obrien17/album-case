@@ -18,7 +18,7 @@ import requests
 CACHE = Path(__file__).parent / "cache"
 CACHE.mkdir(exist_ok=True)
 
-USER_AGENT = "TasteTest-POC/0.1 (keith@totalemphasis.com)"
+USER_AGENT = "AlbumCase-POC/0.1 (keith@totalemphasis.com)"
 MB_BASE = "https://musicbrainz.org/ws/2"
 # Similarity lives on the ListenBrainz *labs* API, not the main api host.
 LB_LABS = "https://labs.api.listenbrainz.org"

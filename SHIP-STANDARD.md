@@ -1,4 +1,4 @@
-# Ship Standard — Taste Test (random-music-rankings)
+# Ship Standard — Album Case (random-music-rankings)
 Generated: 2026-05-31 · Class: app-with-accounts · Type: side project (nurtured)
 Live URL: TBD (currently GitHub Pages, old private tool)
 Golden path: open a lane → rank/rate 5 artists → get a shareable ranked card

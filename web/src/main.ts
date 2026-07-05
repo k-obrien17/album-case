@@ -41,7 +41,7 @@ type RestoreSnapshot = { state: RankingState; lists: SavedLists };
 
 /**
  * Outcome of attempting to restore a ranking from a session code. Retained as
- * a tested module (the UI no longer surfaces restore codes -- Taste Test is a
+ * a tested module (the UI no longer surfaces restore codes -- Album Case is a
  * single-user, server-owned app), but the pure flow stays available.
  */
 export type RestoreOutcome =
@@ -181,7 +181,7 @@ async function main(): Promise<void> {
 
   const heading = document.createElement('h1');
   heading.className = 'app-heading';
-  heading.textContent = 'Taste Test';
+  heading.textContent = 'Album Case';
 
   const nav = document.createElement('nav');
   nav.className = 'view-switcher';

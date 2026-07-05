@@ -1,7 +1,7 @@
 # Handoff
 
 ## Current task
-Taste Test is deployed (https://music-library-tau-three.vercel.app) and cleanup/lock-down from the last session is done. This session added two new features via brainstorm → spec → plan → Codex-execution: **artist/year rank badges** on the ranked list, and an **artist discography discovery button** ("rank the rest of their albums" via a live MusicBrainz lookup). Codex executed both plans directly on `main` while this session was still writing them, and also added one extra, unplanned feature ("place candidate by rank number") on its own initiative.
+Album Case is deployed (https://music-library-tau-three.vercel.app) and cleanup/lock-down from the last session is done. This session added two new features via brainstorm → spec → plan → Codex-execution: **artist/year rank badges** on the ranked list, and an **artist discography discovery button** ("rank the rest of their albums" via a live MusicBrainz lookup). Codex executed both plans directly on `main` while this session was still writing them, and also added one extra, unplanned feature ("place candidate by rank number") on its own initiative.
 
 ## Status
 Working tree is clean. Build (`cd web && npm run build`) is green, full test suite passes: **107 tests, 17 files** (up from 90 — new: `subRank.test.ts`, `api/_lp.test.ts`, `discovery.test.ts`). Both planned features match their specs/plans exactly, verified by reading the actual diffs against the plan documents. The rank-number-placement commit (`8b8a1d6`) was **not** reviewed in detail — it's outside both plans, added by Codex without a spec.

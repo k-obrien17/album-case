@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Positioning
 
-**Taste Test** is a public, data-first music-ranking web app for enthusiasts. The starting experience: show one candidate album, drag it into the exact position in your ranked list, and repeat until you have a true, self-consistent order. Each placement can be captured as openly-keyed pairwise neighbor atoms, so the aggregate becomes the product (publishable culture-insight charts; a licensable dataset is parked). Design priority is friction reduction: the ranking loop must be instant, anonymous, and phone-first.
+**Album Case** is a public, data-first music-ranking web app for enthusiasts. The starting experience: show one candidate album, drag it into the exact position in your ranked list, and repeat until you have a true, self-consistent order. Each placement can be captured as openly-keyed pairwise neighbor atoms, so the aggregate becomes the product (publishable culture-insight charts; a licensable dataset is parked). Design priority is friction reduction: the ranking loop must be instant, anonymous, and phone-first.
 
 The rankable unit is the **album** (MusicBrainz release-group), built to expand to songs and artists and to richer mechanisms without a rebuild.
 
@@ -21,7 +21,7 @@ This repo also contains a **legacy private calibration tool** (artist-tier rater
 
 ## Two codebases in this repo
 
-1. **The product (Taste Test), being built** — data pipeline (CC0 dump ingestion) + a queryable store + the drag-to-place ranking web app. Stack is decided per-phase at plan time; see `DATA-SOURCES.md` and `.planning/`. This is where new work happens.
+1. **The product (Album Case), being built** — data pipeline (CC0 dump ingestion) + a queryable store + the drag-to-place ranking web app. Stack is decided per-phase at plan time; see `DATA-SOURCES.md` and `.planning/`. This is where new work happens.
 2. **The legacy calibration tool, at the repo root** — `index.html`, `app.js`, `style.css`, `artists.js`, `build-artists.py`, `scoring/`, `reference/`. Zero-dependency, runs from `file://`. Kept as seed pool + fixture. The old constraints below apply ONLY to it.
 
 ## Architecture (the product)
@@ -58,7 +58,7 @@ Product-side commands (ingestion, store, app) are defined per-phase during plann
 
 ## Don't
 
-**Product (Taste Test):**
+**Product (Album Case):**
 - **Don't store vendor (Spotify/Deezer/Apple) metadata or images.** Only CC0 data is stored; covers come from the Cover Art Archive; copyrighted assets are live-rendered pointers.
 - **Don't search a live vendor catalog.** The app queries the project's own materialized universe.
 - **Don't break the expansion schema.** Keep entities polymorphic `(entity_type, mbid)` and picks as generic mechanism-tagged atoms, from day one.
