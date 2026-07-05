@@ -45,8 +45,17 @@ function parseBody(req: VercelRequest): AtomBody | null {
   return null;
 }
 
-function isAllowedMbid(value: unknown): value is string {
-  return typeof value === 'string' && UUID_RE.test(value) && allowedMbids.has(value);
+function isUuid(value: unknown): value is string {
+  return typeof value === 'string' && UUID_RE.test(value);
+}
+
+async function isKnownMbid(mbid: string, client: ReturnType<typeof createClient>): Promise<boolean> {
+  if (allowedMbids.has(mbid)) return true;
+  const rows = await client.execute({
+    sql: 'SELECT 1 FROM discovered_albums WHERE mbid = ? LIMIT 1',
+    args: [mbid],
+  });
+  return rows.rows.length > 0;
 }
 
 function isSessionId(value: unknown): value is string {
@@ -59,7 +68,7 @@ function validate(body: AtomBody | null):
   if (!body) return { ok: false, message: 'invalid_json' };
 
   const { entity_a: entityA, entity_b: entityB, winner, session_id: sessionId } = body;
-  if (!isAllowedMbid(entityA) || !isAllowedMbid(entityB) || !isAllowedMbid(winner)) {
+  if (!isUuid(entityA) || !isUuid(entityB) || !isUuid(winner)) {
     return { ok: false, message: 'invalid_entity' };
   }
   if (entityA === entityB) return { ok: false, message: 'same_entity' };
@@ -85,6 +94,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   try {
     await ensureSchema();
     const client = db();
+
+    const [aKnown, bKnown] = await Promise.all([
+      isKnownMbid(validated.entityA, client),
+      isKnownMbid(validated.entityB, client),
+    ]);
+    if (!aKnown || !bKnown) {
+      res.status(400).json({ error: 'invalid_entity' });
+      return;
+    }
+
     const now = Date.now();
 
     await client.batch([
