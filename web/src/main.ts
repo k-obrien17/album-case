@@ -26,6 +26,7 @@ import {
   savePriorityQueue,
 } from './priority';
 import { loadRankingSnapshot, saveRankingSnapshot } from './rankingSync';
+import { loadDiscoveredAlbums, discoverArtist } from './discovery';
 
 type ViewMode = 'ranked' | ListName;
 
@@ -130,6 +131,14 @@ async function main(): Promise<void> {
   const cachedState: RankingState = loadRanking() ?? { ranked: [], pending: null };
   const cachedLists = loadLists();
   const serverSnapshot = await loadRankingSnapshot(OWNER_ID);
+  const discovered = await loadDiscoveredAlbums(OWNER_ID);
+  const knownPoolIds = new Set(pool.map((album) => album.mbid));
+  for (const album of discovered) {
+    if (!knownPoolIds.has(album.mbid)) {
+      pool.push(album);
+      knownPoolIds.add(album.mbid);
+    }
+  }
   const initial = resolveInitialState(serverSnapshot, {
     state: cachedState,
     lists: cachedLists,
@@ -211,6 +220,28 @@ async function main(): Promise<void> {
     void saveRankingSnapshot(session.session_id, state, lists);
   }
 
+  async function handleDiscoverArtist(album: Album): Promise<void> {
+    const artistName = album.primary_artist_name;
+    const knownMbids = pool
+      .filter((a) => a.primary_artist_name === artistName)
+      .map((a) => a.mbid);
+
+    const found = await discoverArtist(session.session_id, artistName, knownMbids);
+    if (found.length === 0) {
+      rankList.showStatus(`No more ${artistName} albums found.`);
+      return;
+    }
+
+    const poolIds = new Set(pool.map((a) => a.mbid));
+    const newToPool = found.filter((a) => !poolIds.has(a.mbid));
+    pool.push(...newToPool);
+
+    priorityQueue = [...found.map((a) => a.mbid), ...priorityQueue];
+    savePriorityQueue(priorityQueue);
+    reselectCandidate();
+    rankList.render();
+  }
+
   reselectCandidate();
 
   const rankList = mountRankList(stage, {
@@ -278,6 +309,9 @@ async function main(): Promise<void> {
         winner: winnerMbid,
         session_id: session.session_id,
       });
+    },
+    onDiscoverArtist: (album) => {
+      void handleDiscoverArtist(album);
     },
   });
 
