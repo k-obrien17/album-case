@@ -32,6 +32,8 @@ export type RankListOptions = {
   onSkip: (album: Album) => void;
   /** Record a single assisted this-or-that answer as a pairwise atom. */
   onCompare?: (winnerMbid: string, loserMbid: string) => void;
+  /** Discover and queue the rest of this album's artist's other LPs. */
+  onDiscoverArtist?: (album: Album) => void;
 };
 
 /**
@@ -44,6 +46,7 @@ const ASSIST_THRESHOLD = 8;
 export type RankListController = {
   render: () => void;
   teardown: () => void;
+  showStatus: (message: string) => void;
 };
 
 const EDGE = 72; // px from the viewport edge that triggers autoscroll
@@ -89,6 +92,7 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
   let drag: DragState | null = null;
   let scrollRaf = 0;
   let scrollDir = 0;
+  let statusMessage: string | null = null;
   // Active assisted this-or-that placement (long lists only). Reset whenever
   // the candidate changes or the list drops below the assist threshold.
   let assist: AssistPlacement | null = null;
@@ -261,6 +265,13 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     sub.textContent = rankedSubtitle(album, subRanks.get(album.mbid));
     meta.append(title, sub);
 
+    const discoverBtn = document.createElement('button');
+    discoverBtn.type = 'button';
+    discoverBtn.className = 'rank-discover';
+    discoverBtn.setAttribute('aria-label', `Rank the rest of ${album.primary_artist_name}'s albums`);
+    discoverBtn.textContent = '▶';
+    discoverBtn.addEventListener('click', () => opts.onDiscoverArtist?.(album));
+
     // A dedicated grip so the row body still flick-scrolls on touch; only the
     // grip disables native scrolling (touch-action:none via .rank-grip).
     const grip = document.createElement('button');
@@ -270,7 +281,7 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     grip.textContent = '⇅';
     grip.addEventListener('pointerdown', (ev) => startDrag({ type: 'row', index }, album, ev));
 
-    li.append(num, meta, grip);
+    li.append(num, meta, discoverBtn, grip);
     return li;
   }
 
@@ -390,6 +401,14 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     const layout = document.createElement('div');
     layout.className = 'rank-layout';
 
+    if (statusMessage) {
+      const status = document.createElement('p');
+      status.className = 'rank-status';
+      status.textContent = statusMessage;
+      layout.append(status);
+      statusMessage = null;
+    }
+
     const listCol = document.createElement('div');
     listCol.className = 'rank-list-col';
 
@@ -444,6 +463,11 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     indicator.remove();
   }
 
+  function showStatus(message: string): void {
+    statusMessage = message;
+    render();
+  }
+
   render();
-  return { render, teardown };
+  return { render, teardown, showStatus };
 }
