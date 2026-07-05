@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Album } from './ranking/types';
-import { addBlockedArtist, blockedArtistMbids, loadBlockedArtists, saveBlockedArtists } from './artistBlocks';
+import {
+  addBlockedArtist,
+  blockedArtistMbids,
+  loadBlockedArtists,
+  removeBlockedArtist,
+  saveBlockedArtists,
+} from './artistBlocks';
 
 function album(mbid: string, artist: string): Album {
   return {
@@ -26,6 +32,10 @@ describe('artistBlocks', () => {
 
   it('dedupes blocked artists while preserving the first spelling', () => {
     expect(addBlockedArtist(['Radiohead'], 'radiohead')).toEqual(['Radiohead']);
+  });
+
+  it('removes blocked artists case-insensitively', () => {
+    expect(removeBlockedArtist(['Radiohead', 'GZA'], 'radiohead')).toEqual(['GZA']);
   });
 
   it('returns mbids for albums by blocked artists', () => {

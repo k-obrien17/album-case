@@ -31,10 +31,11 @@ import {
   addBlockedArtist,
   blockedArtistMbids,
   loadBlockedArtists,
+  removeBlockedArtist,
   saveBlockedArtists,
 } from './artistBlocks';
 
-type ViewMode = 'ranked' | ListName;
+type ViewMode = 'ranked' | ListName | 'blockedArtists';
 
 type RestoreSnapshot = { state: RankingState; lists: SavedLists };
 
@@ -243,6 +244,7 @@ async function main(): Promise<void> {
     removeBlockedFromPriorityQueue();
     reselectCandidate();
     rankList.showStatus(`No more ${album.primary_artist_name} albums.`);
+    renderNav();
   }
 
   async function handleDiscoverArtist(album: Album): Promise<void> {
@@ -356,6 +358,49 @@ async function main(): Promise<void> {
     renderSavedList(stage, lists[which], (album) => markAsHeard(album, which));
   }
 
+  function restoreArtist(artistName: string): void {
+    blockedArtists = removeBlockedArtist(blockedArtists, artistName);
+    saveBlockedArtists(blockedArtists);
+    if (!candidate) reselectCandidate();
+    renderNav();
+    renderBlockedArtists();
+  }
+
+  function renderBlockedArtists(): void {
+    stage.textContent = '';
+    if (blockedArtists.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'saved-empty';
+      empty.textContent = 'No blocked artists.';
+      stage.append(empty);
+      return;
+    }
+
+    const list = document.createElement('ul');
+    list.className = 'saved-list';
+    for (const artist of blockedArtists) {
+      const item = document.createElement('li');
+      item.className = 'saved-item';
+
+      const meta = document.createElement('div');
+      meta.className = 'saved-meta';
+      const name = document.createElement('p');
+      name.className = 'saved-title';
+      name.textContent = artist;
+      meta.append(name);
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'saved-mark';
+      btn.textContent = 'Restore';
+      btn.addEventListener('click', () => restoreArtist(artist));
+
+      item.append(meta, btn);
+      list.append(item);
+    }
+    stage.append(list);
+  }
+
   function showView(next: ViewMode): void {
     // Leaving the drag view: cancel any in-flight drag / listeners.
     if (view === 'ranked' && next !== 'ranked') {
@@ -365,6 +410,8 @@ async function main(): Promise<void> {
 
     if (view === 'ranked') {
       rankList.render();
+    } else if (view === 'blockedArtists') {
+      renderBlockedArtists();
     } else {
       renderCurrentSavedList(view);
     }
@@ -378,6 +425,7 @@ async function main(): Promise<void> {
       { mode: 'wantToListen', label: `Want to listen (${lists.wantToListen.length})` },
       { mode: 'notHeard', label: `Haven't heard (${lists.notHeard.length})` },
       { mode: 'dontCare', label: `Don't care (${lists.dontCare.length})` },
+      { mode: 'blockedArtists', label: `Blocked artists (${blockedArtists.length})` },
     ];
 
     for (const { mode, label } of items) {

@@ -39,6 +39,11 @@ export function addBlockedArtist(artists: string[], artistName: string): string[
   return [...artists, trimmed];
 }
 
+export function removeBlockedArtist(artists: string[], artistName: string): string[] {
+  const keys = new Set(artistKeys(artistName));
+  return artists.filter((artist) => !artistKeys(artist).some((key) => keys.has(key)));
+}
+
 export function blockedArtistMbids(pool: Album[], artists: string[]): Set<string> {
   const blockedKeys = new Set(artists.flatMap((artist) => artistKeys(artist)));
   const ids = new Set<string>();
