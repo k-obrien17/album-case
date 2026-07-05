@@ -57,11 +57,16 @@ export async function saveRankingSnapshot(
   lists: SavedLists
 ): Promise<void> {
   try {
-    await fetch('/api/ranking', {
+    const response = await fetch('/api/ranking', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(snapshotPayload(sessionId, state, lists)),
     });
+    // Fire-and-forget, but not silently-blind: surface a non-2xx so a 400/500
+    // is distinguishable from success. LocalStorage stays the source of truth.
+    if (!response.ok) {
+      console.warn('tastetest: ranking snapshot save failed', response.status);
+    }
   } catch {
     // LocalStorage remains the immediate source of truth; server sync retries
     // on the next mutation/startup.
@@ -80,8 +85,15 @@ export async function loadRankingSnapshot(
   }
   if (!response.ok) return null;
 
-  const body = (await response.json()) as SnapshotResponse;
-  if (!body.snapshot) return null;
+  // Parse inside try/catch: a 200 carrying non-JSON (an SPA/HTML fallback when
+  // no API is running) must boot the app to empty state, never crash it.
+  let body: SnapshotResponse;
+  try {
+    body = (await response.json()) as SnapshotResponse;
+  } catch {
+    return null;
+  }
+  if (!body || !body.snapshot) return null;
 
   const ranked = albumsFromIds(body.snapshot.ranked, pool);
   const wantToListen = albumsFromIds(body.snapshot.lists.wantToListen, pool);

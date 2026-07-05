@@ -56,7 +56,23 @@ export async function flushAtomQueue(): Promise<void> {
         return;
       }
 
+      // Dequeue ONLY on an affirmative success: a 2xx response whose body is
+      // JSON and confirms `{ ok: true }` (the handler answers 201 + { ok: true }).
+      // A 200 carrying non-JSON (an SPA/HTML fallback when no API is running)
+      // must NOT drop the pick — stop the flush and keep the queue for retry.
       if (!response.ok) return;
+
+      const contentType = response.headers?.get?.('content-type') ?? '';
+      if (!contentType.includes('application/json')) return;
+
+      let confirmed: { ok?: unknown };
+      try {
+        confirmed = (await response.json()) as { ok?: unknown };
+      } catch {
+        return;
+      }
+      if (confirmed.ok !== true) return;
+
       queue = queue.slice(1);
       saveQueue(queue);
     }

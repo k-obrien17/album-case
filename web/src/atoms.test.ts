@@ -30,6 +30,26 @@ afterEach(() => {
   delete globalThis.localStorage;
 });
 
+function jsonResponse(status: number, body: unknown): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: { get: (name: string) => (name.toLowerCase() === 'content-type' ? 'application/json' : null) },
+    json: async () => body,
+  } as unknown as Response;
+}
+
+function htmlResponse(status: number): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: { get: (name: string) => (name.toLowerCase() === 'content-type' ? 'text/html' : null) },
+    json: async () => {
+      throw new SyntaxError('Unexpected token < in JSON');
+    },
+  } as unknown as Response;
+}
+
 describe('atom retry queue', () => {
   it('keeps an atom queued when fetch rejects and does not throw', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
@@ -40,8 +60,8 @@ describe('atom retry queue', () => {
     expect(JSON.parse(localStorage.getItem(QUEUE_KEY) ?? '[]')).toEqual([atom]);
   });
 
-  it('removes an atom only after a successful response', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }));
+  it('removes an atom only after an affirmative JSON { ok: true } response', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(201, { ok: true })));
 
     enqueueAtom(atom);
     await flushAtomQueue();
@@ -50,7 +70,25 @@ describe('atom retry queue', () => {
   });
 
   it('leaves an atom queued on a non-2xx response', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(400, { error: 'invalid_entity' })));
+
+    enqueueAtom(atom);
+    await flushAtomQueue();
+
+    expect(JSON.parse(localStorage.getItem(QUEUE_KEY) ?? '[]')).toEqual([atom]);
+  });
+
+  it('leaves an atom queued on a 200 non-JSON response (SPA/HTML fallback)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(htmlResponse(200)));
+
+    enqueueAtom(atom);
+    await flushAtomQueue();
+
+    expect(JSON.parse(localStorage.getItem(QUEUE_KEY) ?? '[]')).toEqual([atom]);
+  });
+
+  it('leaves an atom queued when a 200 JSON body does not confirm ok:true', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(200, { ok: false })));
 
     enqueueAtom(atom);
     await flushAtomQueue();
