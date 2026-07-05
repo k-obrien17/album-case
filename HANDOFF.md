@@ -1,59 +1,51 @@
 # Handoff
 
 ## Current task
-**Taste Test is built, deployed, and moved to Keith's own Vercel account.** Live at **https://music-library-tau-three.vercel.app** (project `music-library`, under team **Keith O'Brien's projects**). Single-owner, server-authoritative persistence (media-library model): open the URL → your list loads from Turso → every pick saves back → no codes/files/imports. Keith has been actively ranking on it (list grew from 89 to **107**).
+Taste Test is deployed (https://music-library-tau-three.vercel.app) and cleanup/lock-down from the last session is done. This session added two new features via brainstorm → spec → plan → Codex-execution: **artist/year rank badges** on the ranked list, and an **artist discography discovery button** ("rank the rest of their albums" via a live MusicBrainz lookup). Codex executed both plans directly on `main` while this session was still writing them, and also added one extra, unplanned feature ("place candidate by rank number") on its own initiative.
 
 ## Status
-Working, deployed, on the right account. `cd web && npm run build` green, **90 tests**. Turso `/api/ranking` + `/api/atom` verified live (round-trip). App diverged hard from the original GSD plan and the anonymous-public product vision in `.planning/` — it's now a personal single-user tool.
+Working tree is clean. Build (`cd web && npm run build`) is green, full test suite passes: **107 tests, 17 files** (up from 90 — new: `subRank.test.ts`, `api/_lp.test.ts`, `discovery.test.ts`). Both planned features match their specs/plans exactly, verified by reading the actual diffs against the plan documents. The rank-number-placement commit (`8b8a1d6`) was **not** reviewed in detail — it's outside both plans, added by Codex without a spec.
 
-**Data (safe, authoritative in Turso):** `ranking_snapshots` keyed by `OWNER_ID = c0ffee00-0000-4000-8000-000000000001` — as of last check **107 ranked + 16 want-to-listen + 63 haven't-heard** (full album records, survives seed changes, same DB across every deployment). Desktop backups: `~/Desktop/tastetest-ALL-origins-backup-2026-07-05.json`, `tastetest-ranking-backup-2026-07-04.json`, `tastetest-import.json`, `tastetest-live.json`.
+**Not yet tested:** the discovery button's live path (MusicBrainz artist search + release-group browse + Turso persistence) hasn't been exercised end-to-end against a running `vercel dev` — only unit-testable pieces (`_lp.ts`'s LP filter/merge logic) have real test coverage. The manual verification steps are in the plan doc (Task 3 Step 3, Task 7 Step 7).
+
+**Not pushed:** `main` is **86 commits ahead of `origin/main`** — everything from the earlier `design-system-te` merge through tonight's two new features is still local-only.
 
 ## Next concrete step
-**Cleanup + lock-down: DONE (confirmed 2026-07-05).**
-- ✅ 3 leftover projects deleted from the OLD "Eighth Chair" account (`web`, `taste-test`, `world-cup-squads`).
-- ✅ Deployment Protection enabled on `music-library` (Vercel Authentication → On). HIGH security finding (public `OWNER_ID`, unauthenticated `/api/ranking`) is closed.
-- ⏭ Turso token rotation in `web/.env.local` still optional/outstanding, not done.
-- CLI confirmed still logged into `k-obrien17` / Keith O'Brien's projects post-cleanup (no account-switch stranding).
-
-Remaining work is doc/repo hygiene, not app or account risk — see Open questions.
+Smoke-test the discovery button live (`cd web && vercel dev`, needs `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` in `.env.local`): click "▶" on a ranked row for an artist with more albums than the seed (e.g. Radiohead), confirm a real album (e.g. "The Bends") surfaces as the next candidate, reload the page and confirm it's still there (proves the Turso round-trip). Then decide whether to push `main` to `origin` (`! git push origin main` — guarded, needs your explicit go-ahead) and/or deploy.
 
 ## Open questions
-- **Doc drift:** `.planning/PROJECT.md` still describes an anonymous public product; `.planning/STATE.md` still says "Phase 2, Plan 2 of 4." The build went well beyond/around GSD. Reconcile docs to reality (personal tool vs public product) before the next big push.
-- **Branch:** all work on `design-system-te`, unpushed, well ahead of `origin`. Decide when to merge to `main`.
-- `world-cup-fantasy` repo's `.vercel` is ALSO linked to the same `world-cup-squads` project — two repos → one project. Untangle sometime so the wrong repo isn't deployed over it.
-- **Unresolved:** an `8th-chair` project exists *in Keith's own account* (`8th-chair-keith-obriens-projects.vercel.app`) — separate from the 3 deleted old-account leftovers. Not yet identified/confirmed as intentional or stray.
-
-## Account / deploy facts (important context)
-- **Both apps now live under "Keith O'Brien's projects"** (team `team_gqKcSmYlv1K3peiDwzDuT1Gl`): Taste Test = `music-library` (https://music-library-tau-three.vercel.app); World Cup Squads = `world-cup-squads` (https://world-cup-squads-theta.vercel.app, was already there).
-- The OLD "Eighth Chair" account (`eighthchair-8983` / `eighth-chair-s-projects`, team `team_X5v00ZOZA5gUVWYG9fAbopqT`) holds the 3 leftovers to delete.
-- The Vercel CLI is currently logged into **Keith O'Brien's projects**. `web/.vercel/` links to `music-library` (gitignored). Turso env vars are set on `music-library` for production/preview/development.
+- **Review the unplanned commit:** `8b8a1d6 feat: place candidate by rank number` (`web/src/ui/rankList.ts` + `style.css`, 76 lines) — Codex added this without a spec or plan. Worth reading before it ships.
+- **Doc drift (carried over):** `.planning/PROJECT.md` still describes an anonymous public product; `.planning/STATE.md` still says "Phase 2, Plan 2 of 4." Reality is a personal single-user tool with two new features beyond the original roadmap. Reconcile before the next big push.
+- **`8th-chair` project mystery (carried over):** exists in Keith's own Vercel account (`8th-chair-keith-obriens-projects.vercel.app`), separate from the old-account leftovers already deleted. Never confirmed as intentional or stray.
+- **`world-cup-fantasy`/`world-cup-squads` entanglement (carried over):** two repos point at one Vercel project. Untangle sometime.
+- Optional: Turso token rotation in `web/.env.local`, still outstanding.
 
 ## Don't forget
-- `OWNER_ID` (`web/src/owner.ts`) is the single-owner key; `session.ts` returns it. Server stores FULL album records (not seed mbids) so the list survives seed changes and works cross-device.
-- Seed is 115 taste-dominant albums (72% Keith's Spotify top artists); `web/public/seed/preferred-artists.json` is the source list; `build-seed.py` regenerates `albums.json` + `_allowlist.json` from `album-list.json`.
-- Two load-bearing Vercel-ESM fixes in `api/*.ts`: `import ... with { type: 'json' }` and `from './_schema.js'`. Don't revert.
-- Allowlist gates `/api/atom` only; ranking snapshots don't.
-- Restore-code + backup import/export code still exists (`session.ts`, `backup.ts`) but is not rendered — kept as fallback, not in the user path.
+- **New this session:** `discovered_albums` Turso table (session_id + mbid primary key, full album records — same seed-independence reasoning as `ranking_snapshots`). `web/api/discover-artist.ts` handles both `GET` (list previously-discovered albums for a session) and `POST` (live-discover one artist's LPs + persist + return). `/api/atom`'s allowlist check now also queries `discovered_albums`, not just the static `_allowlist.json`.
+- **LP definition:** MusicBrainz `primary-type: Album` with no `secondary-types` — same rule `build-seed.py` already used for the curated seed, reused via the new pure helper `web/api/_lp.ts`.
+- **Architecture note:** the discovery button makes one live MusicBrainz call from the running app — a deliberate, documented exception to `DATA-SOURCES.md`'s "don't query a live vendor catalog" rule (see `docs/superpowers/specs/2026-07-05-artist-discography-button-design.md` for the reasoning). Don't "fix" this later by routing it through an offline pipeline unless the product direction changes back toward the public/multi-user vision.
+- `OWNER_ID` (`web/src/owner.ts`) is still the single-owner key everywhere, including the new `discovered_albums` table's `session_id` column.
+- Two load-bearing Vercel-ESM fixes in `api/*.ts` from prior sessions: `import ... with { type: 'json' }` and `from './_schema.js'`. Don't revert.
 - Legacy calibration tool (`index.html`/`app.js`/`artists.js`/`scoring/`) is unrelated and untouched.
 
-## Files touched this session (commits on `design-system-te`, newest first)
-- `8c5c8eb` chore: handoff (previous) + gitignore scratchpad
-- `51b89a3` single-owner server-authoritative persistence (owner.ts, session.ts, rankingSync.ts, main.ts, api/ranking.ts)
-- `6ec57d3` seed-change-proof backup import
-- `a5c090b` / `c105ad9` Vercel-ESM api fixes (_schema.js, JSON import attribute)
-- `bca5a0f` restore-code · `215764f` assisted placement + skip + don't-care
-- `6c450ff` taste-weighted candidates + retightened seed · `178d921` send-path correctness
-- `e868b38` preserved Codex's retention/sync/priority/backup build · `4632bf3` taste-dominant seed
-(Deploys + the Vercel account move were done via CLI, not committed to the repo.)
+## Files touched this session
+- `docs/superpowers/specs/2026-07-05-rank-badges-design.md` — new spec
+- `docs/superpowers/specs/2026-07-05-artist-discography-button-design.md` — new spec
+- `docs/superpowers/plans/2026-07-05-rank-badges.md` — new implementation plan
+- `docs/superpowers/plans/2026-07-05-artist-discography-button.md` — new implementation plan
+- `HANDOFF.md` — this file, updated across the session (cleanup confirmation, then this rewrite)
+
+Everything else (`web/src/ranking/subRank.ts`, `web/src/ui/rankList.ts`, `web/api/_schema.ts`, `web/api/_lp.ts`, `web/api/discover-artist.ts`, `web/api/atom.ts`, `web/src/discovery.ts`, `web/src/main.ts`, `web/src/style.css`) was written and committed by **Codex**, executing the two plans above — not edited directly in this session, only reviewed.
 
 ## Git state
-- Branch: `design-system-te`; last commit before this handoff: `8c5c8eb` (this HANDOFF commits on top).
-- Uncommitted: this `HANDOFF.md`.
-- Untracked, intentionally left: `elo-demo.html`, `pairwise-demo.html`, `scratchpad/` (gitignored).
-- Local scaffolding already torn down (dev servers 4173/5173/4190 stopped, isolated worktree removed).
+- Branch: `main` (the `design-system-te` branch was fast-forward merged into `main` earlier this session).
+- Last commit: `8b8a1d6 feat: place candidate by rank number`.
+- Uncommitted changes: no (working tree clean).
+- Untracked, intentionally left: `elo-demo.html`, `pairwise-demo.html` (pre-existing scratch files, not from this session).
+- Ahead of `origin/main`: 86 commits, nothing pushed.
 
 ## Reason for handoff
-Cleanup confirmed done: old-account leftovers deleted, Deployment Protection on. Remaining items are doc drift + branch merge decision, no urgency.
+Session paused after Codex finished executing both plans live and Keith confirmed the build succeeded. Next step is smoke-testing the discovery button and deciding on the `origin` push — both explicitly deferred to Keith rather than done automatically (push is a guarded operation; the live Turso/MusicBrainz test needs Keith's env setup).
 
 ## Updated
-2026-07-05T14:56:13Z
+2026-07-05T16:41:54Z
