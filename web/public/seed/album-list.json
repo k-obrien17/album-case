@@ -56,11 +56,11 @@
     "album": "Believer"
   },
   {
-    "artist": "Rosalía",
+    "artist": "Rosal\u00eda",
     "album": "El mal querer"
   },
   {
-    "artist": "Rosalía",
+    "artist": "Rosal\u00eda",
     "album": "Motomami"
   },
   {
@@ -161,7 +161,7 @@
   },
   {
     "artist": "Fennesz",
-    "album": "Bécs"
+    "album": "B\u00e9cs"
   },
   {
     "artist": "james K",
@@ -252,15 +252,15 @@
     "album": "Nebraska"
   },
   {
-    "artist": "Björk",
+    "artist": "Bj\u00f6rk",
     "album": "Homogenic"
   },
   {
-    "artist": "Björk",
+    "artist": "Bj\u00f6rk",
     "album": "Post"
   },
   {
-    "artist": "Björk",
+    "artist": "Bj\u00f6rk",
     "album": "Vespertine"
   },
   {
@@ -328,7 +328,7 @@
     "album": "Bridge Over Troubled Water"
   },
   {
-    "artist": "Charly García",
+    "artist": "Charly Garc\u00eda",
     "album": "Clics Modernos"
   },
   {
@@ -458,5 +458,193 @@
   {
     "artist": "Madvillain",
     "album": "Madvillainy"
+  },
+  {
+    "artist": "Neil Young",
+    "album": "After the Gold Rush"
+  },
+  {
+    "artist": "Robert Wyatt",
+    "album": "Rock Bottom"
+  },
+  {
+    "artist": "Iggy Pop",
+    "album": "The Idiot"
+  },
+  {
+    "artist": "King Crimson",
+    "album": "Starless and Bible Black"
+  },
+  {
+    "artist": "Kraftwerk",
+    "album": "Die Mensch\u00b7Maschine"
+  },
+  {
+    "artist": "Throbbing Gristle",
+    "album": "20 Jazz Funk Greats"
+  },
+  {
+    "artist": "Devo",
+    "album": "Q: Are We Not Men? A: We Are Devo!"
+  },
+  {
+    "artist": "Giorgio Moroder",
+    "album": "From Here to Eternity"
+  },
+  {
+    "artist": "Roxy Music",
+    "album": "For Your Pleasure"
+  },
+  {
+    "artist": "Joni Mitchell",
+    "album": "Blue"
+  },
+  {
+    "artist": "Wire",
+    "album": "154"
+  },
+  {
+    "artist": "Iggy and the Stooges",
+    "album": "Raw Power"
+  },
+  {
+    "artist": "George Harrison",
+    "album": "All Things Must Pass"
+  },
+  {
+    "artist": "David Bowie",
+    "album": "The Rise and Fall of Ziggy Stardust and the Spiders From Mars"
+  },
+  {
+    "artist": "David Bowie",
+    "album": "Hunky Dory"
+  },
+  {
+    "artist": "Randy Newman",
+    "album": "Sail Away"
+  },
+  {
+    "artist": "David Bowie",
+    "album": "Aladdin Sane"
+  },
+  {
+    "artist": "Blondie",
+    "album": "Parallel Lines"
+  },
+  {
+    "artist": "Led Zeppelin",
+    "album": "Houses of the Holy"
+  },
+  {
+    "artist": "Leonard Cohen",
+    "album": "Songs of Love and Hate"
+  },
+  {
+    "artist": "Van Halen",
+    "album": "Van Halen"
+  },
+  {
+    "artist": "King Crimson",
+    "album": "Red"
+  },
+  {
+    "artist": "James Brown",
+    "album": "The Payback"
+  },
+  {
+    "artist": "Pink Floyd",
+    "album": "The Dark Side of the Moon"
+  },
+  {
+    "artist": "Faust",
+    "album": "Faust IV"
+  },
+  {
+    "artist": "Herbie Hancock",
+    "album": "Head Hunters"
+  },
+  {
+    "artist": "Pink Floyd",
+    "album": "Meddle"
+  },
+  {
+    "artist": "Neil Young",
+    "album": "On the Beach"
+  },
+  {
+    "artist": "Iggy Pop",
+    "album": "Lust for Life"
+  },
+  {
+    "artist": "Cluster",
+    "album": "Zuckerzeit"
+  },
+  {
+    "artist": "The Cars",
+    "album": "The Cars"
+  },
+  {
+    "artist": "The Beach Boys",
+    "album": "Surf's Up"
+  },
+  {
+    "artist": "John Lennon",
+    "album": "John Lennon/Plastic Ono Band"
+  },
+  {
+    "artist": "Ramones",
+    "album": "Rocket to Russia"
+  },
+  {
+    "artist": "Miles Davis",
+    "album": "Jack Johnson"
+  },
+  {
+    "artist": "Paul Simon",
+    "album": "Paul Simon"
+  },
+  {
+    "artist": "Can",
+    "album": "Future Days"
+  },
+  {
+    "artist": "Nick Drake",
+    "album": "Bryter Layter"
+  },
+  {
+    "artist": "Creedence Clearwater Revival",
+    "album": "Cosmo\u2019s Factory"
+  },
+  {
+    "artist": "Elvis Costello",
+    "album": "This Year\u2019s Model"
+  },
+  {
+    "artist": "Sex Pistols",
+    "album": "Never Mind the Bollocks Here\u2019s the Sex Pistols"
+  },
+  {
+    "artist": "Big Star",
+    "album": "3rd"
+  },
+  {
+    "artist": "Harry Nilsson",
+    "album": "Nilsson Schmilsson"
+  },
+  {
+    "artist": "Fela Kuti",
+    "album": "Expensive Shit"
+  },
+  {
+    "artist": "Steve Reich and Musicians",
+    "album": "Music for 18 Musicians"
+  },
+  {
+    "artist": "Jimi Hendrix",
+    "album": "Band of Gypsys"
+  },
+  {
+    "artist": "Fela Kuti & Africa 70",
+    "album": "Zombie"
   }
 ]
