@@ -45,7 +45,9 @@ TURSO_DATABASE_URL=
 TURSO_AUTH_TOKEN=
 ```
 
-The deployed app also uses a private write key:
+## Public Repo Notes
+
+This is a public personal-tool repo. The fixed owner ID is not a secret or auth. Mutating API routes require `ALBUM_CASE_WRITE_KEY`, and that key should never appear in source, screenshots, logs, or `VITE_*` public env vars. Read-only music-ranking exposure is an accepted tradeoff unless reads are gated later.
 
 ```bash
 ALBUM_CASE_WRITE_KEY=
