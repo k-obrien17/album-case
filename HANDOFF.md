@@ -1,51 +1,46 @@
 # Handoff
 
 ## Current task
-Album Case is deployed (https://album-case.vercel.app) and cleanup/lock-down from the last session is done. This session added two new features via brainstorm → spec → plan → Codex-execution: **artist/year rank badges** on the ranked list, and an **artist discography discovery button** ("rank the rest of their albums" via a live MusicBrainz lookup). Codex executed both plans directly on `main` while this session was still writing them, and also added one extra, unplanned feature ("place candidate by rank number") on its own initiative.
+Reconciled a repo fork: this project used to live at `~/Desktop/Claude/Projects/random-music-rankings` and, separately, at `~/album-case`. Both shared history through commit `02af138`, then diverged for a day — turned out the underlying GitHub repo had been renamed (`random-music-rankings` → `album-case`), and the old folder kept working against the old (auto-redirected) remote URL independently. This session identified the fork, reconciled what was unique in each side, and retired the old folder.
 
 ## Status
-Working tree is clean. Build (`cd web && npm run build`) is green, full test suite passes: **107 tests, 17 files** (up from 90 — new: `subRank.test.ts`, `api/_lp.test.ts`, `discovery.test.ts`). Both planned features match their specs/plans exactly, verified by reading the actual diffs against the plan documents. The rank-number-placement commit (`8b8a1d6`) was **not** reviewed in detail — it's outside both plans, added by Codex without a spec.
+`~/album-case` is now the single canonical folder. Build is green, full test suite passes (**114 tests, 20 files**, up from 107 — the increase is the ported seed pool, no new features). Ported from the old folder and committed: the Password Protection decision note (into `SECURITY.md`) and a 47-album seed pool expansion (115 → 162 albums, was sitting uncommitted-nowhere-else). Also copied over but left untracked/gitignored (matching this repo's own conventions): `import-ranking.html`, two pre-existing demo HTML files, a scratchpad ranking-recovery JSON/TXT pair, and a mostly-empty `data/tastetest.db` stub. The old folder's full git history is preserved forever on branch `archive/random-music-rankings-fork` on the same GitHub repo, then the folder was deleted from disk.
 
-**Not yet tested:** the discovery button's live path (MusicBrainz artist search + release-group browse + Turso persistence) hasn't been exercised end-to-end against a running `vercel dev` — only unit-testable pieces (`_lp.ts`'s LP filter/merge logic) have real test coverage. The manual verification steps are in the plan doc (Task 3 Step 3, Task 7 Step 7).
-
-**Not pushed:** `main` is **86 commits ahead of `origin/main`** — everything from the earlier `design-system-te` merge through tonight's two new features is still local-only.
+Everything from the **previous** handoff (rank badges, discography discovery button, unplanned rank-number-placement commit) was already committed before this session started and untouched by this session — see "Don't forget" below for what's still open from that work.
 
 ## Next concrete step
-Smoke-test the discovery button live (`cd web && vercel dev`, needs `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` in `.env.local`): click "▶" on a ranked row for an artist with more albums than the seed (e.g. Radiohead), confirm a real album (e.g. "The Bends") surfaces as the next candidate, reload the page and confirm it's still there (proves the Turso round-trip). Then decide whether to push `main` to `origin` (`! git push origin main` — guarded, needs your explicit go-ahead) and/or deploy.
+Add `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` to `web/.env.local` (the old folder had working credentials for the same underlying database — same Vercel project, `prj_neYcRKLQ7wkgHRQudb58goHzT0Kh` — but album-case's local env never had them) and finally do the live smoke test of the discovery button that's been deferred across two sessions now: `cd web && vercel dev`, click "▶" on a ranked row for an artist with more albums than the seed (e.g. Radiohead), confirm a real album surfaces, reload and confirm it persisted.
 
 ## Open questions
-- **Review the unplanned commit:** `8b8a1d6 feat: place candidate by rank number` (`web/src/ui/rankList.ts` + `style.css`, 76 lines) — Codex added this without a spec or plan. Worth reading before it ships.
-- **Doc drift (carried over):** `.planning/PROJECT.md` still describes an anonymous public product; `.planning/STATE.md` still says "Phase 2, Plan 2 of 4." Reality is a personal single-user tool with two new features beyond the original roadmap. Reconcile before the next big push.
-- **`8th-chair` project mystery (carried over):** exists in Keith's own Vercel account (`8th-chair-keith-obriens-projects.vercel.app`), separate from the old-account leftovers already deleted. Never confirmed as intentional or stray.
-- **`world-cup-fantasy`/`world-cup-squads` entanglement (carried over):** two repos point at one Vercel project. Untangle sometime.
-- Optional: Turso token rotation in `web/.env.local`, still outstanding.
+- **Push decision, still deferred to Keith:** `main` is 2 commits ahead of `origin/main` (the two ports from this session). The earlier ~88-commit backlog from before this session was already pushed at some point between the last handoff and now. Push is guarded (`! git push origin main`), needs explicit go-ahead.
+- **Move `~/album-case` under `~/Desktop/Claude/Projects/`?** It currently lives outside the usual project-layout convention. Flagged, not acted on.
+- Carried over, still unconfirmed: review of the unplanned `8b8a1d6 feat: place candidate by rank number` commit (Codex added it without a spec).
+- Carried over, still unconfirmed: `.planning/PROJECT.md`/`STATE.md` doc drift (describes an anonymous public product; reality is a personal single-user tool with several features beyond the original roadmap).
+- Carried over: `8th-chair` Vercel project mystery, `world-cup-fantasy`/`world-cup-squads` entanglement — neither investigated this session.
 
 ## Don't forget
-- **New this session:** `discovered_albums` Turso table (session_id + mbid primary key, full album records — same seed-independence reasoning as `ranking_snapshots`). `web/api/discover-artist.ts` handles both `GET` (list previously-discovered albums for a session) and `POST` (live-discover one artist's LPs + persist + return). `/api/atom`'s allowlist check now also queries `discovered_albums`, not just the static `_allowlist.json`.
-- **LP definition:** MusicBrainz `primary-type: Album` with no `secondary-types` — same rule `build-seed.py` already used for the curated seed, reused via the new pure helper `web/api/_lp.ts`.
-- **Architecture note:** the discovery button makes one live MusicBrainz call from the running app — a deliberate, documented exception to `DATA-SOURCES.md`'s "don't query a live vendor catalog" rule (see `docs/superpowers/specs/2026-07-05-artist-discography-button-design.md` for the reasoning). Don't "fix" this later by routing it through an offline pipeline unless the product direction changes back toward the public/multi-user vision.
-- `OWNER_ID` (`web/src/owner.ts`) is still the single-owner key everywhere, including the new `discovered_albums` table's `session_id` column.
-- Two load-bearing Vercel-ESM fixes in `api/*.ts` from prior sessions: `import ... with { type: 'json' }` and `from './_schema.js'`. Don't revert.
+- **The old folder's history is not gone** — `git fetch origin && git log archive/random-music-rankings-fork` on this repo recovers it if anything ported over turns out wrong.
+- **Two independent write-gate implementations existed in parallel**: the old folder had a coarse `ALLOW_PUBLIC_WRITES` boolean kill-switch (`_writeGate.ts`); album-case already had the proper `ALBUM_CASE_WRITE_KEY` token gate (`_writeKey.ts`), which is strictly better and is what's live now. The boolean version was **not** ported — don't reintroduce it.
+- `footgun-guard.sh` blocked a `git push origin main:refs/heads/archive/...` because its pattern matches the literal string "main" anywhere in the push command, including as a source ref for a non-main destination branch. False-positive, not a bug that caused harm, but expect it to keep firing on similar backup-branch pushes cut from `main`.
+- `data/tastetest.db` (copied over, gitignored) is a near-empty stub (10 entities, 0 atoms, 0 sessions) — leftover from an early pipeline test, not real seed data. Low value, kept only for completeness.
+- The scratchpad ranking-recovery JSON/TXT (copied over, gitignored) **is** real data — an actual recovered album ranking, not a throwaway.
 - Legacy calibration tool (`index.html`/`app.js`/`artists.js`/`scoring/`) is unrelated and untouched.
 
 ## Files touched this session
-- `docs/superpowers/specs/2026-07-05-rank-badges-design.md` — new spec
-- `docs/superpowers/specs/2026-07-05-artist-discography-button-design.md` — new spec
-- `docs/superpowers/plans/2026-07-05-rank-badges.md` — new implementation plan
-- `docs/superpowers/plans/2026-07-05-artist-discography-button.md` — new implementation plan
-- `HANDOFF.md` — this file, updated across the session (cleanup confirmation, then this rewrite)
-
-Everything else (`web/src/ranking/subRank.ts`, `web/src/ui/rankList.ts`, `web/api/_schema.ts`, `web/api/_lp.ts`, `web/api/discover-artist.ts`, `web/api/atom.ts`, `web/src/discovery.ts`, `web/src/main.ts`, `web/src/style.css`) was written and committed by **Codex**, executing the two plans above — not edited directly in this session, only reviewed.
+- `SECURITY.md` — added "Also Considered" section (Password Protection decision), committed as `334a341`
+- `web/api/_allowlist.json`, `web/public/seed/album-list.json`, `web/public/seed/albums.json` — ported +47 albums (115→162), committed as `b10f70f`
+- `elo-demo.html`, `pairwise-demo.html`, `web/public/import-ranking.html`, `scratchpad/recovered-tastetest-ranking-*.{json,txt}`, `data/tastetest.db` — copied from the old folder, left untracked (gitignored or pre-existing convention)
+- `~/Desktop/Claude/Projects/random-music-rankings` — deleted in full after everything unique was ported or archived
 
 ## Git state
-- Branch: `main` (the `design-system-te` branch was fast-forward merged into `main` earlier this session).
-- Last commit: `8b8a1d6 feat: place candidate by rank number`.
+- Branch: `main`.
+- Last commit: `b10f70f feat(seed): port +47 album seed pool addition from random-music-rankings`.
 - Uncommitted changes: no (working tree clean).
-- Untracked, intentionally left: `elo-demo.html`, `pairwise-demo.html` (pre-existing scratch files, not from this session).
-- Ahead of `origin/main`: 86 commits, nothing pushed.
+- Untracked, intentionally left: `elo-demo.html`, `pairwise-demo.html` (pre-existing scratch files), plus the gitignored copies noted above.
+- Ahead of `origin/main`: 2 commits, not pushed (see Open questions).
 
 ## Reason for handoff
-Session paused after Codex finished executing both plans live and Keith confirmed the build succeeded. Next step is smoke-testing the discovery button and deciding on the `origin` push — both explicitly deferred to Keith rather than done automatically (push is a guarded operation; the live Turso/MusicBrainz test needs Keith's env setup).
+Session paused.
 
 ## Updated
-2026-07-05T16:41:54Z
+2026-07-06T22:20:00Z
