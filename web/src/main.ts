@@ -27,7 +27,7 @@ import {
 } from './priority';
 import { loadRankingSnapshotDetailed, saveRankingSnapshot } from './rankingSync';
 import { discoverArtistDetailed, loadDiscoveredAlbums } from './discovery';
-import { clearWriteKey, extractKeyFromSearch, hasWriteKey, setWriteKey } from './writeKey';
+import { clearWriteKey, extractKeyFromFragment, hasWriteKey, setWriteKey } from './writeKey';
 import { clearPendingSync, hasPendingSync, markPendingSync } from './syncStatus';
 import {
   addBlockedArtist,
@@ -119,13 +119,14 @@ async function main(): Promise<void> {
     throw new Error('#app mount point not found');
   }
 
-  // Bookmark a URL with ?key=... once per device and never type the write
-  // key again. Strip it from the visible address bar after storing so it
-  // doesn't linger there -- the bookmark itself is unaffected.
-  const urlKey = extractKeyFromSearch(window.location.search);
+  // Bookmark a URL with #key=... once per device and never type the write
+  // key again. A fragment, not a query string, so the browser never sends it
+  // to the server (no risk of it landing in access logs). Strip it from the
+  // visible address bar after storing -- the bookmark itself is unaffected.
+  const urlKey = extractKeyFromFragment(window.location.hash);
   if (urlKey) {
     setWriteKey(urlKey);
-    window.history.replaceState(null, '', window.location.pathname + window.location.hash);
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
   }
 
   const session = getOrCreateSession();

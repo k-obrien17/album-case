@@ -54,11 +54,14 @@ export function writeKeyHeaders(): HeadersInit {
 }
 
 /**
- * Pull a write key out of a `?key=...` query string (a bookmarkable
+ * Pull a write key out of a `#key=...` URL fragment (a bookmarkable
  * auto-unlock link -- visit it once per device, never re-type the key
- * again). Pure so the parsing is testable without touching `window`.
+ * again). A fragment, NOT a query string: the browser never sends it to the
+ * server, so it can't end up in access logs, unlike `?key=...`. Pure so the
+ * parsing is testable without touching `window`.
  */
-export function extractKeyFromSearch(search: string): string | null {
-  const key = new URLSearchParams(search).get('key');
+export function extractKeyFromFragment(hash: string): string | null {
+  const params = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
+  const key = params.get('key');
   return key && key.trim() ? key.trim() : null;
 }

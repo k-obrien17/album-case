@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   clearWriteKey,
-  extractKeyFromSearch,
+  extractKeyFromFragment,
   getWriteKey,
   hasWriteKey,
   setWriteKey,
@@ -27,15 +27,16 @@ describe('writeKey storage', () => {
   });
 });
 
-describe('extractKeyFromSearch', () => {
-  it('reads and trims a key from a bookmarkable auto-unlock URL', () => {
-    expect(extractKeyFromSearch('?key=secret-123')).toBe('secret-123');
-    expect(extractKeyFromSearch('?key=%20secret-123%20')).toBe('secret-123');
+describe('extractKeyFromFragment', () => {
+  it('reads and trims a key from a bookmarkable auto-unlock URL fragment', () => {
+    expect(extractKeyFromFragment('#key=secret-123')).toBe('secret-123');
+    expect(extractKeyFromFragment('#key=%20secret-123%20')).toBe('secret-123');
+    expect(extractKeyFromFragment('key=secret-123')).toBe('secret-123');
   });
 
   it('returns null when there is no key param or it is blank', () => {
-    expect(extractKeyFromSearch('')).toBeNull();
-    expect(extractKeyFromSearch('?other=1')).toBeNull();
-    expect(extractKeyFromSearch('?key=')).toBeNull();
+    expect(extractKeyFromFragment('')).toBeNull();
+    expect(extractKeyFromFragment('#other=1')).toBeNull();
+    expect(extractKeyFromFragment('#key=')).toBeNull();
   });
 });
