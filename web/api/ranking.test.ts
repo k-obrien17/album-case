@@ -51,10 +51,30 @@ function postReq(body: unknown) {
   };
 }
 
+function getReq(query: Record<string, string>, headers: Record<string, string> = {}) {
+  return { method: 'GET', headers, query };
+}
+
 describe('/api/ranking', () => {
   afterEach(() => {
     vi.clearAllMocks();
     vi.unstubAllEnvs();
+  });
+
+  it('serves a GET without a write key (reads are intentionally public)', async () => {
+    vi.stubEnv('TURSO_DATABASE_URL', 'libsql://example.test');
+    vi.stubEnv('TURSO_AUTH_TOKEN', 'token');
+    vi.stubEnv('ALBUM_CASE_WRITE_KEY', 'secret-123');
+    dbMock.execute.mockResolvedValue({ rows: [] });
+    const res = makeRes();
+
+    await handler(
+      getReq({ session_id: '11111111-1111-4111-8111-111111111111' }) as never,
+      res as never
+    );
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ snapshot: null });
   });
 
   it('returns conflict when a versioned snapshot update affects no row', async () => {

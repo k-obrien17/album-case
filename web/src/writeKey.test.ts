@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { clearWriteKey, getWriteKey, hasWriteKey, setWriteKey, writeKeyHeaders } from './writeKey';
+import {
+  clearWriteKey,
+  extractKeyFromSearch,
+  getWriteKey,
+  hasWriteKey,
+  setWriteKey,
+  writeKeyHeaders,
+} from './writeKey';
 
 describe('writeKey storage', () => {
   afterEach(() => {
@@ -17,5 +24,18 @@ describe('writeKey storage', () => {
     clearWriteKey();
     expect(getWriteKey()).toBeNull();
     expect(hasWriteKey()).toBe(false);
+  });
+});
+
+describe('extractKeyFromSearch', () => {
+  it('reads and trims a key from a bookmarkable auto-unlock URL', () => {
+    expect(extractKeyFromSearch('?key=secret-123')).toBe('secret-123');
+    expect(extractKeyFromSearch('?key=%20secret-123%20')).toBe('secret-123');
+  });
+
+  it('returns null when there is no key param or it is blank', () => {
+    expect(extractKeyFromSearch('')).toBeNull();
+    expect(extractKeyFromSearch('?other=1')).toBeNull();
+    expect(extractKeyFromSearch('?key=')).toBeNull();
   });
 });

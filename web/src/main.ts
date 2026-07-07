@@ -27,7 +27,7 @@ import {
 } from './priority';
 import { loadRankingSnapshotDetailed, saveRankingSnapshot } from './rankingSync';
 import { discoverArtistDetailed, loadDiscoveredAlbums } from './discovery';
-import { clearWriteKey, hasWriteKey, setWriteKey } from './writeKey';
+import { clearWriteKey, extractKeyFromSearch, hasWriteKey, setWriteKey } from './writeKey';
 import { clearPendingSync, hasPendingSync, markPendingSync } from './syncStatus';
 import {
   addBlockedArtist,
@@ -119,6 +119,15 @@ async function main(): Promise<void> {
     throw new Error('#app mount point not found');
   }
 
+  // Bookmark a URL with ?key=... once per device and never type the write
+  // key again. Strip it from the visible address bar after storing so it
+  // doesn't linger there -- the bookmark itself is unaffected.
+  const urlKey = extractKeyFromSearch(window.location.search);
+  if (urlKey) {
+    setWriteKey(urlKey);
+    window.history.replaceState(null, '', window.location.pathname + window.location.hash);
+  }
+
   const session = getOrCreateSession();
   void flushAtomQueue();
 
@@ -165,6 +174,8 @@ async function main(): Promise<void> {
         ? null
         : undefined;
   let snapshotSaveChain: Promise<void> = Promise.resolve();
+  let syncRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  const SYNC_RETRY_MS = 4000;
   const discovered = await loadDiscoveredAlbums(OWNER_ID);
   const knownPoolIds = new Set(pool.map((album) => album.mbid));
   for (const album of discovered) {
@@ -202,6 +213,7 @@ async function main(): Promise<void> {
         lists.notHeard.length > 0 ||
         lists.dontCare.length > 0))
   ) {
+    markPendingSync();
     queueRankingSnapshotSync();
   }
 
@@ -272,7 +284,26 @@ async function main(): Promise<void> {
   }
 
   async function syncRankingSnapshot(): Promise<void> {
-    if (snapshotBaseUpdatedAt === undefined) return;
+    // Nothing outstanding -- e.g. a queued retry fired after handleUnlock
+    // already resolved things. Skip the redundant round-trip.
+    if (!hasPendingSync()) return;
+
+    if (snapshotBaseUpdatedAt === undefined) {
+      // A prior version conflict cleared the base. Refetch the server's
+      // current version so saving can resume -- previously this disabled
+      // sync for the rest of the page load while the banner kept claiming
+      // "Retrying...", which was never true.
+      const fresh = await loadRankingSnapshotDetailed(session.session_id);
+      if (fresh.status === 'found') {
+        snapshotBaseUpdatedAt = fresh.updatedAt;
+      } else if (fresh.status === 'missing') {
+        snapshotBaseUpdatedAt = null;
+      } else {
+        scheduleSyncRetry();
+        updateSyncBanner();
+        return;
+      }
+    }
 
     const result = await saveRankingSnapshot(
       session.session_id,
@@ -286,14 +317,25 @@ async function main(): Promise<void> {
     } else {
       // 'skipped' (writes locked), 'error' (network/server), or 'conflict':
       // none of these mean the local edit made it to the server, so keep the
-      // pending flag set until a save actually confirms.
+      // pending flag set. 'skipped' only resolves by unlocking (handleUnlock
+      // re-syncs), so don't burn a timer retrying that; the rest genuinely
+      // retry, since the banner promises they will.
       markPendingSync();
       if (result.status === 'conflict') {
         snapshotBaseUpdatedAt = undefined;
         console.warn('albumcase: ranking snapshot save skipped because the server copy changed');
       }
+      if (result.status !== 'skipped') scheduleSyncRetry();
     }
     updateSyncBanner();
+  }
+
+  function scheduleSyncRetry(): void {
+    if (syncRetryTimer !== null) return;
+    syncRetryTimer = setTimeout(() => {
+      syncRetryTimer = null;
+      queueRankingSnapshotSync();
+    }, SYNC_RETRY_MS);
   }
 
   function queueRankingSnapshotSync(): void {
@@ -519,6 +561,16 @@ async function main(): Promise<void> {
     renderNav();
   }
 
+  // Reads are public, so boot-on-load already has the real server state by
+  // the time writes get unlocked -- just push it (or retry, if there's a
+  // pending edit) rather than re-fetching first.
+  function handleUnlock(): void {
+    rankList.showStatus('Writes unlocked.');
+    renderNav();
+    persistRankingState();
+    void flushAtomQueue();
+  }
+
   function renderNav(): void {
     nav.textContent = '';
     const items: Array<{ mode: ViewMode; label: string }> = [
@@ -556,10 +608,7 @@ async function main(): Promise<void> {
       const secret = window.prompt('Enter the Album Case write key');
       if (!secret || !secret.trim()) return;
       setWriteKey(secret.trim());
-      rankList.showStatus('Writes unlocked.');
-      renderNav();
-      void persistRankingState();
-      void flushAtomQueue();
+      handleUnlock();
     });
     nav.append(writeBtn);
   }

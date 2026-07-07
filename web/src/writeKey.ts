@@ -52,3 +52,13 @@ export function writeKeyHeaders(): HeadersInit {
   const key = getWriteKey();
   return key ? { [WRITE_KEY_HEADER]: key } : {};
 }
+
+/**
+ * Pull a write key out of a `?key=...` query string (a bookmarkable
+ * auto-unlock link -- visit it once per device, never re-type the key
+ * again). Pure so the parsing is testable without touching `window`.
+ */
+export function extractKeyFromSearch(search: string): string | null {
+  const key = new URLSearchParams(search).get('key');
+  return key && key.trim() ? key.trim() : null;
+}
