@@ -1,5 +1,11 @@
 # Roadmap: Taste Test
 
+> Historical note, 2026-07-07: this roadmap belongs to the older public Taste
+> Test direction. The current implemented product is the personal single-owner
+> Album Case app described in `.planning/PROJECT.md`, `README.md`, and
+> `CLAUDE.md`. Keep this file as archived context unless Keith explicitly
+> reopens the public aggregate roadmap.
+
 ## Overview
 
 Taste Test's albums ranking MVP is delivered in two phases. First, the data foundation: materialize a notability-floored, MBID-keyed album universe from CC0 bulk dumps into a queryable local store, with covers resolved as Cover Art Archive pointers, sitting on a polymorphic `(entity_type, mbid)` entity table and a generic pairwise atom table. That infrastructure is the prerequisite for everything. Second, the ranking MVP: the anonymous, phone-usable drag-to-place loop that builds a transitive personal ranked list and persists each placement's implied pairwise signal as atoms. Expansion (songs, artists, more mechanisms, crowd charts, accounts, sharing) is explicitly v2 and out of this roadmap.

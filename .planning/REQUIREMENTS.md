@@ -1,5 +1,11 @@
 # Requirements: Taste Test
 
+> Historical note, 2026-07-07: this file describes the older public Taste Test
+> roadmap. The current implemented product is the personal single-owner Album
+> Case app described in `.planning/PROJECT.md`, `README.md`, and `CLAUDE.md`.
+> Treat the requirements below as archived context unless Keith explicitly
+> reopens the public aggregate product direction.
+
 **Defined:** 2026-07-03
 **Core Value:** Turning the simplest placement (where this album belongs in your list) into an honest personal ranked list AND clean, openly-keyed crowd data.
 

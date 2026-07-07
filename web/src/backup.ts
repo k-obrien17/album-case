@@ -1,5 +1,6 @@
 import type { SavedLists } from './lists';
 import type { Album, RankingState } from './ranking/types';
+import { parseAlbum } from './album';
 
 type BackupBundle = {
   version: 1;
@@ -20,21 +21,6 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
-/** Coerce a stored backup entry into a valid Album record. Requires the
- * identifying fields; tolerates a missing/loose year or cover. Returns null
- * only when the entry isn't a usable album at all. */
-function asAlbum(item: unknown): Album | null {
-  if (!isObject(item) || typeof item.mbid !== 'string') return null;
-  if (typeof item.title !== 'string' || typeof item.primary_artist_name !== 'string') return null;
-  return {
-    mbid: item.mbid,
-    title: item.title,
-    primary_artist_name: item.primary_artist_name,
-    release_year: typeof item.release_year === 'number' ? item.release_year : null,
-    cover_url: typeof item.cover_url === 'string' ? item.cover_url : '',
-  };
-}
-
 /** Resolve a stored album list against the current pool. A backup must
  * survive seed changes: if an album is still in the seed we prefer the pool's
  * canonical record (fresh cover, etc.), otherwise we keep the stored record so
@@ -48,7 +34,7 @@ function canonicalAlbums(value: unknown, pool: Album[]): Album[] | null {
   const albums: Album[] = [];
 
   for (const item of value) {
-    const stored = asAlbum(item);
+    const stored = parseAlbum(item);
     if (!stored || seen.has(stored.mbid)) return null;
     seen.add(stored.mbid);
     albums.push(byId.get(stored.mbid) ?? stored);

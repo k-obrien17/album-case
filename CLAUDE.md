@@ -4,7 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Positioning
 
-**Album Case** is a public, data-first music-ranking web app for enthusiasts. The starting experience: show one candidate album, drag it into the exact position in your ranked list, and repeat until you have a true, self-consistent order. Each placement can be captured as openly-keyed pairwise neighbor atoms, so the aggregate becomes the product (publishable culture-insight charts; a licensable dataset is parked). Design priority is friction reduction: the ranking loop must be instant, anonymous, and phone-first.
+**Album Case** is currently a personal, single-owner album-ranking app. The
+starting experience: show one candidate album, drag it into the exact position
+in the ranked list, and repeat until the owner has a true, self-consistent album
+order. The canonical list is the fixed owner snapshot in Turso; localStorage is
+only a fast/offline cache. Mutations are guarded by `ALBUM_CASE_WRITE_KEY`;
+public reads are an accepted tradeoff for now.
+
+The older public "Taste Test" / crowd-aggregate direction is historical
+planning context, not the implemented product surface. Do not re-expand toward
+accounts, public anonymous sessions, licensable datasets, or crowd charts unless
+Keith explicitly reopens that product direction.
 
 The rankable unit is the **album** (MusicBrainz release-group), built to expand to songs and artists and to richer mechanisms without a rebuild.
 
@@ -12,31 +22,34 @@ This repo also contains a **legacy private calibration tool** (artist-tier rater
 
 ## Current state
 
-- **Managed via GSD.** Planning lives in `.planning/` (`PROJECT.md`, `REQUIREMENTS.md`, `ROADMAP.md`, `STATE.md`, `config.json`). Read `PROJECT.md` for the current, authoritative product definition; it supersedes the older root `PRODUCT.md` where they differ.
-- **Roadmap (2 phases, coarse, horizontal layers):**
-  1. **Album Data Foundation** (not built) — materialize a notability-floored album universe from CC0 bulk dumps into a queryable store; polymorphic entity + generic atom schema.
-  2. **This-or-That Ranking MVP** (in progress) — anonymous drag-to-place album ranking loop, transitive personal list, placement signals stored as atoms.
+- The deployable app lives under `web/` and is a Vite + TypeScript app with
+  Vercel serverless functions and Turso/libSQL persistence.
+- The app uses one fixed owner id (`web/src/owner.ts`) across browsers/devices.
+- Ranking snapshots store full album records and use versioned writes to avoid
+  stale tab/browser overwrites.
+- Discovery is owner-triggered: the client sends `primary_artist_mbid` to
+  `/api/discover-artist`, which browses MusicBrainz release-groups for that
+  artist and stores studio LP records in `discovered_albums`.
+- Planning in `.planning/` may still contain older Taste Test framing. Treat it
+  as historical unless it has been updated to match this section.
 - **Legacy (stable, demoted):** the calibration game (`index.html` + `app.js` + `style.css` + generated `artists.js`) and the Python `scoring/` module with passing pytest tests.
 - **Open fork:** the v1 player mechanism has pivoted from two-card pairwise picks to drag-to-place ranking. Lanes/tiers/Elo are parked or out of scope (see `PROJECT.md`).
 
 ## Two codebases in this repo
 
-1. **The product (Album Case), being built** — data pipeline (CC0 dump ingestion) + a queryable store + the drag-to-place ranking web app. Stack is decided per-phase at plan time; see `DATA-SOURCES.md` and `.planning/`. This is where new work happens.
+1. **The product (Album Case), being built** — the personal drag-to-place album ranking web app in `web/`, plus API-backed Turso persistence and MusicBrainz discovery. This is where new work happens.
 2. **The legacy calibration tool, at the repo root** — `index.html`, `app.js`, `style.css`, `artists.js`, `build-artists.py`, `scoring/`, `reference/`. Zero-dependency, runs from `file://`. Kept as seed pool + fixture. The old constraints below apply ONLY to it.
 
 ## Architecture (the product)
 
-Source of truth for data decisions: `DATA-SOURCES.md`. Core rule:
-
-**Store everything from CC0 dumps. Reference only what you already own. Use pointers for copyrighted assets.**
-
-- **Stored core (CC0, bulk dumps, the owned asset):** MusicBrainz (release-group + artist identity), Cover Art Archive (covers), ListenBrainz (popularity floor + future similarity), Discogs (genres/styles), Wikidata (crosswalks + attributes).
-- **The search index is the project's own materialized universe, never a vendor's live catalog.** A player can only reference an album already in the store, so everything referenced is owned by construction.
-- **Live edges (display-only, never stored):** Deezer / TheAudioDB for enrichment. Copyrighted images/previews are referenced by ID and rendered live. Spotify is dropped entirely (Feb 2026 dev lockdown).
-- **Expansion insurance, baked in from Phase 1:**
-  - Rankable items are polymorphic `(entity_type, mbid)` — `album` now, `song`/`artist` later without a rebuild.
-  - Picks are generic pairwise atoms `(entity_a, entity_b, winner, mechanism, session_id, created_at)` — every future mechanism shares this one table.
-- **The personal list is transitive by construction** (direct placement into one ordered list), so a player can never make a self-contradicting pick. Not Elo.
+- Rankable unit is the MusicBrainz release-group album.
+- Album records carry `mbid`, `title`, `primary_artist_name`,
+  `primary_artist_mbid`, `release_year`, and a Cover Art Archive pointer URL.
+- The personal list is transitive by construction. Do not replace it with Elo.
+- Pairwise atoms are still recorded for placements/comparisons, but the primary
+  product state is the owner ranking snapshot.
+- The static seed is a temporary bootstrap. Live discovery is allowed for this
+  personal app and should use MusicBrainz artist MBIDs, not name search.
 
 ## Commands (legacy tool)
 
@@ -47,11 +60,20 @@ python3 build-artists.py                          # regenerate artists.js after 
 python3 -m pytest scoring/test_calibration.py -v  # run the scoring tests
 ```
 
-Product-side commands (ingestion, store, app) are defined per-phase during planning; none exist yet.
+Product-side commands:
+
+```bash
+cd web
+npm install
+npm run dev
+npm run test
+npm run build
+```
 
 ## Conventions
 
-- **Read `.planning/` before product work.** `PROJECT.md` + `ROADMAP.md` + the phase's plans are the brief.
+- Prefer README, SECURITY.md, HANDOFF.md, and this file over stale `.planning/`
+  sections when they conflict.
 - Render with safe DOM construction, not `innerHTML`.
 - Mobile is the primary device: tap targets >= 44px, usable at 360px, no horizontal scroll.
 - Match the project's package manager and language once the product stack is chosen (see the phase plan / `DATA-SOURCES.md`); don't assume.
@@ -59,11 +81,14 @@ Product-side commands (ingestion, store, app) are defined per-phase during plann
 ## Don't
 
 **Product (Album Case):**
-- **Don't store vendor (Spotify/Deezer/Apple) metadata or images.** Only CC0 data is stored; covers come from the Cover Art Archive; copyrighted assets are live-rendered pointers.
-- **Don't search a live vendor catalog.** The app queries the project's own materialized universe.
-- **Don't break the expansion schema.** Keep entities polymorphic `(entity_type, mbid)` and picks as generic mechanism-tagged atoms, from day one.
-- **Don't use Elo or any model that allows self-contradicting picks** for the personal list. It is transitive-by-construction.
-- **Don't ingest stored data from live APIs.** Use bulk dumps; new albums enter via the next dump refresh.
+- **Don't put `ALBUM_CASE_WRITE_KEY` in source, screenshots, logs, or `VITE_*`
+  env vars.**
+- **Don't use artist-name search for discovery when an artist MBID is
+  available.**
+- **Don't use Elo or any model that allows self-contradicting picks** for the
+  personal list. It is transitive-by-construction.
+- **Don't confuse the older public Taste Test aggregate roadmap with the
+  current personal Album Case app.**
 
 **Legacy tool only:**
 - **Don't hand-edit `artists.js`.** It is generated from `artists.json` by `build-artists.py`.
@@ -78,7 +103,7 @@ Product-side commands (ingestion, store, app) are defined per-phase during plann
 
 | Path | What |
 |---|---|
-| `.planning/PROJECT.md` | Authoritative product definition (supersedes root `PRODUCT.md`) |
+| `.planning/PROJECT.md` | Historical/partially updated product planning; verify against README/HANDOFF |
 | `.planning/ROADMAP.md` | Phase structure |
 | `DATA-SOURCES.md` | Data source matrix + the store-everything architecture rule |
 | `SHIP-STANDARD.md` | The bar this project builds to |

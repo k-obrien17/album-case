@@ -25,9 +25,10 @@ import {
   priorityQueueFromArtists,
   savePriorityQueue,
 } from './priority';
-import { loadRankingSnapshot, saveRankingSnapshot } from './rankingSync';
-import { loadDiscoveredAlbums, discoverArtist } from './discovery';
+import { loadRankingSnapshotDetailed, saveRankingSnapshot } from './rankingSync';
+import { discoverArtistDetailed, loadDiscoveredAlbums } from './discovery';
 import { clearWriteKey, hasWriteKey, setWriteKey } from './writeKey';
+import { clearPendingSync, hasPendingSync, markPendingSync } from './syncStatus';
 import {
   addBlockedArtist,
   blockedArtistMbids,
@@ -35,6 +36,7 @@ import {
   removeBlockedArtist,
   saveBlockedArtists,
 } from './artistBlocks';
+import { loadSkippedAlbums, saveSkippedAlbums } from './skippedAlbums';
 
 type ViewMode = 'ranked' | ListName | 'blockedArtists';
 
@@ -99,6 +101,18 @@ export function resolveInitialState(
   return { state: cached.state, lists: cached.lists, fromServer: false };
 }
 
+export function hydrateAlbums(albums: Album[], byId: Map<string, Album>): Album[] {
+  return albums.map((album) => ({ ...(byId.get(album.mbid) ?? {}), ...album }));
+}
+
+export function hydrateLists(lists: SavedLists, byId: Map<string, Album>): SavedLists {
+  return {
+    wantToListen: hydrateAlbums(lists.wantToListen, byId),
+    notHeard: hydrateAlbums(lists.notHeard, byId),
+    dontCare: hydrateAlbums(lists.dontCare, byId),
+  };
+}
+
 async function main(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>('#app');
   if (!app) {
@@ -139,7 +153,18 @@ async function main(): Promise<void> {
   const cachedState: RankingState = loadRanking() ?? { ranked: [], pending: null };
   const cachedLists = loadLists();
   let blockedArtists = loadBlockedArtists();
-  const serverSnapshot = await loadRankingSnapshot(OWNER_ID);
+  const serverLoad = await loadRankingSnapshotDetailed(OWNER_ID);
+  let serverSnapshot =
+    serverLoad.status === 'found'
+      ? { ranked: serverLoad.ranked, lists: serverLoad.lists }
+      : null;
+  let snapshotBaseUpdatedAt: number | null | undefined =
+    serverLoad.status === 'found'
+      ? serverLoad.updatedAt
+      : serverLoad.status === 'missing'
+        ? null
+        : undefined;
+  let snapshotSaveChain: Promise<void> = Promise.resolve();
   const discovered = await loadDiscoveredAlbums(OWNER_ID);
   const knownPoolIds = new Set(pool.map((album) => album.mbid));
   for (const album of discovered) {
@@ -148,7 +173,19 @@ async function main(): Promise<void> {
       knownPoolIds.add(album.mbid);
     }
   }
-  const initial = resolveInitialState(serverSnapshot, {
+  const poolById = new Map(pool.map((album) => [album.mbid, album]));
+  if (serverSnapshot) {
+    serverSnapshot = {
+      ranked: hydrateAlbums(serverSnapshot.ranked, poolById),
+      lists: hydrateLists(serverSnapshot.lists, poolById),
+    };
+  }
+  // A pending-sync flag means the local cache holds edits that were never
+  // confirmed saved (writes locked, network error, etc). In that case the
+  // server snapshot is stale by definition -- prefer the local cache instead
+  // of letting it clobber the unsynced edits, and retry the save below.
+  const pendingSync = hasPendingSync();
+  const initial = resolveInitialState(pendingSync ? null : serverSnapshot, {
     state: cachedState,
     lists: cachedLists,
   });
@@ -158,12 +195,14 @@ async function main(): Promise<void> {
     saveRanking(state);
     saveLists(lists);
   } else if (
-    state.ranked.length > 0 ||
-    lists.wantToListen.length > 0 ||
-    lists.notHeard.length > 0 ||
-    lists.dontCare.length > 0
+    pendingSync ||
+    (serverLoad.status === 'missing' &&
+      (state.ranked.length > 0 ||
+        lists.wantToListen.length > 0 ||
+        lists.notHeard.length > 0 ||
+        lists.dontCare.length > 0))
   ) {
-    void saveRankingSnapshot(session.session_id, state, lists);
+    queueRankingSnapshotSync();
   }
 
   // First-visit correctness: an empty list plus a first candidate, never a
@@ -171,11 +210,9 @@ async function main(): Promise<void> {
   // are the fallback.
   let candidate: Album | null = null;
 
-  // Session-only "Skip for now" set: deferred albums are excluded from
-  // selection but NEVER written to the saved lists or excludedMbids. When the
-  // fresh pool drains, deferred albums are re-offered (see reselectCandidate)
-  // rather than showing "you've placed everything" prematurely.
-  const deferred = new Set<string>();
+  // "Skip for now" is sticky: skipped albums are excluded from selection and
+  // persisted locally so they do not resurface on reload.
+  const skippedAlbums = loadSkippedAlbums();
 
   const shell = document.createElement('div');
   shell.className = 'app-shell';
@@ -184,17 +221,38 @@ async function main(): Promise<void> {
   heading.className = 'app-heading';
   heading.textContent = 'Album Case';
 
+  // Visible, persistent (not a transient rankList.showStatus toast) warning
+  // for unsynced local changes -- the fix for silently losing an add when
+  // writes are locked and the server snapshot clobbers the local cache.
+  const syncBanner = document.createElement('p');
+  syncBanner.className = 'sync-banner';
+  syncBanner.hidden = true;
+
   const nav = document.createElement('nav');
   nav.className = 'view-switcher';
 
   const stage = document.createElement('div');
   stage.className = 'app-stage';
 
-  shell.append(heading, nav, stage);
+  shell.append(heading, syncBanner, nav, stage);
   app.textContent = '';
   app.append(shell);
 
   let view: ViewMode = 'ranked';
+
+  function updateSyncBanner(): void {
+    if (!hasPendingSync()) {
+      syncBanner.hidden = true;
+      syncBanner.textContent = '';
+      return;
+    }
+    syncBanner.hidden = false;
+    syncBanner.textContent = hasWriteKey()
+      ? 'Not saved to the server yet. Retrying...'
+      : 'Writes are locked -- changes are only saved on this device. Unlock writes to save them to the server.';
+  }
+
+  updateSyncBanner();
 
   function pickFrom(excluded: Set<string>): Album | null {
     const priority = nextPriorityCandidate(priorityQueue, pool, state.ranked, excluded);
@@ -206,30 +264,55 @@ async function main(): Promise<void> {
   }
 
   function reselectCandidate(): void {
-    // Selection excludes set-aside lists AND session-deferred skips.
+    // Selection excludes set-aside lists, skipped albums, and blocked artists.
     const excluded = excludedMbids(lists);
     for (const mbid of blockedArtistMbids(pool, blockedArtists)) excluded.add(mbid);
-    for (const mbid of deferred) excluded.add(mbid);
+    for (const mbid of skippedAlbums) excluded.add(mbid);
     candidate = pickFrom(excluded);
+  }
 
-    // Fresh pool drained but skips remain: rotate deferred back in rather than
-    // declaring the pool finished. Skips are a soft "later", not a set-aside.
-    if (!candidate && deferred.size > 0) {
-      deferred.clear();
-      const retryExcluded = excludedMbids(lists);
-      for (const mbid of blockedArtistMbids(pool, blockedArtists)) retryExcluded.add(mbid);
-      candidate = pickFrom(retryExcluded);
+  async function syncRankingSnapshot(): Promise<void> {
+    if (snapshotBaseUpdatedAt === undefined) return;
+
+    const result = await saveRankingSnapshot(
+      session.session_id,
+      state,
+      lists,
+      snapshotBaseUpdatedAt
+    );
+    if (result.status === 'saved') {
+      snapshotBaseUpdatedAt = result.updatedAt;
+      clearPendingSync();
+    } else {
+      // 'skipped' (writes locked), 'error' (network/server), or 'conflict':
+      // none of these mean the local edit made it to the server, so keep the
+      // pending flag set until a save actually confirms.
+      markPendingSync();
+      if (result.status === 'conflict') {
+        snapshotBaseUpdatedAt = undefined;
+        console.warn('albumcase: ranking snapshot save skipped because the server copy changed');
+      }
     }
+    updateSyncBanner();
+  }
+
+  function queueRankingSnapshotSync(): void {
+    snapshotSaveChain = snapshotSaveChain.then(syncRankingSnapshot, syncRankingSnapshot);
+    void snapshotSaveChain;
   }
 
   function persistRankingState(): void {
     saveRanking(state);
-    void saveRankingSnapshot(session.session_id, state, lists);
+    markPendingSync();
+    updateSyncBanner();
+    queueRankingSnapshotSync();
   }
 
   function persistLists(): void {
     saveLists(lists);
-    void saveRankingSnapshot(session.session_id, state, lists);
+    markPendingSync();
+    updateSyncBanner();
+    queueRankingSnapshotSync();
   }
 
   function removeBlockedFromPriorityQueue(): void {
@@ -241,7 +324,6 @@ async function main(): Promise<void> {
   function handleBlockArtist(album: Album): void {
     blockedArtists = addBlockedArtist(blockedArtists, album.primary_artist_name);
     saveBlockedArtists(blockedArtists);
-    deferred.delete(album.mbid);
     removeBlockedFromPriorityQueue();
     reselectCandidate();
     rankList.showStatus(`No more ${album.primary_artist_name} albums.`);
@@ -250,16 +332,35 @@ async function main(): Promise<void> {
 
   async function handleDiscoverArtist(album: Album): Promise<void> {
     const artistName = album.primary_artist_name;
+    const artistMbid = album.primary_artist_mbid;
+    if (!artistMbid) {
+      rankList.showStatus(`Refresh Album Case to discover more ${artistName} albums.`);
+      return;
+    }
     const knownMbids = pool
-      .filter((a) => a.primary_artist_name === artistName)
+      .filter((a) => a.primary_artist_mbid === artistMbid)
       .map((a) => a.mbid);
 
-    const found = await discoverArtist(session.session_id, artistName, knownMbids);
-    if (found.length === 0) {
+    const discoveredResult = await discoverArtistDetailed(
+      session.session_id,
+      artistName,
+      artistMbid,
+      knownMbids
+    );
+    if (discoveredResult.status === 'locked') {
+      rankList.showStatus('Unlock writes to discover more albums.');
+      return;
+    }
+    if (discoveredResult.status === 'error') {
+      rankList.showStatus(`Could not discover more ${artistName} albums.`);
+      return;
+    }
+    if (discoveredResult.status === 'empty') {
       rankList.showStatus(`No more ${artistName} albums found.`);
       return;
     }
 
+    const found = discoveredResult.albums;
     const poolIds = new Set(pool.map((a) => a.mbid));
     const newToPool = found.filter((a) => !poolIds.has(a.mbid));
     pool.push(...newToPool);
@@ -324,9 +425,8 @@ async function main(): Promise<void> {
       renderNav();
     },
     onSkip: (album) => {
-      // Non-destructive: defer for this session only. Not saved to any list,
-      // not added to excludedMbids, not persisted -- it reappears on drain.
-      deferred.add(album.mbid);
+      skippedAlbums.add(album.mbid);
+      saveSkippedAlbums(skippedAlbums);
       reselectCandidate();
       rankList.render();
     },
@@ -448,6 +548,7 @@ async function main(): Promise<void> {
       if (hasWriteKey()) {
         clearWriteKey();
         rankList.showStatus('Writes locked.');
+        updateSyncBanner();
         renderNav();
         return;
       }

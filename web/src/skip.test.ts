@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { Album } from './ranking/types';
 import { pickCandidate } from './seed';
 import { excludedMbids, addToList, type SavedLists } from './lists';
+import { loadSkippedAlbums, saveSkippedAlbums } from './skippedAlbums';
 
 function album(mbid: string): Album {
   return {
@@ -13,71 +14,61 @@ function album(mbid: string): Album {
   };
 }
 
-/**
- * Faithful re-implementation of main.ts `reselectCandidate`: select from the
- * pool excluding set-aside lists AND session-deferred skips; if the fresh pool
- * drains while skips remain, rotate the deferred set back in. `deferred` is
- * mutated in place (as it is in main.ts), so the drain path is observable.
- */
 function reselect(
   pool: Album[],
   ranked: Album[],
   lists: SavedLists,
-  deferred: Set<string>,
+  skipped: Set<string>,
   rng: () => number
 ): Album | null {
   const excluded = excludedMbids(lists);
-  for (const mbid of deferred) excluded.add(mbid);
-  let candidate = pickCandidate(pool, ranked, excluded, rng);
-  if (!candidate && deferred.size > 0) {
-    deferred.clear();
-    candidate = pickCandidate(pool, ranked, excludedMbids(lists), rng);
-  }
-  return candidate;
+  for (const mbid of skipped) excluded.add(mbid);
+  return pickCandidate(pool, ranked, excluded, rng);
 }
 
 const emptyLists = (): SavedLists => ({ wantToListen: [], notHeard: [], dontCare: [] });
 
-describe('skip for now (session-deferred)', () => {
+describe('skip for now (persisted)', () => {
   it('never re-offers a skipped album while fresh candidates remain', () => {
     const pool = [album('a'), album('b'), album('c')];
-    const deferred = new Set(['a']);
+    const skipped = new Set(['a']);
     // Draw the first eligible album deterministically (rng -> 0).
-    const picked = reselect(pool, [], emptyLists(), deferred, () => 0);
+    const picked = reselect(pool, [], emptyLists(), skipped, () => 0);
     expect(picked?.mbid).not.toBe('a');
     expect(['b', 'c']).toContain(picked?.mbid);
   });
 
   it('does not add the skipped album to any saved list or excludedMbids', () => {
     const lists = emptyLists();
-    const deferred = new Set<string>();
-    // Skip == add to the transient set only, never to lists.
-    deferred.add('a');
+    const skipped = new Set<string>();
+    skipped.add('a');
     expect(lists.wantToListen).toEqual([]);
     expect(lists.notHeard).toEqual([]);
     expect(lists.dontCare).toEqual([]);
     expect(excludedMbids(lists).has('a')).toBe(false);
+    expect(skipped.has('a')).toBe(true);
   });
 
-  it('re-offers the skipped album once the fresh pool drains', () => {
+  it('keeps a skipped album excluded when it is the only remaining candidate', () => {
     const pool = [album('a')];
-    const deferred = new Set(['a']);
-    // Fresh pool (pool minus deferred) is empty -> drain rotation clears
-    // `deferred` and offers the skipped album again.
-    const picked = reselect(pool, [], emptyLists(), deferred, () => 0);
-    expect(picked?.mbid).toBe('a');
-    expect(deferred.size).toBe(0);
+    const skipped = new Set(['a']);
+    const picked = reselect(pool, [], emptyLists(), skipped, () => 0);
+    expect(picked).toBeNull();
   });
 
-  it('keeps set-aside albums excluded even after a skip drain', () => {
+  it('keeps set-aside albums excluded alongside skipped albums', () => {
     const pool = [album('a'), album('b')];
     let lists = emptyLists();
     lists = addToList(lists, album('b'), 'dontCare'); // permanently set aside
-    const deferred = new Set(['a']);
-    // Only 'a' is skipped; 'b' is set aside. Fresh pool empty -> drain 'a'.
-    const picked = reselect(pool, [], lists, deferred, () => 0);
-    expect(picked?.mbid).toBe('a');
-    // 'b' stays excluded regardless of the skip drain.
+    const skipped = new Set(['a']);
+    const picked = reselect(pool, [], lists, skipped, () => 0);
+    expect(picked).toBeNull();
     expect(excludedMbids(lists).has('b')).toBe(true);
+  });
+
+  it('persists skipped albums across save/load', () => {
+    const skipped = new Set(['a', 'b']);
+    saveSkippedAlbums(skipped);
+    expect(loadSkippedAlbums()).toEqual(new Set(['a', 'b']));
   });
 });

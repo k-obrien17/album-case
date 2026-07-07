@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { resolveInitialState, restoreFromCode } from './main';
+import { hydrateAlbums, resolveInitialState, restoreFromCode } from './main';
 import type { SavedLists } from './lists';
 import type { Album, RankingState } from './ranking/types';
 
@@ -11,6 +11,10 @@ function album(mbid: string): Album {
     release_year: 2000,
     cover_url: `https://example.test/${mbid}.jpg`,
   };
+}
+
+function albumWithArtistMbid(mbid: string, artistMbid: string): Album {
+  return { ...album(mbid), primary_artist_mbid: artistMbid };
 }
 
 const VALID = '66666666-6666-4666-8666-666666666666';
@@ -50,6 +54,17 @@ describe('resolveInitialState (server-authoritative load-on-open)', () => {
     expect(resolved.fromServer).toBe(false);
     expect(resolved.state.ranked).toEqual([album('x')]);
     expect(resolved.lists.wantToListen).toEqual([album('y')]);
+  });
+});
+
+describe('hydrateAlbums', () => {
+  it('fills missing artist mbids from the current pool without replacing saved ordering', () => {
+    const saved = [album('a')];
+    const pool = new Map([['a', albumWithArtistMbid('a', '11111111-1111-4111-8111-111111111111')]]);
+
+    expect(hydrateAlbums(saved, pool)).toEqual([
+      albumWithArtistMbid('a', '11111111-1111-4111-8111-111111111111'),
+    ]);
   });
 });
 

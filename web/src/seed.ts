@@ -1,5 +1,6 @@
 import type { Album } from './ranking/types';
 import { artistKeys } from './priority';
+import { parseAlbumArray } from './album';
 
 let cachedPool: Album[] | null = null;
 
@@ -22,7 +23,10 @@ export async function loadSeedPool(): Promise<Album[]> {
     throw new Error(`loadSeedPool: failed to fetch /seed/albums.json (${response.status})`);
   }
 
-  const albums = (await response.json()) as Album[];
+  const albums = parseAlbumArray(await response.json());
+  if (albums.length === 0) {
+    throw new Error('loadSeedPool: /seed/albums.json contained no valid albums');
+  }
   cachedPool = albums;
   return albums;
 }

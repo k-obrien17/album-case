@@ -1,11 +1,13 @@
 # Pipeline: materializing the Album Case album universe
 
-Three CLIs, run in order, turn the CC0 MusicBrainz + ListenBrainz bulk
+Four CLIs, run in order, turn the CC0 MusicBrainz + ListenBrainz bulk
 dumps into `data/tastetest.db`'s `entities` table: `ingest_musicbrainz.py`
 and `ingest_listenbrainz.py` stream the dumps into staging tables,
 `materialize.py` joins staging into the notability-floored album
-universe. All three are stdlib-only Python 3 (no pip install needed) and
-stream line-by-line, so memory stays bounded regardless of dump size.
+universe, and `covers.py` fills in the Cover Art Archive pointer column.
+`build.py` wraps those steps into one end-to-end command. All are
+stdlib-only Python 3 (no pip install needed) and stream line-by-line, so
+memory stays bounded regardless of dump size.
 
 Every command below is something an **operator** runs locally — nothing
 here calls out to a paid API, and no credentials are required. The
@@ -71,22 +73,32 @@ Verify the record shape matches the pinned keys in
 silently skip every record (counted, not silent-failed, but worth a
 spot check with `head -1 popularity.jsonl`).
 
-## 2. Run the three-command pipeline, in order
+## 2. Run the pipeline, in order
+
+```bash
+python3 pipeline/build.py \
+    --mbdump-dir mbdump/ \
+    --popularity popularity.jsonl \
+    --db data/tastetest.db
+```
+
+Each lower-level CLI still exists if you want to run the steps manually:
 
 ```bash
 python3 pipeline/ingest_musicbrainz.py --mbdump-dir mbdump/ --db data/tastetest.db
 python3 pipeline/ingest_listenbrainz.py --popularity popularity.jsonl --db data/tastetest.db
 python3 pipeline/materialize.py --db data/tastetest.db
+python3 pipeline/covers.py --db data/tastetest.db
 ```
 
-Each ingest CLI reports rows loaded/skipped per table. `materialize.py`
+`build.py` reports per-step counts as JSON. `materialize.py` still
 reports inserted/updated counts for this run and the total album count
 in `entities`.
 
 ## 3. Confirm the universe shape
 
 ```bash
-python3 pipeline/materialize.py --verify --db data/tastetest.db
+python3 pipeline/build.py --verify --mbdump-dir mbdump/ --popularity popularity.jsonl --db data/tastetest.db
 ```
 
 Prints a JSON report:
@@ -145,9 +157,7 @@ ListenBrainz cycle. On each refresh:
 
 ```bash
 # Re-download both dumps (steps 1 above), then:
-python3 pipeline/ingest_musicbrainz.py --mbdump-dir mbdump/ --db data/tastetest.db
-python3 pipeline/ingest_listenbrainz.py --popularity popularity.jsonl --db data/tastetest.db
-python3 pipeline/materialize.py --db data/tastetest.db
+python3 pipeline/build.py --mbdump-dir mbdump/ --popularity popularity.jsonl --db data/tastetest.db
 ```
 
 Staging tables truncate-and-reload on every ingest run (DATA-05 at the

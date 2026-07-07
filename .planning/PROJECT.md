@@ -1,14 +1,22 @@
-# Taste Test
+# Album Case
 
 ## What This Is
 
-Taste Test is a public, data-first music-ranking web app for music enthusiasts. The starting experience is dead simple: show one album, drag it into the exact position in your ranked list, and repeat until you have a true, self-consistent order. Each placement can be captured as openly-keyed pairwise neighbor atoms, so the growing pile of choices becomes the product: publishable culture-insight charts and a licensable dataset (parked).
+Album Case is currently a personal, single-owner album-ranking app. It shows
+one candidate album, lets Keith place it into the exact position in one ordered
+list, and persists the canonical owner ranking snapshot to Turso. The list is
+transitive by construction; localStorage is only a fast/offline cache.
 
-It began as a private artist-tier calibration tool. That tool is demoted to a seed and test fixture. The public product is the project now, and it starts as **albums, drag-to-place ranking**, built to expand to songs and artists and to richer ranking mechanisms without a rebuild.
+It began as a private artist-tier calibration tool and briefly carried a public
+"Taste Test" aggregate-product roadmap. That public/crowd-data direction is now
+parked historical context. The implemented product is the personal Album Case
+tool under `web/`.
 
 ## Core Value
 
-Turning the simplest possible placement (where this album belongs in your list) into an honest personal ranked list AND clean, openly-keyed crowd data. If everything else fails, the ranking interaction and the atoms it produces must be trustworthy and well-structured.
+Turning the simplest possible placement ("where this album belongs in my list")
+into a durable, trustworthy personal album library. If everything else fails,
+the owner ranking snapshot must not be lost or corrupted.
 
 ## Requirements
 
@@ -24,11 +32,14 @@ Turning the simplest possible placement (where this album belongs in your list) 
 
 <!-- Current scope. Building toward these. -->
 
-**v1 (albums, drag-to-place ranking):**
-- [ ] Data foundation: notability-floored, MBID-keyed **album** universe (MusicBrainz release-groups) materialized from CC0 bulk dumps as the searchable store, with covers from the Cover Art Archive
-- [ ] Polymorphic entity schema: every rankable item is `(entity_type, mbid)` — `album` now, `song`/`artist` ready without a rebuild
-- [ ] Drag-to-place ranked list: show one candidate album and let the player place it directly into a transitive, self-consistent personal ranked list
-- [ ] Generic pairwise atom store: every placement logs implied neighbor comparisons as `(entity_a, entity_b, winner, mechanism, session, timestamp)`, `mechanism = 'drag_to_place'` — the shared substrate for all future mechanisms
+**v1 (personal Album Case):**
+- [x] Drag-to-place ranked list: show one candidate album and let the owner place it directly into a transitive, self-consistent personal ranked list
+- [x] Turso-backed owner ranking snapshot with full album records
+- [x] Write-key-gated mutations via `ALBUM_CASE_WRITE_KEY`
+- [x] Versioned snapshot writes to prevent stale tab/browser overwrites
+- [x] MusicBrainz artist-MBID discovery for more studio LPs by an artist
+- [ ] Live smoke test with local Turso envs and `vercel dev`
+- [ ] Decide whether the older public/crowd aggregate direction should stay parked or be deleted from planning entirely
 
 ### Out of Scope
 
@@ -38,7 +49,7 @@ Turning the simplest possible placement (where this album belongs in your list) 
 - Songs and artists as rankable units — deferred to expansion; the polymorphic schema makes this data-loading, not a rebuild
 - Additional mechanisms (lane/cluster ranking, tier buckets, discography ranking, quick-pick, two-card this-or-that) — deferred; all consume the same pairwise atom table
 - Crowd aggregate insight charts — deferred to a later phase; the atom schema is built clean so this door stays open
-- Accounts, shareable card — deferred past the anonymous this-or-that MVP
+- Accounts, public anonymous sessions, crowd aggregate charts, shareable cards — parked unless Keith explicitly reopens the public Taste Test direction
 - Elo living ranking — not the chosen model; the personal list is transitive-by-construction (no self-contradiction), which Elo does not guarantee. Reconsider only if a never-finished global ranking is wanted
 - Monetization — deferred; free passion project
 - Audio features (BPM/key/mood), lyrics, setlists, live events — no open source and/or encumbered; not in scope
@@ -55,7 +66,9 @@ Turning the simplest possible placement (where this album belongs in your list) 
 ## Constraints
 
 - **Data license**: Stored asset stays CC0 (MusicBrainz + Cover Art Archive + ListenBrainz + Discogs text + Wikidata) — keeps the aggregate publishable/licensable and legally clean.
-- **Data ingestion**: Bulk dumps, not APIs, for anything stored — refresh bi-weekly; new albums enter via the next dump, never as thin API stubs.
+- **Discovery ingestion**: For the current personal app, owner-triggered
+  MusicBrainz discovery may store release-group records in Turso. Discovery must
+  use `primary_artist_mbid`, not ambiguous artist-name search.
 - **Assets**: Copyrighted images/previews never stored, only referenced by ID and rendered live; album covers use the CC-licensed Cover Art Archive.
 - **Schema (expansion insurance)**: Rankable items are polymorphic `(entity_type, mbid)` and picks are generic pairwise atoms tagged by mechanism — both from day one.
 - **Universe scale**: Tens of thousands of notability-floored albums, not millions of noise. Candidate selection must not walk editorial seed order; use randomized eligible candidates so the first session is not era-skewed.
@@ -67,19 +80,22 @@ Turning the simplest possible placement (where this album belongs in your list) 
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
+| Current product = personal Album Case | Reconciled with implemented app, README, and security model | ✓ Good |
 | Rankable unit = album (release-group) | Keith's direction 2026-07-03; supersedes artist-keyed framing | ✓ Good |
 | Start with albums drag-to-place only | Fewer actions per album than two-card insertion while keeping an exact personal order | ✓ Good |
 | Polymorphic `(entity_type, mbid)` entities | Songs/artists become data-loading, not a rebuild | ✓ Good |
 | Generic pairwise atom table, mechanism-tagged | Every future mechanism shares one substrate | ✓ Good |
 | Drag-to-place transitive personal list | Delivers "true list, no self-contradiction" in one gesture per album; Elo can't guarantee transitivity | ✓ Good |
-| Store only CC0 data from bulk dumps; APIs live at edges | Aggregate stays publishable/licensable and legally clean | ✓ Good |
+| Owner-triggered MusicBrainz discovery may store album records | Personal app correctness matters more than the old bulk-only aggregate roadmap | ✓ Good |
+| Use artist MBIDs for discovery | Avoids ambiguous artist-name search results | ✓ Good |
 | Drop Spotify entirely | Feb 2026 dev lockdown; Deezer/Cover Art Archive cover the edges | ✓ Good |
 
 ## Open Questions
 
-- Songs and artists as additional units: confirm timing and any unit-specific UX (e.g. discography ranking mixes album+artist).
-- Whether the crowd aggregate should allow contradiction-bearing raw picks (good for divisiveness signal) alongside each user's transitive personal list. Likely yes: personal list is transitive, crowd atoms are raw. Settle when the aggregate phase is designed.
-- Name/domain/handle availability for "Taste Test" before committing.
+- Whether the old public Taste Test aggregate roadmap should be deleted or kept
+  as archived context.
+- Whether read endpoints should remain public or be gated if the ranking should
+  become private later.
 
 ## Evolution
 
@@ -99,4 +115,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-04 after pivoting the player mechanism to drag-to-place ranking*
+*Last updated: 2026-07-07 after reconciling planning with the personal Album Case implementation*

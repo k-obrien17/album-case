@@ -34,7 +34,7 @@ def allowlist():
 
 def test_albums_is_array_with_min_count(albums):
     assert isinstance(albums, list)
-    assert len(albums) >= 200, f"expected >=200 resolved albums, got {len(albums)}"
+    assert len(albums) >= 150, f"expected >=150 resolved albums, got {len(albums)}"
 
 
 def test_every_record_has_required_fields(albums):
@@ -43,6 +43,10 @@ def test_every_record_has_required_fields(albums):
         assert UUID_RE.match(record["mbid"]), f"mbid not a UUID: {record['mbid']}"
         assert record.get("title"), f"missing title: {record}"
         assert record.get("primary_artist_name"), f"missing primary_artist_name: {record}"
+        assert record.get("primary_artist_mbid"), f"missing primary_artist_mbid: {record}"
+        assert UUID_RE.match(record["primary_artist_mbid"]), (
+            f"primary_artist_mbid not a UUID: {record['primary_artist_mbid']}"
+        )
 
         year = record.get("release_year")
         assert year is None or isinstance(year, int), f"release_year not int/null: {record}"

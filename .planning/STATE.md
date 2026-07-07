@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.0
-milestone_name: milestone
+milestone_name: personal Album Case hardening
 status: executing
-stopped_at: Completed 02-04-PLAN.md (Turso atom mailbox + retry queue)
-last_updated: "2026-07-04T15:53:21Z"
-last_activity: 2026-07-04
+stopped_at: Implemented stale-write protection, typed discovery outcomes, strict TS, and artist-MBID discovery
+last_updated: "2026-07-07T00:00:00Z"
+last_activity: 2026-07-07
 progress:
   total_phases: 2
   completed_phases: 1
@@ -20,14 +20,14 @@ progress:
 
 See: .planning/PROJECT.md (updated 2026-07-03)
 
-**Core value:** Turning the simplest placement (where this album belongs in your list) into an honest personal ranked list AND clean, openly-keyed crowd data.
-**Current focus:** Phase 2 — This-or-That Ranking MVP
+**Core value:** Turning the simplest placement (where this album belongs in Keith's list) into a durable personal album library.
+**Current focus:** Personal Album Case hardening and live smoke verification
 
 ## Current Position
 
-Phase: 2 (This-or-That Ranking MVP) — EXECUTING
-Plan: 4 of 4 complete
-Status: Phase 2 complete
+Phase: Personal Album Case hardening — EXECUTING
+Plan: audit follow-ups in progress
+Status: Core hardening implemented; live smoke pending
 Last activity: 2026-07-04
 
 Progress: [██████████] 100%
@@ -68,9 +68,12 @@ Progress: [██████████] 100%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- Rankable unit = album (release-group); polymorphic `(entity_type, mbid)` so songs/artists slot in later without a rebuild.
-- Store only CC0 data from bulk dumps (MusicBrainz + Cover Art Archive + ListenBrainz + Discogs text + Wikidata); copyrighted assets are live-rendered pointers.
+- Current product is personal Album Case, not the older public Taste Test aggregate roadmap.
+- Rankable unit = album (release-group).
+- Owner-triggered MusicBrainz discovery is allowed for the personal app and uses `primary_artist_mbid`, not artist-name search.
 - Drag-to-place transitive personal list, not Elo; candidate selection is randomized from eligible albums so seed order does not overexpose one era.
+- Ranking snapshots are versioned on write so stale tabs/browsers cannot blindly overwrite newer Turso state.
+- Mutations remain guarded by `ALBUM_CASE_WRITE_KEY`; public reads are still an accepted tradeoff.
 - [Phase 01]: Serving store is single-file SQLite via stdlib sqlite3 at data/tastetest.db, gitignored — no third-party DB needed; entities PK is composite (entity_type, mbid), no surrogate id
 - [Phase 01]: MB column-order constants pinned by fetching musicbrainz-server's current schema live (CreateTables.sql, InsertDefaultRows.sql) rather than from memory; release_group_primary_type id=1 confirmed as Album
 - [Phase 01]: Staging tables use truncate-and-reload symmetrically for both MusicBrainz and ListenBrainz loaders (DELETE + reinsert share one transaction per table)
@@ -88,11 +91,14 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- Phase 1 remains `Executed (data-pending)` until the real ~7GB MusicBrainz dump is ingested by the operator and verified. Phase 2 is complete against the curated seed.
+- Run a live local smoke test with `web/.env.local` Turso credentials and `vercel dev`: unlock writes, discover an artist by MBID, place an album, reload, confirm persistence.
+- Decide whether to archive/delete the remaining older public Taste Test planning material.
+- Phase 1 bulk dump remains data-pending; it is not required for the current personal app.
 
 ### Blockers/Concerns
 
-- Name/domain/handle availability for "Taste Test" is unconfirmed (from PROJECT.md Open Questions). Does not block build.
+- Local Python test runner is missing `pytest` in the system Python environment.
+- Name/domain/handle availability for the old "Taste Test" direction no longer blocks the current app.
 
 ## Deferred Items
 

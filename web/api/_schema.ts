@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS discovered_albums (
     mbid TEXT NOT NULL,
     title TEXT NOT NULL,
     primary_artist_name TEXT NOT NULL,
+    primary_artist_mbid TEXT,
     release_year INTEGER,
     cover_url TEXT NOT NULL,
     discovered_at INTEGER NOT NULL,

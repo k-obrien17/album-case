@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pairwise ranking — throwaway demo</title>
+<style>
+  :root {
+    --bg: #faf9f7;
+    --ink: #1c1b1a;
+    --muted: #6b6862;
+    --line: #e4e1db;
+    --accent: #2f6f4f;
+    --card: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+  }
+  main {
+    width: 100%;
+    max-width: 460px;
+    padding: 24px 18px 60px;
+  }
+  h1 { font-size: 18px; margin: 0 0 2px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 22px; }
+  .progress { color: var(--muted); font-size: 13px; margin: 0 0 14px; min-height: 18px; }
+  .prompt { font-size: 14px; color: var(--muted); margin: 0 0 12px; }
+  .choices { display: grid; gap: 12px; }
+  .choice {
+    width: 100%;
+    min-height: 64px;
+    padding: 18px 16px;
+    font-size: 18px;
+    font-weight: 600;
+    text-align: left;
+    color: var(--ink);
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: border-color .12s, transform .04s;
+  }
+  .choice:hover { border-color: var(--accent); }
+  .choice:active { transform: scale(.99); }
+  .vs { text-align: center; color: var(--muted); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; margin: 8px 0; }
+  ol { padding-left: 0; list-style: none; margin: 0; counter-reset: rank; }
+  ol li {
+    counter-increment: rank;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+  ol li::before {
+    content: counter(rank);
+    width: 26px; height: 26px;
+    flex: 0 0 26px;
+    display: grid; place-items: center;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 50%;
+    font-size: 13px;
+  }
+  ol li:first-child::before { background: #c79a2b; }
+  .done-head { font-size: 15px; margin: 0 0 4px; }
+  .done-stat { color: var(--muted); font-size: 13px; margin: 0 0 18px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+  button.ghost {
+    min-height: 44px;
+    padding: 10px 16px;
+    font-size: 14px;
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  button.ghost:hover { border-color: var(--accent); }
+  textarea {
+    width: 100%;
+    min-height: 140px;
+    padding: 12px;
+    font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--card);
+    color: var(--ink);
+    resize: vertical;
+  }
+  label.fld { display: block; font-size: 13px; color: var(--muted); margin: 0 0 6px; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Pairwise ranking</h1>
+  <p class="sub">Throwaway prototype. Decides nothing, wired to nothing. Just feel the mechanic.</p>
+
+  <!-- Setup -->
+  <section id="setup">
+    <label class="fld" for="list">Your favorites, one per line (edit freely):</label>
+    <textarea id="list">Sublime
+Live
+Creed
+3 Doors Down
+Silverchair
+Foo Fighters
+Pearl Jam
+Soundgarden</textarea>
+    <div class="row">
+      <button class="ghost" id="start">Start ranking →</button>
+    </div>
+  </section>
+
+  <!-- Comparison -->
+  <section id="game" class="hidden">
+    <p class="progress" id="progress"></p>
+    <p class="prompt">Which do you love more?</p>
+    <div class="choices">
+      <button class="choice" id="optA"></button>
+      <div class="vs">vs</div>
+      <button class="choice" id="optB"></button>
+    </div>
+    <div class="row">
+      <button class="ghost" id="abort">Start over</button>
+    </div>
+  </section>
+
+  <!-- Result -->
+  <section id="result" class="hidden">
+    <p class="done-head">Your ranking</p>
+    <p class="done-stat" id="stat"></p>
+    <ol id="ranked"></ol>
+    <div class="row">
+      <button class="ghost" id="again">Rank a different list</button>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  let comparisons = 0;
+  let resolveChoice = null;
+
+  // Ask the user which of two items they prefer. Resolves when they tap.
+  function compare(a, b) {
+    comparisons++;
+    $("progress").textContent = "Comparison " + comparisons + "  ·  narrowing it down";
+    $("optA").textContent = a;
+    $("optB").textContent = b;
+    return new Promise((resolve) => {
+      resolveChoice = (winner) => { resolveChoice = null; resolve(winner); };
+    });
+  }
+
+  $("optA").addEventListener("click", () => { if (resolveChoice) resolveChoice($("optA").textContent); });
+  $("optB").addEventListener("click", () => { if (resolveChoice) resolveChoice($("optB").textContent); });
+
+  // Merge sort driven by human comparisons. Near-minimal questions, no pair asked twice.
+  async function mergeSort(arr) {
+    if (arr.length <= 1) return arr;
+    const mid = Math.floor(arr.length / 2);
+    const left = await mergeSort(arr.slice(0, mid));
+    const right = await mergeSort(arr.slice(mid));
+    return merge(left, right);
+  }
+
+  async function merge(left, right) {
+    const out = [];
+    let i = 0, j = 0;
+    while (i < left.length && j < right.length) {
+      const winner = await compare(left[i], right[j]);
+      if (winner === left[i]) { out.push(left[i]); i++; }
+      else { out.push(right[j]); j++; }
+    }
+    while (i < left.length) out.push(left[i++]);
+    while (j < right.length) out.push(right[j++]);
+    return out;
+  }
+
+  function show(sectionId) {
+    ["setup", "game", "result"].forEach((s) => $(s).classList.toggle("hidden", s !== sectionId));
+  }
+
+  async function run() {
+    const items = $("list").value.split("\n").map((s) => s.trim()).filter(Boolean);
+    if (items.length < 2) { alert("Add at least two artists."); return; }
+    comparisons = 0;
+    show("game");
+    const ranked = await mergeSort(items);
+    $("stat").textContent = ranked.length + " artists ranked in " + comparisons + " taps.";
+    const ol = $("ranked");
+    ol.textContent = "";
+    ranked.forEach((name) => {
+      const li = document.createElement("li");
+      li.textContent = name;
+      ol.appendChild(li);
+    });
+    show("result");
+  }
+
+  $("start").addEventListener("click", run);
+  $("again").addEventListener("click", () => show("setup"));
+  $("abort").addEventListener("click", () => { resolveChoice = null; show("setup"); });
+})();
+</script>
+</body>
+</html>

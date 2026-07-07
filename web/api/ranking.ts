@@ -15,6 +15,7 @@ type Album = {
   mbid: string;
   title: string;
   primary_artist_name: string;
+  primary_artist_mbid?: string;
   release_year: number | null;
   cover_url: string;
 };
@@ -29,6 +30,7 @@ type RankingBody = {
   session_id?: unknown;
   ranked?: unknown;
   lists?: unknown;
+  base_updated_at?: unknown;
 };
 
 let schemaReady: Promise<void> | null = null;
@@ -74,13 +76,24 @@ function isObject(value: unknown): value is Record<string, unknown> {
 // identifying fields (mbid, title, artist); tolerates a loose year/cover.
 function parseAlbum(value: unknown): Album | null {
   if (!isObject(value)) return null;
-  const { mbid, title, primary_artist_name: artist, release_year: year, cover_url: cover } = value;
+  const {
+    mbid,
+    title,
+    primary_artist_name: artist,
+    primary_artist_mbid: artistMbid,
+    release_year: year,
+    cover_url: cover,
+  } = value;
   if (typeof mbid !== 'string' || !UUID_RE.test(mbid)) return null;
   if (typeof title !== 'string' || typeof artist !== 'string') return null;
+  if (artistMbid !== undefined && (typeof artistMbid !== 'string' || !UUID_RE.test(artistMbid))) {
+    return null;
+  }
   return {
     mbid,
     title,
     primary_artist_name: artist,
+    ...(artistMbid ? { primary_artist_mbid: artistMbid } : {}),
     release_year: typeof year === 'number' ? year : null,
     cover_url: typeof cover === 'string' ? cover : '',
   };
@@ -109,8 +122,20 @@ function parseLists(value: unknown): SnapshotLists | null {
   return { wantToListen, notHeard, dontCare };
 }
 
+function parseBaseUpdatedAt(value: unknown): number | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : undefined;
+}
+
 function validate(body: RankingBody | null):
-  | { ok: true; sessionId: string; ranked: Album[]; lists: SnapshotLists }
+  | {
+      ok: true;
+      sessionId: string;
+      ranked: Album[];
+      lists: SnapshotLists;
+      baseUpdatedAt: number | null | undefined;
+    }
   | { ok: false; message: string } {
   if (!body) return { ok: false, message: 'invalid_json' };
   if (!isSessionId(body.session_id)) return { ok: false, message: 'invalid_session' };
@@ -118,6 +143,10 @@ function validate(body: RankingBody | null):
   const ranked = parseAlbumList(body.ranked);
   const lists = parseLists(body.lists);
   if (!ranked || !lists) return { ok: false, message: 'invalid_snapshot' };
+  const baseUpdatedAt = parseBaseUpdatedAt(body.base_updated_at);
+  if (body.base_updated_at !== undefined && baseUpdatedAt === undefined) {
+    return { ok: false, message: 'invalid_base_updated_at' };
+  }
 
   const rankedIds = new Set(ranked.map((album) => album.mbid));
   const saved = [...lists.wantToListen, ...lists.notHeard, ...lists.dontCare];
@@ -131,7 +160,7 @@ function validate(body: RankingBody | null):
     savedIds.add(album.mbid);
   }
 
-  return { ok: true, sessionId: body.session_id, ranked, lists };
+  return { ok: true, sessionId: body.session_id, ranked, lists, baseUpdatedAt };
 }
 
 async function handleGet(req: VercelRequest, res: VercelResponse): Promise<void> {
@@ -182,7 +211,39 @@ async function handlePost(req: VercelRequest, res: VercelResponse): Promise<void
 
   await ensureSchema();
   const now = Date.now();
-  await db().batch([
+  const snapshotArgs = [
+    validated.sessionId,
+    JSON.stringify(validated.ranked),
+    JSON.stringify(validated.lists),
+    now,
+  ];
+  const snapshotSql =
+    validated.baseUpdatedAt === null
+      ? `
+INSERT INTO ranking_snapshots (session_id, ranking_json, lists_json, updated_at)
+VALUES (?, ?, ?, ?)
+ON CONFLICT(session_id) DO NOTHING
+`
+      : validated.baseUpdatedAt === undefined
+        ? `
+INSERT INTO ranking_snapshots (session_id, ranking_json, lists_json, updated_at)
+VALUES (?, ?, ?, ?)
+ON CONFLICT(session_id) DO UPDATE SET
+  ranking_json = excluded.ranking_json,
+  lists_json = excluded.lists_json,
+  updated_at = excluded.updated_at
+`
+        : `
+INSERT INTO ranking_snapshots (session_id, ranking_json, lists_json, updated_at)
+VALUES (?, ?, ?, ?)
+ON CONFLICT(session_id) DO UPDATE SET
+  ranking_json = excluded.ranking_json,
+  lists_json = excluded.lists_json,
+  updated_at = excluded.updated_at
+WHERE ranking_snapshots.updated_at = ?
+`;
+
+  const results = await db().batch([
     {
       sql: `
 INSERT INTO sessions (session_id, created_at, last_seen_at)
@@ -192,22 +253,18 @@ ON CONFLICT(session_id) DO UPDATE SET last_seen_at = excluded.last_seen_at
       args: [validated.sessionId, now, now],
     },
     {
-      sql: `
-INSERT INTO ranking_snapshots (session_id, ranking_json, lists_json, updated_at)
-VALUES (?, ?, ?, ?)
-ON CONFLICT(session_id) DO UPDATE SET
-  ranking_json = excluded.ranking_json,
-  lists_json = excluded.lists_json,
-  updated_at = excluded.updated_at
-`,
-      args: [
-        validated.sessionId,
-        JSON.stringify(validated.ranked),
-        JSON.stringify(validated.lists),
-        now,
-      ],
+      sql: snapshotSql,
+      args:
+        validated.baseUpdatedAt == null
+          ? snapshotArgs
+          : [...snapshotArgs, validated.baseUpdatedAt],
     },
   ]);
+  const snapshotRowsAffected = Number(results[1]?.rowsAffected ?? 0);
+  if (snapshotRowsAffected === 0) {
+    res.status(409).json({ error: 'snapshot_conflict' });
+    return;
+  }
 
   res.status(200).json({ ok: true, updated_at: now });
 }

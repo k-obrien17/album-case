@@ -11,6 +11,7 @@ const MB_BASE = 'https://musicbrainz.org/ws/2';
 type DiscoverBody = {
   session_id?: unknown;
   artist_name?: unknown;
+  artist_mbid?: unknown;
   known_mbids?: unknown;
 };
 
@@ -32,6 +33,12 @@ function ensureSchema(): Promise<void> {
   schemaReady ??= (async () => {
     for (const sql of SCHEMA_STATEMENTS) {
       await client.execute(sql);
+    }
+    try {
+      await client.execute('ALTER TABLE discovered_albums ADD COLUMN primary_artist_mbid TEXT');
+    } catch {
+      // Existing deployments may already have this nullable column. libSQL
+      // does not need a hard failure for a duplicate-column migration.
     }
   })();
   return schemaReady;
@@ -58,18 +65,26 @@ function isKnownMbids(value: unknown): value is string[] {
 }
 
 function validatePost(body: DiscoverBody | null):
-  | { ok: true; sessionId: string; artistName: string; knownMbids: string[] }
+  | {
+      ok: true;
+      sessionId: string;
+      artistName: string;
+      artistMbid: string;
+      knownMbids: string[];
+    }
   | { ok: false; message: string } {
   if (!body) return { ok: false, message: 'invalid_json' };
   if (!isSessionId(body.session_id)) return { ok: false, message: 'invalid_session' };
   if (typeof body.artist_name !== 'string' || !body.artist_name.trim()) {
     return { ok: false, message: 'invalid_artist_name' };
   }
+  if (!isSessionId(body.artist_mbid)) return { ok: false, message: 'invalid_artist_mbid' };
   if (!isKnownMbids(body.known_mbids)) return { ok: false, message: 'invalid_known_mbids' };
   return {
     ok: true,
     sessionId: body.session_id,
     artistName: body.artist_name,
+    artistMbid: body.artist_mbid,
     knownMbids: body.known_mbids,
   };
 }
@@ -81,18 +96,11 @@ function releaseYear(group: ReleaseGroup): number | null {
   return yearStr.length > 0 && Number.isInteger(year) ? year : null;
 }
 
-async function fetchArtistId(artistName: string): Promise<string | null> {
-  const params = new URLSearchParams({ query: `artist:"${artistName}"`, fmt: 'json', limit: '1' });
-  const res = await fetch(`${MB_BASE}/artist/?${params.toString()}`, {
-    headers: { 'User-Agent': USER_AGENT },
-  });
-  if (!res.ok) throw new Error(`musicbrainz_artist_search_${res.status}`);
-  const data = (await res.json()) as { artists?: Array<{ id: string }> };
-  return data.artists?.[0]?.id ?? null;
-}
-
-async function fetchArtistLps(artistId: string, artistName: string): Promise<DiscoveredAlbum[]> {
-  const params = new URLSearchParams({ artist: artistId, type: 'album', limit: '100', fmt: 'json' });
+async function fetchArtistLps(
+  artistMbid: string,
+  artistName: string
+): Promise<DiscoveredAlbum[]> {
+  const params = new URLSearchParams({ artist: artistMbid, type: 'album', limit: '100', fmt: 'json' });
   const res = await fetch(`${MB_BASE}/release-group?${params.toString()}`, {
     headers: { 'User-Agent': USER_AGENT },
   });
@@ -102,6 +110,7 @@ async function fetchArtistLps(artistId: string, artistName: string): Promise<Dis
     mbid: group.id,
     title: group.title,
     primary_artist_name: artistName,
+    primary_artist_mbid: artistMbid,
     release_year: releaseYear(group),
     cover_url: coverUrlFor(group.id),
   }));
@@ -112,6 +121,8 @@ function rowToAlbum(row: Record<string, unknown>): DiscoveredAlbum {
     mbid: String(row.mbid),
     title: String(row.title),
     primary_artist_name: String(row.primary_artist_name),
+    primary_artist_mbid:
+      typeof row.primary_artist_mbid === 'string' ? String(row.primary_artist_mbid) : undefined,
     release_year: row.release_year == null ? null : Number(row.release_year),
     cover_url: String(row.cover_url),
   };
@@ -123,7 +134,7 @@ async function discoveredForSession(
 ): Promise<DiscoveredAlbum[]> {
   const rows = await client.execute({
     sql: `
-SELECT mbid, title, primary_artist_name, release_year, cover_url
+SELECT mbid, title, primary_artist_name, primary_artist_mbid, release_year, cover_url
 FROM discovered_albums
 WHERE session_id = ?
 `,
@@ -135,15 +146,15 @@ WHERE session_id = ?
 async function discoveredForArtist(
   client: ReturnType<typeof createClient>,
   sessionId: string,
-  artistName: string
+  artistMbid: string
 ): Promise<DiscoveredAlbum[]> {
   const rows = await client.execute({
     sql: `
-SELECT mbid, title, primary_artist_name, release_year, cover_url
+SELECT mbid, title, primary_artist_name, primary_artist_mbid, release_year, cover_url
 FROM discovered_albums
-WHERE session_id = ? AND primary_artist_name = ?
+WHERE session_id = ? AND primary_artist_mbid = ?
 `,
-    args: [sessionId, artistName],
+    args: [sessionId, artistMbid],
   });
   return rows.rows.map((row) => rowToAlbum(row as unknown as Record<string, unknown>));
 }
@@ -175,15 +186,11 @@ async function handlePost(req: VercelRequest, res: VercelResponse): Promise<void
   const previouslyUnranked = await discoveredForArtist(
     client,
     validated.sessionId,
-    validated.artistName
+    validated.artistMbid
   );
 
-  const artistId = await fetchArtistId(validated.artistName);
-  let newlyDiscovered: DiscoveredAlbum[] = [];
-  if (artistId) {
-    const lps = await fetchArtistLps(artistId, validated.artistName);
-    newlyDiscovered = lps.filter((album) => !known.has(album.mbid));
-  }
+  const lps = await fetchArtistLps(validated.artistMbid, validated.artistName);
+  const newlyDiscovered = lps.filter((album) => !known.has(album.mbid));
 
   if (newlyDiscovered.length > 0) {
     const now = Date.now();
@@ -191,8 +198,8 @@ async function handlePost(req: VercelRequest, res: VercelResponse): Promise<void
       newlyDiscovered.map((album) => ({
         sql: `
 INSERT INTO discovered_albums
-  (session_id, mbid, title, primary_artist_name, release_year, cover_url, discovered_at)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+  (session_id, mbid, title, primary_artist_name, primary_artist_mbid, release_year, cover_url, discovered_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(session_id, mbid) DO NOTHING
 `,
         args: [
@@ -200,6 +207,7 @@ ON CONFLICT(session_id, mbid) DO NOTHING
           album.mbid,
           album.title,
           album.primary_artist_name,
+          album.primary_artist_mbid ?? null,
           album.release_year,
           album.cover_url,
           now,

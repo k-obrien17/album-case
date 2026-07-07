@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SavedLists } from './lists';
 import type { Album, RankingState } from './ranking/types';
-import { loadRankingSnapshot, snapshotPayload } from './rankingSync';
+import {
+  loadRankingSnapshot,
+  loadRankingSnapshotDetailed,
+  saveRankingSnapshot,
+  snapshotPayload,
+} from './rankingSync';
+import { clearWriteKey, setWriteKey } from './writeKey';
 
 function album(mbid: string): Album {
   return {
@@ -14,6 +20,11 @@ function album(mbid: string): Album {
 }
 
 describe('ranking snapshot payload', () => {
+  afterEach(() => {
+    clearWriteKey();
+    vi.restoreAllMocks();
+  });
+
   it('serializes FULL album records (not just mbids) plus session id', () => {
     const state: RankingState = { ranked: [album('a'), album('b')], pending: null };
     const lists: SavedLists = {
@@ -31,6 +42,38 @@ describe('ranking snapshot payload', () => {
         dontCare: [album('e')],
       },
     });
+  });
+
+  it('includes the snapshot version when provided', () => {
+    const state: RankingState = { ranked: [album('a')], pending: null };
+    const lists: SavedLists = { wantToListen: [], notHeard: [], dontCare: [] };
+
+    expect(snapshotPayload('session-1', state, lists, 123)).toEqual({
+      session_id: 'session-1',
+      ranked: [album('a')],
+      lists,
+      base_updated_at: 123,
+    });
+  });
+
+  it('reports conflict on a stale versioned save', async () => {
+    setWriteKey('secret-123');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 409,
+      } as unknown as Response)
+    );
+
+    const result = await saveRankingSnapshot(
+      '11111111-1111-4111-8111-111111111111',
+      { ranked: [album('a')], pending: null },
+      { wantToListen: [], notHeard: [], dontCare: [] },
+      123
+    );
+
+    expect(result).toEqual({ status: 'conflict' });
   });
 });
 
@@ -106,6 +149,27 @@ describe('loadRankingSnapshot', () => {
     const result = await loadRankingSnapshot('11111111-1111-4111-8111-111111111111');
 
     expect(result).toBeNull();
+  });
+
+  it('distinguishes a missing snapshot from a load error', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ snapshot: null }),
+      } as unknown as Response)
+    );
+
+    await expect(
+      loadRankingSnapshotDetailed('11111111-1111-4111-8111-111111111111')
+    ).resolves.toEqual({ status: 'missing' });
+
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
+
+    await expect(
+      loadRankingSnapshotDetailed('11111111-1111-4111-8111-111111111111')
+    ).resolves.toEqual({ status: 'error' });
   });
 
   it('returns null without throwing on a 200 non-JSON response (SPA/HTML fallback)', async () => {

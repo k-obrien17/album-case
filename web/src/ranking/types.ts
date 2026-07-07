@@ -6,6 +6,7 @@ export type Album = {
   mbid: string;
   title: string;
   primary_artist_name: string;
+  primary_artist_mbid?: string;
   release_year: number | null;
   cover_url: string;
 };

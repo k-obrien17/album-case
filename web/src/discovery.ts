@@ -1,9 +1,12 @@
 import type { Album } from './ranking/types';
 import { getWriteKey, writeKeyHeaders } from './writeKey';
+import { parseAlbumArray } from './album';
 
-function asAlbumArray(value: unknown): Album[] {
-  return Array.isArray(value) ? (value as Album[]) : [];
-}
+export type DiscoverArtistResult =
+  | { status: 'found'; albums: Album[] }
+  | { status: 'empty' }
+  | { status: 'locked' }
+  | { status: 'error' };
 
 export async function loadDiscoveredAlbums(sessionId: string): Promise<Album[]> {
   let response: Response;
@@ -16,18 +19,19 @@ export async function loadDiscoveredAlbums(sessionId: string): Promise<Album[]> 
 
   try {
     const body = (await response.json()) as { albums?: unknown };
-    return asAlbumArray(body.albums);
+    return parseAlbumArray(body.albums);
   } catch {
     return [];
   }
 }
 
-export async function discoverArtist(
+export async function discoverArtistDetailed(
   sessionId: string,
   artistName: string,
+  artistMbid: string,
   knownMbids: string[]
-): Promise<Album[]> {
-  if (!getWriteKey()) return [];
+): Promise<DiscoverArtistResult> {
+  if (!getWriteKey()) return { status: 'locked' };
 
   let response: Response;
   try {
@@ -37,18 +41,30 @@ export async function discoverArtist(
       body: JSON.stringify({
         session_id: sessionId,
         artist_name: artistName,
+        artist_mbid: artistMbid,
         known_mbids: knownMbids,
       }),
     });
   } catch {
-    return [];
+    return { status: 'error' };
   }
-  if (!response.ok) return [];
+  if (!response.ok) return { status: 'error' };
 
   try {
     const body = (await response.json()) as { albums?: unknown };
-    return asAlbumArray(body.albums);
+    const albums = parseAlbumArray(body.albums);
+    return albums.length > 0 ? { status: 'found', albums } : { status: 'empty' };
   } catch {
-    return [];
+    return { status: 'error' };
   }
+}
+
+export async function discoverArtist(
+  sessionId: string,
+  artistName: string,
+  artistMbid: string,
+  knownMbids: string[]
+): Promise<Album[]> {
+  const result = await discoverArtistDetailed(sessionId, artistName, artistMbid, knownMbids);
+  return result.status === 'found' ? result.albums : [];
 }

@@ -8,7 +8,7 @@ is explicitly NOT the permanent catalog.
 For each `{artist, album}` entry, queries the MusicBrainz release-group
 search API (CC0, no key, ~1 req/sec — see DATA-SOURCES.md) for the best
 primary-type "Album" release-group match, and records:
-    {mbid, title, primary_artist_name, release_year, cover_url}
+    {mbid, title, primary_artist_name, primary_artist_mbid, release_year, cover_url}
 
 `cover_url` reuses the Cover Art Archive pointer template verbatim from
 `pipeline/covers.py` (`cover_url_for`) — pure string construction, no image
@@ -103,6 +103,15 @@ def _primary_artist_name(group, fallback):
     return fallback
 
 
+def _primary_artist_mbid(group):
+    credits = group.get("artist-credit") or []
+    if credits:
+        artist = credits[0].get("artist") or {}
+        if artist.get("id"):
+            return artist["id"]
+    return None
+
+
 def resolve_albums(entries):
     """Resolve each `{artist, album}` entry to a seed record.
 
@@ -139,6 +148,7 @@ def resolve_albums(entries):
                     "mbid": mbid,
                     "title": group.get("title") or album,
                     "primary_artist_name": _primary_artist_name(group, artist),
+                    "primary_artist_mbid": _primary_artist_mbid(group),
                     "release_year": _release_year(group),
                     "cover_url": cover_url_for(mbid),
                 }

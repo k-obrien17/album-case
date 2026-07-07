@@ -7,7 +7,10 @@ export const WRITE_KEY_ENV = 'ALBUM_CASE_WRITE_KEY';
 const PROD_ENV = new Set(['production', 'preview']);
 
 function envRequiresKey(): boolean {
-  return PROD_ENV.has(process.env.VERCEL_ENV ?? '');
+  return (
+    PROD_ENV.has(process.env.VERCEL_ENV ?? '') ||
+    (!!process.env.TURSO_DATABASE_URL && !!process.env.TURSO_AUTH_TOKEN)
+  );
 }
 
 function timingSafeMatch(expected: string, provided: string): boolean {

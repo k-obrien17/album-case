@@ -48,4 +48,16 @@ describe('requireWriteKey', () => {
     expect(res.statusCode).toBe(401);
     expect(res.body).toEqual({ error: 'write_key_required' });
   });
+
+  it('fails closed when Turso is configured but no write key is set', () => {
+    vi.stubEnv('TURSO_DATABASE_URL', 'libsql://example.test');
+    vi.stubEnv('TURSO_AUTH_TOKEN', 'token');
+    const res = makeRes();
+
+    const ok = requireWriteKey({ headers: {} } as never, res as never);
+
+    expect(ok).toBe(false);
+    expect(res.statusCode).toBe(500);
+    expect(res.body).toEqual({ error: 'missing_write_key' });
+  });
 });

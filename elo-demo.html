@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ongoing ranking (Elo) — throwaway demo</title>
+<style>
+  :root {
+    --bg: #faf9f7; --ink: #1c1b1a; --muted: #6b6862; --line: #e4e1db;
+    --accent: #2f6f4f; --card: #ffffff; --gold: #c79a2b;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    display: flex; justify-content: center;
+  }
+  main { width: 100%; max-width: 480px; padding: 22px 18px 70px; }
+  h1 { font-size: 18px; margin: 0 0 2px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 18px; }
+
+  .modes { display: flex; gap: 8px; margin: 0 0 14px; }
+  .mode {
+    flex: 1; min-height: 40px; font-size: 13px; font-weight: 600;
+    background: var(--card); color: var(--muted);
+    border: 1px solid var(--line); border-radius: 8px; cursor: pointer;
+  }
+  .mode.on { color: #fff; background: var(--accent); border-color: var(--accent); }
+
+  .prompt { font-size: 14px; color: var(--muted); margin: 0 0 10px; }
+  .choices { display: grid; gap: 12px; }
+  .choice {
+    width: 100%; min-height: 76px; padding: 14px 16px;
+    text-align: left; background: var(--card);
+    border: 1px solid var(--line); border-radius: 12px; cursor: pointer;
+    transition: border-color .12s, transform .04s;
+  }
+  .choice:hover { border-color: var(--accent); }
+  .choice:active { transform: scale(.99); }
+  .choice .name { font-size: 18px; font-weight: 600; }
+  .choice .meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .vs { text-align: center; color: var(--muted); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; margin: 7px 0; }
+
+  .skip { width: 100%; min-height: 44px; margin-top: 12px; font-size: 13px;
+    background: transparent; color: var(--muted); border: 1px dashed var(--line);
+    border-radius: 8px; cursor: pointer; }
+  .skip:hover { border-color: var(--accent); color: var(--ink); }
+
+  .stats { display: flex; gap: 14px; font-size: 12px; color: var(--muted); margin: 18px 0 8px; flex-wrap: wrap; }
+  .stats b { color: var(--ink); font-weight: 600; }
+
+  .board-head { font-size: 13px; color: var(--muted); margin: 16px 0 8px; text-transform: uppercase; letter-spacing: .06em; }
+  ol { padding-left: 0; list-style: none; margin: 0; counter-reset: rank; }
+  ol li {
+    counter-increment: rank; display: flex; align-items: center; gap: 11px;
+    padding: 9px 12px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 9px; margin-bottom: 6px; font-size: 14px;
+  }
+  ol li::before {
+    content: counter(rank); width: 22px; height: 22px; flex: 0 0 22px;
+    display: grid; place-items: center; background: var(--accent); color: #fff;
+    border-radius: 50%; font-size: 11px; font-weight: 700;
+  }
+  ol li:first-child::before { background: var(--gold); }
+  ol li .nm { flex: 1; font-weight: 600; }
+  ol li .rt { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; }
+  ol li .gm { color: var(--muted); font-size: 11px; width: 42px; text-align: right; }
+  .fresh { animation: pop .5s ease; }
+  @keyframes pop { from { background: #eef6f0; } to { background: var(--card); } }
+
+  .row { display: flex; gap: 10px; margin-top: 18px; }
+  button.ghost { min-height: 44px; padding: 10px 16px; font-size: 13px;
+    background: transparent; color: var(--ink); border: 1px solid var(--line);
+    border-radius: 8px; cursor: pointer; }
+  button.ghost:hover { border-color: var(--accent); }
+  .note { font-size: 12px; color: var(--muted); margin-top: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Ongoing ranking</h1>
+  <p class="sub">Throwaway prototype on the real ~996 pool. Never finishes. Pick a pairing mode and just keep tapping.</p>
+
+  <div class="modes">
+    <button class="mode on" data-mode="random">Pure random</button>
+    <button class="mode" data-mode="smart">Smart pairing</button>
+  </div>
+
+  <p class="prompt">Which do you love more?</p>
+  <div class="choices">
+    <button class="choice" id="optA"><span class="name"></span><span class="meta"></span></button>
+    <div class="vs">vs</div>
+    <button class="choice" id="optB"><span class="name"></span><span class="meta"></span></button>
+  </div>
+  <button class="skip" id="skip">Never heard of one / both meh — skip (no rating change)</button>
+
+  <div class="stats">
+    <span><b id="sMatch">0</b> matchups</span>
+    <span><b id="sSeen">0</b>/<span id="sTotal">0</span> seen</span>
+    <span><b id="sConf">0</b> with 3+ games</span>
+  </div>
+
+  <div class="board-head">Top 15 right now</div>
+  <ol id="board"></ol>
+
+  <div class="row">
+    <button class="ghost" id="reset">Reset all ratings</button>
+  </div>
+  <p class="note">Pure random shows the coverage problem: "seen" and "3+ games" crawl. Switch to Smart and watch them climb, and watch the leaderboard stop reshuffling as the close calls get resolved.</p>
+</main>
+
+<script src="artists.js"></script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const POOL = (window.CALIBRATION_ARTISTS || []).map(a => ({
+    name: a.name, era: a.era || "", genre: a.genre || "",
+    rating: 1500, games: 0
+  }));
+  $("sTotal").textContent = POOL.length;
+
+  const K = 32;
+  let mode = "random";
+  let matchups = 0;
+  let current = [null, null];
+  let lastPair = "";
+
+  function expected(a, b) { return 1 / (1 + Math.pow(10, (b.rating - a.rating) / 400)); }
+
+  function update(winner, loser) {
+    const ew = expected(winner, loser);
+    winner.rating += K * (1 - ew);
+    loser.rating += K * (0 - (1 - ew));
+    winner.games++; loser.games++;
+  }
+
+  function pick2Random() {
+    const i = Math.floor(Math.random() * POOL.length);
+    let j = Math.floor(Math.random() * POOL.length);
+    while (j === i) j = Math.floor(Math.random() * POOL.length);
+    return [POOL[i], POOL[j]];
+  }
+
+  // Smart: bias the first pick toward least-played artists, then find an
+  // opponent with a close rating (the informative, close-call matchup).
+  function pick2Smart() {
+    const byGames = [...POOL].sort((a, b) => a.games - b.games);
+    const a = byGames[Math.floor(Math.random() * Math.min(40, byGames.length))];
+    let best = null, bestScore = Infinity;
+    for (let n = 0; n < 60; n++) {
+      const cand = POOL[Math.floor(Math.random() * POOL.length)];
+      if (cand === a) continue;
+      // prefer close rating, lightly prefer fewer games
+      const score = Math.abs(cand.rating - a.rating) + cand.games * 4;
+      if (score < bestScore) { bestScore = score; best = cand; }
+    }
+    return [a, best];
+  }
+
+  function nextPair() {
+    let pair;
+    for (let tries = 0; tries < 8; tries++) {
+      pair = mode === "smart" ? pick2Smart() : pick2Random();
+      const key = [pair[0].name, pair[1].name].sort().join("|");
+      if (key !== lastPair) { lastPair = key; break; }
+    }
+    current = pair;
+    renderPair();
+  }
+
+  function renderPair() {
+    [["optA", 0], ["optB", 1]].forEach(([id, idx]) => {
+      const el = $(id), art = current[idx];
+      el.querySelector(".name").textContent = art.name;
+      const bits = [art.genre, art.era].filter(Boolean).join("  ·  ");
+      el.querySelector(".meta").textContent = bits +
+        (art.games ? "    " + Math.round(art.rating) + " · " + art.games + "g" : "    new");
+    });
+  }
+
+  function choose(idx) {
+    const winner = current[idx], loser = current[idx === 0 ? 1 : 0];
+    update(winner, loser);
+    matchups++;
+    renderStats();
+    renderBoard(winner, loser);
+    nextPair();
+  }
+
+  function renderStats() {
+    $("sMatch").textContent = matchups;
+    let seen = 0, conf = 0;
+    for (const a of POOL) { if (a.games > 0) seen++; if (a.games >= 3) conf++; }
+    $("sSeen").textContent = seen;
+    $("sConf").textContent = conf;
+  }
+
+  function renderBoard(w, l) {
+    const top = [...POOL].filter(a => a.games > 0)
+      .sort((a, b) => b.rating - a.rating).slice(0, 15);
+    const ol = $("board");
+    ol.textContent = "";
+    for (const a of top) {
+      const li = document.createElement("li");
+      if (a === w || a === l) li.className = "fresh";
+      const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = a.name;
+      const rt = document.createElement("span"); rt.className = "rt"; rt.textContent = Math.round(a.rating);
+      const gm = document.createElement("span"); gm.className = "gm"; gm.textContent = a.games + "g";
+      li.append(nm, rt, gm);
+      ol.appendChild(li);
+    }
+  }
+
+  $("optA").addEventListener("click", () => choose(0));
+  $("optB").addEventListener("click", () => choose(1));
+  $("skip").addEventListener("click", () => { matchups++; renderStats(); nextPair(); });
+  $("reset").addEventListener("click", () => {
+    POOL.forEach(a => { a.rating = 1500; a.games = 0; });
+    matchups = 0; lastPair = "";
+    renderStats(); $("board").textContent = ""; nextPair();
+  });
+
+  document.querySelectorAll(".mode").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".mode").forEach(b => b.classList.remove("on"));
+      btn.classList.add("on");
+      mode = btn.dataset.mode;
+      nextPair();
+    });
+  });
+
+  if (!POOL.length) {
+    $("optA").querySelector(".name").textContent = "artists.js not loaded";
+    $("optB").querySelector(".name").textContent = "open from the project folder";
+  } else {
+    renderStats();
+    nextPair();
+  }
+})();
+</script>
+</body>
+</html>
