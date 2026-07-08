@@ -113,16 +113,31 @@ export function wouldViolateLock(
 `wouldViolateLock` simulates the move with the existing `moveItem` (from
 `order.ts`) and re-checks `isValidOrder` against the result.
 
-**Only reordering can violate a lock — insertion never can.** `insertAt`
-(`order.ts:18`) only shifts other items' absolute indices when a new
-candidate is placed; it never changes any two existing items' order relative
-to each other, so the binary-insertion candidate flow and its "#/Place"
-input need no lock-awareness at all. The only pathway that can violate a
-lock is `onReorder` (`main.ts:453`, fed by drag-and-drop in `rankList.ts`) —
+**Only reordering can violate a lock — insertion of a never-locked album
+never can.** `insertAt` (`order.ts:18`) only shifts other items' absolute
+indices when a new candidate is placed; it never changes any two existing
+items' order relative to each other, so the binary-insertion candidate flow
+and its "#/Place" input need no lock-awareness at all *for an album that was
+never a member of a lock*. The only pathway that can violate a lock is
+`onReorder` (`main.ts:453`, fed by drag-and-drop in `rankList.ts`) —
 including drags inside the artist-scoped view, since that view drags the
 real global-list items, just filtered. This is a smaller enforcement surface
 than originally scoped and simplifies the UI wiring: only the drag path
 needs a live check.
+
+**Correction found by the final whole-branch review (during implementation):**
+the "insertion never violates a lock" claim above does not extend to
+re-inserting an album that *was* a member of a lock and got set aside while
+still locked (the lock's `order` still names its mbid; re-placing it via
+`#/Place` at an arbitrary position has no anchor back to that mbid's
+required relative position). The scoped view closes this gap procedurally
+instead of computationally: while an artist is locked, its own ranked
+sub-list is drag-disabled and its unranked albums' `#/Place` controls are
+disabled entirely (`web/src/ui/artistLockView.ts`), matching the "Unlock →
+re-batch → re-lock only" editability rule — so a locked artist's albums are
+never inserted or reordered at all until the owner unlocks first. This means
+`isValidOrder`/`wouldViolateLock` only ever need to reason about the main
+list's drag path in practice, but they remain correct as written regardless.
 
 **Live drop-zone blocking:** `rankList.ts`'s drag loop already tracks a
 `dropIndex` via `computeDropIndex`/`showIndicatorAt` (`rankList.ts:112-131`).

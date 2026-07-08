@@ -11,6 +11,17 @@ export type Album = {
   cover_url: string;
 };
 
+/**
+ * A frozen relative order for one artist's albums. `order` holds album mbids
+ * in locked relative order (index 0 = most preferred). Enforcement only
+ * checks the relative order of these mbids within `ranked` -- other albums
+ * may sit anywhere between/around them.
+ */
+export type ArtistLock = {
+  artistMbid: string;
+  order: string[];
+};
+
 /** An in-progress binary-insertion placement of `album` into a ranked list. */
 export type Pending = {
   album: Album;

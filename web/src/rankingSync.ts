@@ -1,5 +1,5 @@
 import type { SavedLists } from './lists';
-import type { Album, RankingState } from './ranking/types';
+import type { Album, ArtistLock, RankingState } from './ranking/types';
 import { getWriteKey, writeKeyHeaders } from './writeKey';
 import { parseAlbumArray } from './album';
 
@@ -19,6 +19,7 @@ type SnapshotPayload = {
   session_id: string;
   ranked: Album[];
   lists: SnapshotLists;
+  artist_locks: ArtistLock[];
   base_updated_at?: number | null;
 };
 
@@ -31,6 +32,8 @@ type SnapshotResponse = {
       // Older snapshots predate dontCare; a missing bucket is an empty list.
       dontCare?: Album[];
     };
+    // Older snapshots predate artist locks; a missing field is no locks.
+    artist_locks?: ArtistLock[];
     updated_at: number;
   };
 };
@@ -40,6 +43,7 @@ export type RankingSnapshotLoad =
       status: 'found';
       ranked: Album[];
       lists: SavedLists;
+      artistLocks: ArtistLock[];
       updatedAt: number;
     }
   | { status: 'missing' }
@@ -55,6 +59,7 @@ export function snapshotPayload(
   sessionId: string,
   state: RankingState,
   lists: SavedLists,
+  artistLocks: ArtistLock[],
   baseUpdatedAt?: number | null
 ): SnapshotPayload {
   const payload: SnapshotPayload = {
@@ -65,6 +70,7 @@ export function snapshotPayload(
       notHeard: lists.notHeard,
       dontCare: lists.dontCare,
     },
+    artist_locks: artistLocks,
   };
   if (baseUpdatedAt !== undefined) payload.base_updated_at = baseUpdatedAt;
   return payload;
@@ -74,6 +80,7 @@ export async function saveRankingSnapshot(
   sessionId: string,
   state: RankingState,
   lists: SavedLists,
+  artistLocks: ArtistLock[],
   baseUpdatedAt?: number | null
 ): Promise<RankingSnapshotSave> {
   if (!getWriteKey()) return { status: 'skipped' };
@@ -82,7 +89,7 @@ export async function saveRankingSnapshot(
     const response = await fetch('/api/ranking', {
       method: 'POST',
       headers: { 'content-type': 'application/json', ...writeKeyHeaders() },
-      body: JSON.stringify(snapshotPayload(sessionId, state, lists, baseUpdatedAt)),
+      body: JSON.stringify(snapshotPayload(sessionId, state, lists, artistLocks, baseUpdatedAt)),
     });
     if (response.status === 409) return { status: 'conflict' };
     // Fire-and-forget, but not silently-blind: surface a non-2xx so a 400/500
@@ -137,14 +144,15 @@ export async function loadRankingSnapshotDetailed(sessionId: string): Promise<Ra
       notHeard: parseAlbumArray(body.snapshot.lists?.notHeard),
       dontCare: parseAlbumArray(body.snapshot.lists?.dontCare),
     },
+    artistLocks: Array.isArray(body.snapshot.artist_locks) ? body.snapshot.artist_locks : [],
     updatedAt: body.snapshot.updated_at,
   };
 }
 
 export async function loadRankingSnapshot(
   sessionId: string
-): Promise<{ ranked: Album[]; lists: SavedLists } | null> {
+): Promise<{ ranked: Album[]; lists: SavedLists; artistLocks: ArtistLock[] } | null> {
   const result = await loadRankingSnapshotDetailed(sessionId);
   if (result.status !== 'found') return null;
-  return { ranked: result.ranked, lists: result.lists };
+  return { ranked: result.ranked, lists: result.lists, artistLocks: result.artistLocks };
 }

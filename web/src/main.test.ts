@@ -28,10 +28,12 @@ describe('resolveInitialState (server-authoritative load-on-open)', () => {
         notHeard: [],
         dontCare: [album('c')],
       } as SavedLists,
+      artistLocks: [{ artistMbid: VALID, order: ['a'] }],
     };
     const cached = {
       state: { ranked: [album('x')], pending: null } as RankingState,
       lists: { wantToListen: [], notHeard: [], dontCare: [] } as SavedLists,
+      artistLocks: [],
     };
 
     const resolved = resolveInitialState(server, cached);
@@ -41,12 +43,14 @@ describe('resolveInitialState (server-authoritative load-on-open)', () => {
     // dontCare round-trips through the snapshot into the resolved state.
     expect(resolved.lists.dontCare).toEqual([album('c')]);
     expect(resolved.lists.wantToListen).toEqual([album('b')]);
+    expect(resolved.artistLocks).toEqual(server.artistLocks);
   });
 
   it('falls back to the localStorage cache when the server has nothing', () => {
     const cached = {
       state: { ranked: [album('x')], pending: null } as RankingState,
       lists: { wantToListen: [album('y')], notHeard: [], dontCare: [] } as SavedLists,
+      artistLocks: [{ artistMbid: VALID, order: ['x'] }],
     };
 
     const resolved = resolveInitialState(null, cached);
@@ -54,6 +58,7 @@ describe('resolveInitialState (server-authoritative load-on-open)', () => {
     expect(resolved.fromServer).toBe(false);
     expect(resolved.state.ranked).toEqual([album('x')]);
     expect(resolved.lists.wantToListen).toEqual([album('y')]);
+    expect(resolved.artistLocks).toEqual(cached.artistLocks);
   });
 });
 

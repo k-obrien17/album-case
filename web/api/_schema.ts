@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS ranking_snapshots (
     session_id TEXT PRIMARY KEY,
     ranking_json TEXT NOT NULL,
     lists_json TEXT NOT NULL,
+    artist_locks_json TEXT,
     updated_at INTEGER NOT NULL
 );
 `;
