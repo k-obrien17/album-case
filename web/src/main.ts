@@ -1,5 +1,5 @@
 import './style.css';
-import type { Album, RankingState } from './ranking/types';
+import type { Album, ArtistLock, RankingState } from './ranking/types';
 import { insertAt, moveItem } from './ranking/order';
 import { setAsideAlbum } from './ranking/setAside';
 import { loadSeedPool, loadPreferredArtists, playsMapFromPreferred, pickCandidate } from './seed';
@@ -37,8 +37,11 @@ import {
   saveBlockedArtists,
 } from './artistBlocks';
 import { loadSkippedAlbums, saveSkippedAlbums } from './skippedAlbums';
+import { loadArtistLocks, saveArtistLocks } from './artistLocksStorage';
+import { upsertLock, removeLock, nearestValidDropIndex } from './ranking/locks';
+import { mountArtistLockView } from './ui/artistLockView';
 
-type ViewMode = 'ranked' | ListName | 'blockedArtists';
+type ViewMode = 'ranked' | ListName | 'blockedArtists' | 'artistLock';
 
 type RestoreSnapshot = { state: RankingState; lists: SavedLists };
 
@@ -88,17 +91,18 @@ export async function restoreFromCode(
  * localStorage cache. Pure so load-on-open precedence is unit-testable.
  */
 export function resolveInitialState(
-  serverSnapshot: { ranked: Album[]; lists: SavedLists } | null,
-  cached: { state: RankingState; lists: SavedLists }
-): { state: RankingState; lists: SavedLists; fromServer: boolean } {
+  serverSnapshot: { ranked: Album[]; lists: SavedLists; artistLocks: ArtistLock[] } | null,
+  cached: { state: RankingState; lists: SavedLists; artistLocks: ArtistLock[] }
+): { state: RankingState; lists: SavedLists; artistLocks: ArtistLock[]; fromServer: boolean } {
   if (serverSnapshot) {
     return {
       state: { ranked: serverSnapshot.ranked, pending: null },
       lists: serverSnapshot.lists,
+      artistLocks: serverSnapshot.artistLocks,
       fromServer: true,
     };
   }
-  return { state: cached.state, lists: cached.lists, fromServer: false };
+  return { state: cached.state, lists: cached.lists, artistLocks: cached.artistLocks, fromServer: false };
 }
 
 export function hydrateAlbums(albums: Album[], byId: Map<string, Album>): Album[] {
@@ -162,11 +166,12 @@ async function main(): Promise<void> {
   // holds local data, seed it up to the server.
   const cachedState: RankingState = loadRanking() ?? { ranked: [], pending: null };
   const cachedLists = loadLists();
+  const cachedArtistLocks = loadArtistLocks();
   let blockedArtists = loadBlockedArtists();
   const serverLoad = await loadRankingSnapshotDetailed(OWNER_ID);
   let serverSnapshot =
     serverLoad.status === 'found'
-      ? { ranked: serverLoad.ranked, lists: serverLoad.lists }
+      ? { ranked: serverLoad.ranked, lists: serverLoad.lists, artistLocks: serverLoad.artistLocks }
       : null;
   let snapshotBaseUpdatedAt: number | null | undefined =
     serverLoad.status === 'found'
@@ -190,6 +195,7 @@ async function main(): Promise<void> {
     serverSnapshot = {
       ranked: hydrateAlbums(serverSnapshot.ranked, poolById),
       lists: hydrateLists(serverSnapshot.lists, poolById),
+      artistLocks: serverSnapshot.artistLocks,
     };
   }
   // A pending-sync flag means the local cache holds edits that were never
@@ -200,12 +206,15 @@ async function main(): Promise<void> {
   const initial = resolveInitialState(pendingSync ? null : serverSnapshot, {
     state: cachedState,
     lists: cachedLists,
+    artistLocks: cachedArtistLocks,
   });
   let state: RankingState = initial.state;
   let lists: SavedLists = initial.lists;
+  let artistLocks: ArtistLock[] = initial.artistLocks;
   if (initial.fromServer) {
     saveRanking(state);
     saveLists(lists);
+    saveArtistLocks(artistLocks);
   } else if (
     pendingSync ||
     (serverLoad.status === 'missing' &&
@@ -310,6 +319,7 @@ async function main(): Promise<void> {
       session.session_id,
       state,
       lists,
+      artistLocks,
       snapshotBaseUpdatedAt
     );
     if (result.status === 'saved') {
@@ -353,6 +363,13 @@ async function main(): Promise<void> {
 
   function persistLists(): void {
     saveLists(lists);
+    markPendingSync();
+    updateSyncBanner();
+    queueRankingSnapshotSync();
+  }
+
+  function persistArtistLocks(): void {
+    saveArtistLocks(artistLocks);
     markPendingSync();
     updateSyncBanner();
     queueRankingSnapshotSync();
@@ -414,11 +431,109 @@ async function main(): Promise<void> {
     rankList.render();
   }
 
+  let lockedArtistMbid: string | null = null;
+  let artistLockController: ReturnType<typeof mountArtistLockView> | null = null;
+
+  function findAlbumByArtist(artistMbid: string): Album | null {
+    return (
+      state.ranked.find((a) => a.primary_artist_mbid === artistMbid) ??
+      [...lists.wantToListen, ...lists.notHeard, ...lists.dontCare].find(
+        (a) => a.primary_artist_mbid === artistMbid
+      ) ??
+      pool.find((a) => a.primary_artist_mbid === artistMbid) ??
+      null
+    );
+  }
+
+  function renderArtistLockView(): void {
+    if (!lockedArtistMbid) {
+      showView('ranked');
+      return;
+    }
+    const artistMbid = lockedArtistMbid;
+    const artistAlbum = findAlbumByArtist(artistMbid);
+    if (!artistAlbum) {
+      lockedArtistMbid = null;
+      showView('ranked');
+      return;
+    }
+
+    artistLockController?.teardown();
+    stage.textContent = '';
+    artistLockController = mountArtistLockView(stage, {
+      album: artistAlbum,
+      getRanked: () => state.ranked,
+      getLists: () => lists,
+      getPool: () => pool,
+      getArtistLocks: () => artistLocks,
+      onReorder: (from, to) => {
+        state = { ranked: moveItem(state.ranked, from, to), pending: null };
+        persistRankingState();
+        renderArtistLockView();
+      },
+      onPlace: (album, index) => {
+        state = { ranked: insertAt(state.ranked, album, index), pending: null };
+        lists = removeFromList(lists, album.mbid, 'wantToListen');
+        lists = removeFromList(lists, album.mbid, 'notHeard');
+        lists = removeFromList(lists, album.mbid, 'dontCare');
+        persistRankingState();
+        persistLists();
+        renderArtistLockView();
+      },
+      onLock: (lock) => {
+        artistLocks = upsertLock(artistLocks, lock);
+        persistArtistLocks();
+        renderArtistLockView();
+      },
+      onUnlock: (mbid) => {
+        artistLocks = removeLock(artistLocks, mbid);
+        persistArtistLocks();
+        renderArtistLockView();
+      },
+      onDiscover: async () => {
+        const knownMbids = pool
+          .filter((a) => a.primary_artist_mbid === artistMbid)
+          .map((a) => a.mbid);
+        const result = await discoverArtistDetailed(
+          session.session_id,
+          artistAlbum.primary_artist_name,
+          artistMbid,
+          knownMbids
+        );
+        if (result.status === 'found') {
+          const poolIds = new Set(pool.map((a) => a.mbid));
+          for (const found of result.albums) {
+            if (!poolIds.has(found.mbid)) {
+              pool.push(found);
+              poolIds.add(found.mbid);
+            }
+          }
+        }
+      },
+      onClose: () => {
+        lockedArtistMbid = null;
+        showView('ranked');
+      },
+    });
+  }
+
+  function handleOpenArtistLock(album: Album): void {
+    if (!album.primary_artist_mbid) {
+      rankList.showStatus(`Refresh Album Case to lock ${album.primary_artist_name}'s order.`);
+      return;
+    }
+    lockedArtistMbid = album.primary_artist_mbid;
+    showView('artistLock');
+  }
+
   reselectCandidate();
 
   const rankList = mountRankList(stage, {
     getRanked: () => state.ranked,
     getCandidate: () => candidate,
+    getLockedArtistMbids: () => artistLocks.map((lock) => lock.artistMbid),
+    getNearestValidDrop: (from, to) => nearestValidDropIndex(state.ranked, artistLocks, from, to),
+    onOpenArtistLock: (album) => handleOpenArtistLock(album),
     onPlace: (index) => {
       if (!candidate) return;
       const before = state.ranked;
@@ -550,12 +665,18 @@ async function main(): Promise<void> {
     if (view === 'ranked' && next !== 'ranked') {
       rankList.teardown();
     }
+    if (view === 'artistLock' && next !== 'artistLock') {
+      artistLockController?.teardown();
+      artistLockController = null;
+    }
     view = next;
 
     if (view === 'ranked') {
       rankList.render();
     } else if (view === 'blockedArtists') {
       renderBlockedArtists();
+    } else if (view === 'artistLock') {
+      renderArtistLockView();
     } else {
       renderCurrentSavedList(view);
     }
