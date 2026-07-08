@@ -21,6 +21,11 @@ import {
 
 export type RankListOptions = {
   getRanked: () => Album[];
+  /** The full global ranked array, for computing correct year-rank and
+   *  overall-rank when this instance renders a filtered subset (e.g. the
+   *  artist-lock scoped view). Omit when `getRanked` already returns the
+   *  full global list -- the main ranked-list view does. */
+  getGlobalRanked?: () => Album[];
   getCandidate: () => Album | null;
   /** Insert the current candidate at `index`. */
   onPlace: (index: number) => void;
@@ -93,9 +98,9 @@ function rankedSubtitle(album: Album, subRank: SubRank | undefined): string {
   const base = subtitle(album);
   if (!subRank) return base;
 
-  const parts = [`A${subRank.artistRank}/${subRank.artistTotal}`];
+  const parts = [`Band ${subRank.artistRank}/${subRank.artistTotal}`];
   if (subRank.yearRank != null && subRank.yearTotal != null) {
-    parts.push(`#${subRank.yearRank}/${subRank.yearTotal}`);
+    parts.push(`Year ${subRank.yearRank}/${subRank.yearTotal}`);
   }
   return `${base} · ${parts.join(' · ')}`;
 }
@@ -510,7 +515,7 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
         'Your ranked list is empty. Drag the next album in, or tap it to start.';
       listEl.append(empty);
     } else {
-      const subRanks = computeSubRanks(ranked);
+      const subRanks = computeSubRanks(opts.getGlobalRanked?.() ?? ranked);
       const lockedArtists = new Set(opts.getLockedArtistMbids?.() ?? []);
       ranked.forEach((album, i) => listEl.append(buildRow(album, i, subRanks, lockedArtists)));
     }
