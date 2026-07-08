@@ -41,7 +41,7 @@ export function mountArtistLockView(
     return !!artistMbid && opts.getArtistLocks().some((lock) => lock.artistMbid === artistMbid);
   }
 
-  function buildUnrankedRow(album: Album, maxRank: number): HTMLLIElement {
+  function buildUnrankedRow(album: Album, maxRank: number, locked: boolean): HTMLLIElement {
     const li = document.createElement('li');
     li.className = 'lock-unranked-row';
 
@@ -69,6 +69,10 @@ export function mountArtistLockView(
     btn.type = 'submit';
     btn.className = 'candidate-place-button';
     btn.textContent = 'Place';
+    if (locked) {
+      input.disabled = true;
+      btn.disabled = true;
+    }
     form.addEventListener('submit', (ev) => {
       ev.preventDefault();
       const rank = Number(input.value);
@@ -111,6 +115,8 @@ export function mountArtistLockView(
       return;
     }
 
+    const locked = isLocked();
+
     const lockBtn = document.createElement('button');
     lockBtn.type = 'button';
     lockBtn.className = 'lock-view-toggle';
@@ -122,6 +128,13 @@ export function mountArtistLockView(
       lockBtn.addEventListener('click', () => opts.onLock(buildLock(artistMbid, opts.getRanked())));
     }
     wrap.append(lockBtn);
+
+    if (locked) {
+      const lockedNote = document.createElement('p');
+      lockedNote.className = 'rank-status';
+      lockedNote.textContent = 'Locked — unlock to reorder or add albums.';
+      wrap.append(lockedNote);
+    }
 
     if (loading) {
       const status = document.createElement('p');
@@ -145,6 +158,7 @@ export function mountArtistLockView(
       onSetAside: () => {},
       onSkip: () => {},
       onBlockArtist: () => {},
+      getNearestValidDrop: locked ? (from: number) => from : undefined,
     });
     wrap.append(rankedCol);
 
@@ -158,7 +172,7 @@ export function mountArtistLockView(
       const unrankedList = document.createElement('ol');
       unrankedList.className = 'lock-unranked-list';
       const maxRank = opts.getRanked().length + 1;
-      unranked.forEach((album) => unrankedList.append(buildUnrankedRow(album, maxRank)));
+      unranked.forEach((album) => unrankedList.append(buildUnrankedRow(album, maxRank, locked)));
       wrap.append(unrankedList);
     }
 
