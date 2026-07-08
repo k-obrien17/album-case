@@ -1,48 +1,49 @@
 # Handoff
 
 ## Current task
-Fixed a silent data-loss bug (add an album, refresh, it vanishes), then chased a related "stuck retrying" bug through production, briefly built and then reverted a password-gate-the-whole-app experiment, and shipped the low-effort fix Keith actually asked for: a bookmarkable auto-unlock link.
+Brainstorming a new feature: rank one artist's albums against each other in an isolated view, then lock that relative order as a hard constraint the global ranked list must respect from then on. Using the `superpowers:brainstorming` skill — currently at the design-review step, not yet approved, no code written.
 
 ## Status
-- Root cause fixed: an unsynced local edit (writes locked, network error, version conflict) no longer gets silently clobbered by a stale server snapshot on reload. A pending-sync flag (`web/src/syncStatus.ts`) makes load-on-open prefer the local cache until a save is confirmed, and a visible banner tells the owner when changes haven't reached the server.
-- Sync retry is now real: a failed save used to only retry on the *next* edit (or never, after a version conflict permanently disabled it for the session) while the banner falsely claimed "Retrying...". `syncRankingSnapshot` now actually schedules a retry every ~4s and recovers from a stale base by refetching the server's current version.
-- Tried gating reads behind the write key too (a real password gate, not just an edit permission) — implemented, deployed, then fully reverted after Keith said he's not worried about read exposure and wants low-effort write protection instead. Reads are public again; verified live.
-- Shipped the actual ask: visiting a bookmarked `album-case.vercel.app/#key=...` link once per device auto-stores the write key and cleans the URL bar — no more typing the key. Originally built with `?key=...` (a query string), caught by an automated commit-security review that it would leak into server access logs (confirmed via my own `vercel logs` output); switched to `#key=...` (a URL fragment, never sent to the server) before Keith ever used it.
-- All 130 tests pass, build clean. Verified locally via `vercel dev` + Playwright against the real production Turso DB (read-only / network-intercepted where needed — never risked a real mutation). Deployed to production three times this session, all live. Pushed to `origin/main` (now at `260f5ea`).
+The write-key saga from the prior session is fully resolved and closed out (key rotated, all pending edits saved and verified live server-side — no follow-up needed there, don't reopen it).
+
+This session pivoted straight into a new feature request. Five clarifying questions were asked and answered (see "Proposed design" below), a full design was presented to Keith in chat, and he ran `/handoff` before responding to "does this match what you had in mind?" So: **design proposed, not yet approved.** Per the brainstorming skill, nothing gets implemented until Keith approves it and it's written to a spec doc.
 
 ## Next concrete step
-Keith's original stuck edit (the one that triggered the "stuck retrying" report) is still sitting unsaved in his browser's local cache — it never reached the server. His stored write key got cleared during troubleshooting (a rejected re-entry attempt). Next session should follow up: does he know the current `ALBUM_CASE_WRITE_KEY`, or does it need rotating? Once resolved, hand him a working `#key=...` bookmark link — that unlock will also flush the stuck edit to the server.
+Re-present the "Proposed design" section below to Keith (or just ask if it still matches) and get explicit approval or corrections. Once approved, follow the brainstorming skill's remaining steps: write the design to `docs/superpowers/specs/YYYY-MM-DD-artist-lock-design.md`, self-review it, have Keith review the written spec, then invoke `writing-plans` — do NOT skip straight to implementation.
+
+## Proposed design (awaiting approval)
+Answers already collected from Keith:
+- **Album scope in a batch session:** ALL of the artist's albums, including ones not yet in the global ranked list (pulled from Want to Listen / Haven't Heard / undiscovered).
+- **Placing not-yet-ranked albums:** reuse the existing "#/Place" rank-number input already in the candidate panel — no new insertion wizard, no waiting for the normal candidate loop.
+- **Artist-internal sub-ranking mechanic:** drag-to-place, scoped to just that artist's albums (same mechanic as the main list, just filtered).
+- **Entry point:** a new icon on each ranked row, next to the existing ▶ (discover) and ⇅ (reorder) icons.
+- **Enforcement UX:** block live during the drag — invalid drop zones are simply unavailable, no error-after-the-fact.
+- **Editability:** Unlock → re-batch → re-lock only. No live editing of a locked order in place.
+
+My proposed technical design (presented, not yet confirmed):
+1. **Lock scope (my judgment call, flag if wrong):** a lock only covers the artist's albums that are in the global ranked list *at the moment Lock is pressed*. Albums still unplaced are unconstrained until placed and the artist is re-locked. Keeps the model to "the order these specific albums currently sit in," not a prediction about albums that don't exist in the list yet.
+2. **Data model:** new `artistLocks` field (artist MBID → ordered album MBID list) added to the same ranking snapshot as `ranked`/`lists` — reuses the exact save/retry/conflict machinery built this session, no new sync path. One new DB column (`artist_locks_json`), added via the same idempotent `ALTER TABLE` pattern `discover-artist.ts` already uses for `primary_artist_mbid`.
+3. **Enforcement:** one pure function checks whether a given global order respects every lock. Used two ways: live during drag (disable invalid drop zones), and on submit for the rank-number input (reject out-of-range numbers with an inline message).
+4. **UI flow:** new row icon opens a scoped view for that artist — already-ranked albums are draggable among themselves (this *is* the real global list, filtered, so dragging here live-updates real positions); not-yet-ranked albums each get the "#/Place" control to slot into the global list. "Lock in order" freezes the current relative order; "Unlock" (once locked) removes the constraint.
 
 ## Open questions
-- Does Keith have the current write key, or should it be rotated? Blocks his stuck edit from saving.
-- If rotating: the new value can't be pulled to disk automatically (Claude Code's auto-mode classifier blocked `vercel env pull --environment=production` mid-session as a credential-materialization risk) and shouldn't be printed in chat. Plan was to write it to a local file only Keith opens himself — needs his go-ahead to actually rotate.
+- Does the proposed design (above) match what Keith actually wants? He hadn't responded when the session paused.
+- Specifically confirm/correct the "lock scope" judgment call in point 1 — it's the one place I made a decision rather than asking directly.
 
 ## Don't forget
-- `web/.env.local` has a local-only dev `ALBUM_CASE_WRITE_KEY` I generated for `vercel dev` testing (gitignored, harmless placeholder, not the real prod value). Vercel's own "Development" environment doesn't have this var set at all — only Preview and Production do.
-- `ALLOW_PUBLIC_WRITES` still exists as a Vercel env var (Preview + Production) — a leftover from the old fork's boolean write-kill-switch that was deliberately never ported into code (see prior handoff). Still unused by current code; dead config, low-priority cleanup.
-- The read-gating detour (added in `1bee8b2`, fully reverted in `cf0f25d`) nets to zero diff on `ranking.ts` / `discover-artist.ts` / `rankingSync.ts` / `discovery.ts` — don't be confused by the churn if you look at blame/history on those files.
-- Vercel MCP tools (`list_deployments`, `get_runtime_errors`, etc.) return 403 for this project's scope — the CLI (`vercel` command) works fine and is what actually got used all session (deploys, `vercel logs`, `vercel env ls`).
-
-## Files touched this session
-- `web/src/syncStatus.ts`, `web/src/syncStatus.test.ts` (new) — pending-sync flag
-- `web/src/main.ts` — prefer-local-cache-when-pending load logic, sync banner, real retry + conflict recovery, bookmarkable auto-unlock via URL fragment
-- `web/src/style.css` — `.sync-banner` styling
-- `web/src/writeKey.ts`, `web/src/writeKey.test.ts` — `extractKeyFromFragment` for the auto-unlock link
-- `web/src/rankingSync.ts`, `web/src/rankingSync.test.ts` — retry-related test coverage
-- `web/src/discovery.ts` — touched during the read-gate experiment, reverted to original
-- `web/api/ranking.ts`, `web/api/discover-artist.ts` — touched during the read-gate experiment, reverted to original
-- `web/api/ranking.test.ts`, `web/api/discover-artist.test.ts` (new) — GET coverage
-- `web/.env.local` — added a local-only dev write key (gitignored, not committed)
+- `ALLOW_PUBLIC_WRITES` still exists as a Vercel env var (Preview + Production) — a leftover from the old fork's boolean write-kill-switch, deliberately never ported into code. Still unused; dead config, low-priority cleanup.
+- Vercel MCP tools (`list_deployments`, `get_runtime_errors`, etc.) return 403 for this project's scope — the CLI (`vercel` command) works fine and is what actually got used all last session.
+- `web/.env.local` has a local-only dev `ALBUM_CASE_WRITE_KEY` (gitignored placeholder for `vercel dev` testing, not a real secret) — separate from the real rotated production key, which lives only in Vercel now.
 
 ## Git state
 - Branch: `main`.
-- Last commit: `260f5ea fix: move auto-unlock key from URL query string to fragment`.
+- Last commit: `73ff6b9 chore: update handoff (session paused)`.
 - Uncommitted changes: no (working tree clean).
 - Stashed: no.
-- Ahead of `origin/main`: no — already pushed.
+- Ahead of `origin/main`: no.
 
 ## Reason for handoff
 Session paused.
 
 ## Updated
-2026-07-07T22:22:17Z
+2026-07-08T00:17:55Z
