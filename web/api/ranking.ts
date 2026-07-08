@@ -26,10 +26,16 @@ type SnapshotLists = {
   dontCare: Album[];
 };
 
+type ArtistLock = {
+  artistMbid: string;
+  order: string[];
+};
+
 type RankingBody = {
   session_id?: unknown;
   ranked?: unknown;
   lists?: unknown;
+  artist_locks?: unknown;
   base_updated_at?: unknown;
 };
 
@@ -47,6 +53,11 @@ function ensureSchema(): Promise<void> {
   schemaReady ??= (async () => {
     for (const sql of SCHEMA_STATEMENTS) {
       await client.execute(sql);
+    }
+    try {
+      await client.execute('ALTER TABLE ranking_snapshots ADD COLUMN artist_locks_json TEXT');
+    } catch {
+      // Existing deployments may already have this nullable column.
     }
   })();
   return schemaReady;
@@ -122,6 +133,22 @@ function parseLists(value: unknown): SnapshotLists | null {
   return { wantToListen, notHeard, dontCare };
 }
 
+function parseArtistLocks(value: unknown): ArtistLock[] | null {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) return null;
+  const locks: ArtistLock[] = [];
+  for (const item of value) {
+    if (!isObject(item)) return null;
+    const { artistMbid, order } = item;
+    if (typeof artistMbid !== 'string' || !UUID_RE.test(artistMbid)) return null;
+    if (!Array.isArray(order) || !order.every((mbid) => typeof mbid === 'string' && UUID_RE.test(mbid))) {
+      return null;
+    }
+    locks.push({ artistMbid, order: order as string[] });
+  }
+  return locks;
+}
+
 function parseBaseUpdatedAt(value: unknown): number | null | undefined {
   if (value === undefined) return undefined;
   if (value === null) return null;
@@ -134,6 +161,7 @@ function validate(body: RankingBody | null):
       sessionId: string;
       ranked: Album[];
       lists: SnapshotLists;
+      artistLocks: ArtistLock[];
       baseUpdatedAt: number | null | undefined;
     }
   | { ok: false; message: string } {
@@ -142,7 +170,8 @@ function validate(body: RankingBody | null):
 
   const ranked = parseAlbumList(body.ranked);
   const lists = parseLists(body.lists);
-  if (!ranked || !lists) return { ok: false, message: 'invalid_snapshot' };
+  const artistLocks = parseArtistLocks(body.artist_locks);
+  if (!ranked || !lists || !artistLocks) return { ok: false, message: 'invalid_snapshot' };
   const baseUpdatedAt = parseBaseUpdatedAt(body.base_updated_at);
   if (body.base_updated_at !== undefined && baseUpdatedAt === undefined) {
     return { ok: false, message: 'invalid_base_updated_at' };
@@ -160,7 +189,7 @@ function validate(body: RankingBody | null):
     savedIds.add(album.mbid);
   }
 
-  return { ok: true, sessionId: body.session_id, ranked, lists, baseUpdatedAt };
+  return { ok: true, sessionId: body.session_id, ranked, lists, artistLocks, baseUpdatedAt };
 }
 
 async function handleGet(req: VercelRequest, res: VercelResponse): Promise<void> {
@@ -173,7 +202,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse): Promise<void>
   await ensureSchema();
   const rows = await db().execute({
     sql: `
-SELECT ranking_json, lists_json, updated_at
+SELECT ranking_json, lists_json, artist_locks_json, updated_at
 FROM ranking_snapshots
 WHERE session_id = ?
 `,
@@ -187,6 +216,7 @@ WHERE session_id = ?
 
   const ranked = JSON.parse(String(row.ranking_json)) as Album[];
   const lists = JSON.parse(String(row.lists_json)) as Partial<SnapshotLists>;
+  const artistLocks = row.artist_locks_json ? (JSON.parse(String(row.artist_locks_json)) as ArtistLock[]) : [];
   res.status(200).json({
     snapshot: {
       ranked,
@@ -195,6 +225,7 @@ WHERE session_id = ?
         notHeard: lists.notHeard ?? [],
         dontCare: lists.dontCare ?? [],
       },
+      artist_locks: artistLocks,
       updated_at: Number(row.updated_at),
     },
   });
@@ -215,30 +246,33 @@ async function handlePost(req: VercelRequest, res: VercelResponse): Promise<void
     validated.sessionId,
     JSON.stringify(validated.ranked),
     JSON.stringify(validated.lists),
+    JSON.stringify(validated.artistLocks),
     now,
   ];
   const snapshotSql =
     validated.baseUpdatedAt === null
       ? `
-INSERT INTO ranking_snapshots (session_id, ranking_json, lists_json, updated_at)
-VALUES (?, ?, ?, ?)
+INSERT INTO ranking_snapshots (session_id, ranking_json, lists_json, artist_locks_json, updated_at)
+VALUES (?, ?, ?, ?, ?)
 ON CONFLICT(session_id) DO NOTHING
 `
       : validated.baseUpdatedAt === undefined
         ? `
-INSERT INTO ranking_snapshots (session_id, ranking_json, lists_json, updated_at)
-VALUES (?, ?, ?, ?)
+INSERT INTO ranking_snapshots (session_id, ranking_json, lists_json, artist_locks_json, updated_at)
+VALUES (?, ?, ?, ?, ?)
 ON CONFLICT(session_id) DO UPDATE SET
   ranking_json = excluded.ranking_json,
   lists_json = excluded.lists_json,
+  artist_locks_json = excluded.artist_locks_json,
   updated_at = excluded.updated_at
 `
         : `
-INSERT INTO ranking_snapshots (session_id, ranking_json, lists_json, updated_at)
-VALUES (?, ?, ?, ?)
+INSERT INTO ranking_snapshots (session_id, ranking_json, lists_json, artist_locks_json, updated_at)
+VALUES (?, ?, ?, ?, ?)
 ON CONFLICT(session_id) DO UPDATE SET
   ranking_json = excluded.ranking_json,
   lists_json = excluded.lists_json,
+  artist_locks_json = excluded.artist_locks_json,
   updated_at = excluded.updated_at
 WHERE ranking_snapshots.updated_at = ?
 `;
