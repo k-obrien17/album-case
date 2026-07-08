@@ -1,6 +1,7 @@
 import type { Album } from './ranking/types';
 
 const PRIORITY_KEY = 'tastetest-priority-queue';
+const PRIORITY_PLAN_VERSION_KEY = 'albumcase-priority-plan-version';
 
 let memoryQueue: string[] = [];
 
@@ -47,6 +48,26 @@ function dedupe(ids: string[]): string[] {
     seen.add(id);
     return true;
   });
+}
+
+export function loadPriorityPlanVersion(): string | null {
+  if (typeof localStorage === 'undefined') return null;
+
+  try {
+    return localStorage.getItem(PRIORITY_PLAN_VERSION_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function savePriorityPlanVersion(version: string): void {
+  if (typeof localStorage === 'undefined') return;
+
+  try {
+    localStorage.setItem(PRIORITY_PLAN_VERSION_KEY, version);
+  } catch {
+    // Non-critical: the queue itself still persists independently.
+  }
 }
 
 export function loadPriorityQueue(): string[] {
@@ -119,6 +140,45 @@ export function priorityQueueFromArtists(orderedArtists: string[], pool: Album[]
         out.push(mbid);
       }
     }
+  }
+  return out;
+}
+
+export type PriorityAlbumPlanEntry = {
+  artist: string;
+  title: string;
+};
+
+function titleKey(title: string): string {
+  return normalize(title)
+    .replace(/^the /, '')
+    .replace(/^a /, '');
+}
+
+export function priorityQueueFromAlbumPlan(plan: PriorityAlbumPlanEntry[], pool: Album[]): string[] {
+  const byArtistTitle = new Map<string, string>();
+  const byTitle = new Map<string, string>();
+  for (const album of pool) {
+    const normalizedTitle = titleKey(album.title);
+    byTitle.set(normalizedTitle, album.mbid);
+    for (const artistKey of artistKeys(album.primary_artist_name)) {
+      byArtistTitle.set(`${artistKey}|${normalizedTitle}`, album.mbid);
+    }
+  }
+
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const entry of plan) {
+    const normalizedTitle = titleKey(entry.title);
+    let mbid: string | undefined;
+    for (const artistKey of artistKeys(entry.artist)) {
+      mbid = byArtistTitle.get(`${artistKey}|${normalizedTitle}`);
+      if (mbid) break;
+    }
+    mbid ??= byTitle.get(normalizedTitle);
+    if (!mbid || seen.has(mbid)) continue;
+    seen.add(mbid);
+    out.push(mbid);
   }
   return out;
 }

@@ -7,8 +7,13 @@ let cachedPool: Album[] | null = null;
 /** One entry of Keith's play-count ranking (web/public/seed/preferred-artists.json). */
 export type ArtistPlays = { rank: number; artist: string; plays: number; hours: number };
 type PreferredArtists = { by_plays: ArtistPlays[] };
+export type PriorityAlbumPlan = {
+  version: string;
+  albums: Array<{ artist: string; title: string }>;
+};
 
 let cachedPreferred: ArtistPlays[] | null = null;
+let cachedPriorityPlan: PriorityAlbumPlan | null = null;
 
 /**
  * Fetch the curated MVP seed pool from `/seed/albums.json` (see
@@ -50,6 +55,24 @@ export async function loadPreferredArtists(): Promise<ArtistPlays[]> {
   const data = (await response.json()) as PreferredArtists;
   cachedPreferred = data.by_plays ?? [];
   return cachedPreferred;
+}
+
+export async function loadPriorityAlbumPlan(): Promise<PriorityAlbumPlan | null> {
+  if (cachedPriorityPlan) return cachedPriorityPlan;
+
+  const response = await fetch('/seed/priority-albums.json');
+  if (!response.ok) return null;
+
+  const data = (await response.json()) as Partial<PriorityAlbumPlan>;
+  if (typeof data.version !== 'string' || !Array.isArray(data.albums)) return null;
+  cachedPriorityPlan = {
+    version: data.version,
+    albums: data.albums.filter(
+      (entry): entry is { artist: string; title: string } =>
+        typeof entry?.artist === 'string' && typeof entry?.title === 'string'
+    ),
+  };
+  return cachedPriorityPlan;
 }
 
 /**

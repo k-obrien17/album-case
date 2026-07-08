@@ -2,7 +2,13 @@ import './style.css';
 import type { Album, ArtistLock, RankingState } from './ranking/types';
 import { insertAt, moveItem } from './ranking/order';
 import { setAsideAlbum } from './ranking/setAside';
-import { loadSeedPool, loadPreferredArtists, playsMapFromPreferred, pickCandidate } from './seed';
+import {
+  loadSeedPool,
+  loadPreferredArtists,
+  loadPriorityAlbumPlan,
+  playsMapFromPreferred,
+  pickCandidate,
+} from './seed';
 import type { ArtistPlays } from './seed';
 import { loadRanking, saveRanking } from './storage';
 import { getOrCreateSession, isValidSessionId } from './session';
@@ -21,9 +27,12 @@ import { renderSavedList } from './ui/savedList';
 import { enqueueAtom, flushAtomQueue } from './atoms';
 import {
   loadPriorityQueue,
+  loadPriorityPlanVersion,
   nextPriorityCandidate,
+  priorityQueueFromAlbumPlan,
   priorityQueueFromArtists,
   savePriorityQueue,
+  savePriorityPlanVersion,
 } from './priority';
 import { loadRankingSnapshotDetailed, saveRankingSnapshot } from './rankingSync';
 import { discoverArtistDetailed, loadDiscoveredAlbums } from './discovery';
@@ -189,6 +198,19 @@ async function main(): Promise<void> {
       pool.push(album);
       knownPoolIds.add(album.mbid);
     }
+  }
+  try {
+    const priorityPlan = await loadPriorityAlbumPlan();
+    if (priorityPlan && loadPriorityPlanVersion() !== priorityPlan.version) {
+      priorityQueue = [
+        ...priorityQueueFromAlbumPlan(priorityPlan.albums, pool),
+        ...priorityQueue,
+      ];
+      savePriorityQueue(priorityQueue);
+      savePriorityPlanVersion(priorityPlan.version);
+    }
+  } catch (err) {
+    console.warn('tastetest: failed to load priority album plan', err);
   }
   const poolById = new Map(pool.map((album) => [album.mbid, album]));
   if (serverSnapshot) {

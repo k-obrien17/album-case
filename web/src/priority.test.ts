@@ -3,6 +3,7 @@ import type { Album } from './ranking/types';
 import {
   artistKeys,
   nextPriorityCandidate,
+  priorityQueueFromAlbumPlan,
   priorityQueueFromArtists,
   priorityQueueFromArtistText,
 } from './priority';
@@ -70,6 +71,48 @@ describe('priorityQueueFromArtists (auto-seed)', () => {
       'gza',
       'gw',
     ]);
+  });
+});
+
+describe('priorityQueueFromAlbumPlan', () => {
+  it('matches album titles in plan order', () => {
+    expect(
+      priorityQueueFromAlbumPlan(
+        [
+          { artist: 'Kanye West', title: 'My Beautiful Dark Twisted Fantasy' },
+          { artist: 'Radiohead', title: 'OK Computer' },
+          { artist: 'Kanye West', title: 'The College Dropout' },
+        ],
+        pool
+      )
+    ).toEqual(['k2', 'r1', 'k1']);
+  });
+
+  it('uses artist names to disambiguate matching titles', () => {
+    const duplicateTitlePool = [
+      album('bowie-low', 'David Bowie', 'Low'),
+      album('band-low', 'Low', 'Low'),
+    ];
+
+    expect(
+      priorityQueueFromAlbumPlan(
+        [{ artist: 'Low', title: 'Low' }],
+        duplicateTitlePool
+      )
+    ).toEqual(['band-low']);
+  });
+
+  it('ignores unavailable albums and de-dupes repeated plan entries', () => {
+    expect(
+      priorityQueueFromAlbumPlan(
+        [
+          { artist: 'Radiohead', title: 'OK Computer' },
+          { artist: 'Radiohead', title: 'OK Computer' },
+          { artist: 'Unknown', title: 'Missing Album' },
+        ],
+        pool
+      )
+    ).toEqual(['r1']);
   });
 });
 
