@@ -132,7 +132,7 @@ export function mountArtistLockView(
     if (locked) {
       const lockedNote = document.createElement('p');
       lockedNote.className = 'rank-status';
-      lockedNote.textContent = 'Locked — unlock to reorder or add albums.';
+      lockedNote.textContent = 'Locked. Unlock to reorder or add albums.';
       wrap.append(lockedNote);
     }
 
