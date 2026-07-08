@@ -506,15 +506,18 @@ async function main(): Promise<void> {
           artistMbid,
           knownMbids
         );
-        if (result.status === 'found') {
-          const poolIds = new Set(pool.map((a) => a.mbid));
-          for (const found of result.albums) {
-            if (!poolIds.has(found.mbid)) {
-              pool.push(found);
-              poolIds.add(found.mbid);
-            }
+        if (result.status !== 'found') return result;
+
+        let count = 0;
+        const poolIds = new Set(pool.map((a) => a.mbid));
+        for (const found of result.albums) {
+          if (!poolIds.has(found.mbid)) {
+            pool.push(found);
+            poolIds.add(found.mbid);
+            count += 1;
           }
         }
+        return { status: 'found', count };
       },
       onClose: () => {
         lockedArtistMbid = null;

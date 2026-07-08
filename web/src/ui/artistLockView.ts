@@ -4,6 +4,10 @@ import { artistAlbumsFor, mapFilteredReorderToGlobal } from '../artistLockAlbums
 import { buildLock } from '../ranking/locks';
 import { mountRankList } from './rankList';
 
+export type ArtistDiscoverViewResult =
+  | { status: 'found'; count: number }
+  | { status: 'empty' | 'locked' | 'error' };
+
 export type ArtistLockViewOptions = {
   album: Album;
   getRanked: () => Album[];
@@ -19,7 +23,7 @@ export type ArtistLockViewOptions = {
   onPlace: (album: Album, globalIndex: number) => void;
   onLock: (lock: ArtistLock) => void;
   onUnlock: (artistMbid: string) => void;
-  onDiscover: () => Promise<void>;
+  onDiscover: () => Promise<ArtistDiscoverViewResult>;
   onClose: () => void;
 };
 
@@ -40,7 +44,8 @@ export function mountArtistLockView(
   const artistMbid = opts.album.primary_artist_mbid;
   const artistName = opts.album.primary_artist_name;
   let ranklistController: ReturnType<typeof mountRankList> | null = null;
-  let loading = true;
+  let discovering = false;
+  let discoverMessage: string | null = null;
 
   function isLocked(): boolean {
     return !!artistMbid && opts.getArtistLocks().some((lock) => lock.artistMbid === artistMbid);
@@ -122,6 +127,9 @@ export function mountArtistLockView(
 
     const locked = isLocked();
 
+    const actions = document.createElement('div');
+    actions.className = 'lock-view-actions';
+
     const lockBtn = document.createElement('button');
     lockBtn.type = 'button';
     lockBtn.className = 'lock-view-toggle';
@@ -132,7 +140,18 @@ export function mountArtistLockView(
       lockBtn.textContent = 'Lock in order';
       lockBtn.addEventListener('click', () => opts.onLock(buildLock(artistMbid, opts.getRanked())));
     }
-    wrap.append(lockBtn);
+    actions.append(lockBtn);
+
+    const discoverBtn = document.createElement('button');
+    discoverBtn.type = 'button';
+    discoverBtn.className = 'lock-view-discover';
+    discoverBtn.textContent = discovering ? 'Finding albums...' : 'Find more albums';
+    discoverBtn.disabled = discovering;
+    discoverBtn.addEventListener('click', () => {
+      void discoverAlbums();
+    });
+    actions.append(discoverBtn);
+    wrap.append(actions);
 
     if (locked) {
       const lockedNote = document.createElement('p');
@@ -141,10 +160,12 @@ export function mountArtistLockView(
       wrap.append(lockedNote);
     }
 
-    if (loading) {
+    if (discovering || discoverMessage) {
       const status = document.createElement('p');
       status.className = 'rank-status';
-      status.textContent = `Finding the rest of ${artistName}'s albums...`;
+      status.textContent = discovering
+        ? `Finding more ${artistName} albums...`
+        : (discoverMessage as string);
       wrap.append(status);
     }
 
@@ -193,15 +214,30 @@ export function mountArtistLockView(
     ranklistController = null;
   }
 
-  render();
-  if (artistMbid) {
-    void opts.onDiscover().finally(() => {
-      loading = false;
-      render();
-    });
-  } else {
-    loading = false;
+  async function discoverAlbums(): Promise<void> {
+    if (!artistMbid || discovering) return;
+    discovering = true;
+    discoverMessage = null;
+    render();
+    const result = await opts.onDiscover();
+    discovering = false;
+    if (result.status === 'found') {
+      discoverMessage =
+        result.count > 0
+          ? `Found ${result.count} more ${artistName} album${result.count === 1 ? '' : 's'}.`
+          : `No new ${artistName} albums found.`;
+    } else if (result.status === 'locked') {
+      discoverMessage = 'Unlock writes to discover more albums.';
+    } else if (result.status === 'empty') {
+      discoverMessage = `No more ${artistName} albums found.`;
+    } else {
+      discoverMessage = `Could not discover more ${artistName} albums.`;
+    }
+    render();
   }
+
+  render();
+  void discoverAlbums();
 
   return { render, teardown };
 }
