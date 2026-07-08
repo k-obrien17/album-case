@@ -365,6 +365,7 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
       const form = document.createElement('form');
       form.className = 'candidate-place rank-overall-edit';
       form.noValidate = true;
+      let submittingOverall = false;
 
       const input = document.createElement('input');
       input.className = 'candidate-place-input';
@@ -379,9 +380,13 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
       btn.type = 'submit';
       btn.className = 'candidate-place-button';
       btn.textContent = 'Set';
+      btn.addEventListener('pointerdown', () => {
+        submittingOverall = true;
+      });
 
       form.addEventListener('submit', (ev) => {
         ev.preventDefault();
+        submittingOverall = false;
         const rank = Number(input.value);
         if (!Number.isInteger(rank) || rank < 1 || rank > subRank.overallTotal) {
           showStatus(`Enter 1-${subRank.overallTotal}.`);
@@ -399,11 +404,16 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
       // land first).
       input.addEventListener('blur', () => {
         window.setTimeout(() => {
-          if (editingOverallMbid === album.mbid && !form.contains(document.activeElement)) {
+          if (!form.isConnected) return;
+          if (
+            editingOverallMbid === album.mbid &&
+            !submittingOverall &&
+            !form.contains(document.activeElement)
+          ) {
             editingOverallMbid = null;
             render();
           }
-        }, 0);
+        }, 100);
       });
 
       form.append(input, btn);
