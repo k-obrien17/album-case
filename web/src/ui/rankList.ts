@@ -36,6 +36,23 @@ export type RankListOptions = {
   onCompare?: (winnerMbid: string, loserMbid: string) => void;
   /** Discover and queue the rest of this album's artist's other LPs. */
   onDiscoverArtist?: (album: Album) => void;
+  /** Open the artist-lock scoped view for this row's artist. Omit to hide
+   *  the lock icon entirely (used by the scoped view's own inner list, which
+   *  has no lock-within-a-lock flow). */
+  onOpenArtistLock?: (album: Album) => void;
+  /** Artist mbids with an active lock, for the lock icon's visual state. */
+  getLockedArtistMbids?: () => string[];
+  /** For a row reorder starting at `from`, snap a proposed `to` to the
+   *  nearest index that keeps every active lock intact. Omit when this
+   *  instance's index space can never cross a lock (e.g. an artist-filtered
+   *  sub-list, where a within-artist reorder can never violate any lock). */
+  getNearestValidDrop?: (from: number, to: number) => number;
+  /** Suppress the next-candidate column entirely (no card, no "done"
+   *  message). Used by the artist-scoped sub-view, which has no candidate
+   *  flow of its own -- unranked albums get their own list instead. */
+  hideCandidateColumn?: boolean;
+  /** Override the empty-ranked-list message. */
+  emptyRankedMessage?: string;
 };
 
 /**
@@ -116,13 +133,21 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     else listEl.insertBefore(indicator, rows[index]);
   }
 
-  function computeDropIndex(clientY: number): number {
+  function computeDropIndex(
+    clientY: number,
+    source: DragState['source'] | undefined = drag?.source
+  ): number {
     const rows = rowElements();
+    let raw = rows.length;
     for (let i = 0; i < rows.length; i++) {
       const rect = rows[i].getBoundingClientRect();
-      if (clientY < rect.top + rect.height / 2) return i;
+      if (clientY < rect.top + rect.height / 2) {
+        raw = i;
+        break;
+      }
     }
-    return rows.length;
+    if (!source || source.type !== 'row' || !opts.getNearestValidDrop) return raw;
+    return opts.getNearestValidDrop(source.index, raw);
   }
 
   function updateIndicator(clientY: number): void {
@@ -235,7 +260,7 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
       album,
       ghost,
       pointerId: ev.pointerId,
-      dropIndex: computeDropIndex(ev.clientY),
+      dropIndex: computeDropIndex(ev.clientY, source),
       lastClientY: ev.clientY,
       startX: ev.clientX,
       startY: ev.clientY,
@@ -249,7 +274,12 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     window.addEventListener('pointercancel', onPointerUp);
   }
 
-  function buildRow(album: Album, index: number, subRanks: Map<string, SubRank>): HTMLLIElement {
+  function buildRow(
+    album: Album,
+    index: number,
+    subRanks: Map<string, SubRank>,
+    lockedArtists: Set<string>
+  ): HTMLLIElement {
     const li = document.createElement('li');
     li.className = 'rank-row';
 
@@ -267,12 +297,33 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     sub.textContent = rankedSubtitle(album, subRanks.get(album.mbid));
     meta.append(title, sub);
 
-    const discoverBtn = document.createElement('button');
-    discoverBtn.type = 'button';
-    discoverBtn.className = 'rank-discover';
-    discoverBtn.setAttribute('aria-label', `Rank the rest of ${album.primary_artist_name}'s albums`);
-    discoverBtn.textContent = '▶';
-    discoverBtn.addEventListener('click', () => opts.onDiscoverArtist?.(album));
+    li.append(num, meta);
+
+    if (opts.onDiscoverArtist) {
+      const discoverBtn = document.createElement('button');
+      discoverBtn.type = 'button';
+      discoverBtn.className = 'rank-discover';
+      discoverBtn.setAttribute('aria-label', `Rank the rest of ${album.primary_artist_name}'s albums`);
+      discoverBtn.textContent = '▶';
+      discoverBtn.addEventListener('click', () => opts.onDiscoverArtist?.(album));
+      li.append(discoverBtn);
+    }
+
+    if (opts.onOpenArtistLock) {
+      const isLocked = lockedArtists.has(album.primary_artist_mbid ?? '');
+      const lockBtn = document.createElement('button');
+      lockBtn.type = 'button';
+      lockBtn.className = isLocked ? 'rank-lock rank-lock-active' : 'rank-lock';
+      lockBtn.setAttribute(
+        'aria-label',
+        isLocked
+          ? `${album.primary_artist_name}'s order is locked`
+          : `Lock ${album.primary_artist_name}'s order`
+      );
+      lockBtn.textContent = '⚷';
+      lockBtn.addEventListener('click', () => opts.onOpenArtistLock?.(album));
+      li.append(lockBtn);
+    }
 
     // A dedicated grip so the row body still flick-scrolls on touch; only the
     // grip disables native scrolling (touch-action:none via .rank-grip).
@@ -282,8 +333,8 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     grip.setAttribute('aria-label', `Reorder ${album.title}`);
     grip.textContent = '⇅';
     grip.addEventListener('pointerdown', (ev) => startDrag({ type: 'row', index }, album, ev));
+    li.append(grip);
 
-    li.append(num, meta, discoverBtn, grip);
     return li;
   }
 
@@ -454,37 +505,42 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     if (ranked.length === 0) {
       const empty = document.createElement('li');
       empty.className = 'rank-empty';
-      empty.textContent = 'Your ranked list is empty. Drag the next album in, or tap it to start.';
+      empty.textContent =
+        opts.emptyRankedMessage ??
+        'Your ranked list is empty. Drag the next album in, or tap it to start.';
       listEl.append(empty);
     } else {
       const subRanks = computeSubRanks(ranked);
-      ranked.forEach((album, i) => listEl.append(buildRow(album, i, subRanks)));
+      const lockedArtists = new Set(opts.getLockedArtistMbids?.() ?? []);
+      ranked.forEach((album, i) => listEl.append(buildRow(album, i, subRanks, lockedArtists)));
     }
     listCol.append(listEl);
 
     const candidateCol = document.createElement('div');
     candidateCol.className = 'candidate-col';
-    const candidate = opts.getCandidate();
-    if (candidate) {
-      // Long list -> assisted this-or-that by default; short list -> drag/tap.
-      if (ranked.length >= ASSIST_THRESHOLD) {
-        if (!assist || assist.album.mbid !== candidate.mbid) {
-          assist = startAssist(ranked, candidate);
+    if (!opts.hideCandidateColumn) {
+      const candidate = opts.getCandidate();
+      if (candidate) {
+        // Long list -> assisted this-or-that by default; short list -> drag/tap.
+        if (ranked.length >= ASSIST_THRESHOLD) {
+          if (!assist || assist.album.mbid !== candidate.mbid) {
+            assist = startAssist(ranked, candidate);
+          }
+          candidateCol.append(buildAssisted(candidate));
+        } else {
+          assist = null;
+          candidateCol.append(buildCandidate(candidate));
         }
-        candidateCol.append(buildAssisted(candidate));
       } else {
         assist = null;
-        candidateCol.append(buildCandidate(candidate));
+        const done = document.createElement('p');
+        done.className = 'candidate-done';
+        done.textContent = 'You have placed every album in the pool.';
+        candidateCol.append(done);
       }
-    } else {
-      assist = null;
-      const done = document.createElement('p');
-      done.className = 'candidate-done';
-      done.textContent = 'You have placed every album in the pool.';
-      candidateCol.append(done);
     }
 
-    layout.append(candidateCol, listCol);
+    layout.append(...(opts.hideCandidateColumn ? [listCol] : [candidateCol, listCol]));
     container.append(layout);
   }
 
