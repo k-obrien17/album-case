@@ -364,6 +364,7 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     if (editingOverallMbid === album.mbid) {
       const form = document.createElement('form');
       form.className = 'candidate-place rank-overall-edit';
+      form.noValidate = true;
 
       const input = document.createElement('input');
       input.className = 'candidate-place-input';
