@@ -1,51 +1,44 @@
 # Handoff
 
 ## Current task
-The artist-lock feature (rank one artist's albums in isolation, lock that relative order, global list refuses any drag that would violate it) is **fully implemented, reviewed, and merged into `main`.** Only remaining step: push to `origin/main`.
+The artist-lock feature (rank one artist's albums in isolation, lock that relative order, global list refuses any drag that would violate it) shipped end to end: merged to `main`, pushed to `origin`, deployed to production (`https://album-case.vercel.app`). Keith just reported two follow-up issues while trying it live — not investigated yet, this session ended before triage.
 
 ## Status
-All 10 plan tasks executed via `subagent-driven-development` in an isolated worktree, each with a fresh implementer + independent task review (two fix cycles: Task 2 had a Critical index-math bug, Task 3 had an Important test-leak issue, both fixed and re-reviewed clean). A final whole-branch review (Opus) caught one more Important gap — a locked artist's order could be silently violated via the scoped view's own drag or a `#/Place` re-insertion, which then froze all global drag-reordering with no explanation — fixed, documented, re-reviewed clean, ready to merge.
+Feature is live and confirmed reachable (production `/api/ranking` response includes `artist_locks`). While actually using it, Keith hit two things:
 
-Did a real read-only browser verification against the actual production Turso DB (lock icons render, scoped view opens and shows correct data, no console errors). Did not exercise the actual write path (lock/reorder/place) live in the browser, to avoid touching Keith's real curated ranking — relied on repeated hand-traced code review instead.
+1. **Bug report:** "the play button doesn't seem to work - either/way." This is almost certainly the ▶ discover-artist button (`rank-discover` in `rankList.ts`, existing pre-this-feature functionality — but it's also possible he means something inside the new artist-lock scoped view, since opening that view also triggers a discovery call). Not reproduced or diagnosed yet — needs investigation from scratch next session. "either/way" is ambiguous as reported; could mean "either way" (regardless of what he tries) or could be shorthand for something else — ask him to clarify exactly what he clicked and what happened (or didn't) if it's not obvious once you reproduce it.
 
-Merged `worktree-artist-lock` into `main` locally (`75e3897`, Keith ran the merge himself since it's a main-branch operation). Verified 158/158 tests and a clean build on the merged result. Worktree removed, feature branch deleted — fully cleaned up. `main` is now 16 commits ahead of `origin/main` and **not yet pushed** — Keith was asked to push (`git push origin main`, blocked by `footgun-guard` from running automatically) and the session paused before he ran it.
+2. **Feature request:** "when I'm ranking the albums of the band, I want to be able to see which LPs of theirs are not yet ranked." Note: the artist-lock scoped view (`web/src/ui/artistLockView.ts`) already has a "Not yet ranked" section listing exactly this (`artistAlbumsFor`'s `unranked` group) — so either (a) he's asking for this same visibility somewhere else too, e.g. during the normal main candidate-ranking flow (not just inside the scoped lock view), or (b) the "Not yet ranked" section in the scoped view isn't showing/working correctly for him, which could tie back to bug #1 if the discover button feeding that list is broken. Don't assume which — ask him to clarify what screen he was on when he wanted this.
+
+**Neither issue was investigated this session** — Keith explicitly said "not right now, I'm closing down" and asked for `/handoff` immediately after reporting them.
 
 ## Next concrete step
-Ask Keith to run `git push origin main` himself (or run it via `!git push origin main` if he confirms), then confirm `origin/main` matches local `main` (`75e3897`). Nothing else is outstanding — this closes out the feature.
+Start a fresh investigation of both reports. Use the `systematic-debugging` skill for #1 (reproducer-first per this project's CLAUDE.md convention: get the exact click path and expected-vs-actual behavior from Keith before touching code). For #2, clarify scope with Keith first (which screen, main list vs. scoped lock view) before assuming it needs new code — the scoped view may already do this and just be broken, in which case it's the same root cause as #1.
 
 ## Open questions
-- Has Keith pushed `main` to `origin` yet? (Was asked; session paused before confirming.)
+- What exactly does "the play button doesn't seem to work" mean — which button, what did he click, what happened (nothing? an error? wrong albums?), on which screen (main ranked list's ▶ icon, or something inside the artist-lock scoped view)?
+- Is the "see unranked LPs while ranking" request about the artist-lock scoped view specifically (which already has this, so it'd be a bug there) or the main candidate-ranking flow (which would be new scope)?
 
 ## Don't forget
-- The plan's data-model correction (`artistLocks` as a third top-level state var, not nested in `RankingState`) and the final-review editability-gap correction are both documented in `docs/superpowers/specs/2026-07-07-artist-lock-design.md`.
-- `rankList.ts` grew from 509→565 lines and `main.ts` from 622→743 across this feature — both already over the project's 300-line guideline before this feature started; flagged as a candidate for extraction on the *next* feature touching either file, not this one.
-- Vercel dev auto-created a stray project named "web" on Vercel's dashboard during manual verification (before the real project's `.vercel/project.json` link was copied into the now-deleted worktree) — harmless, low-priority cleanup on Vercel's side if Keith wants to tidy it.
+- Production deploy this session: `vercel --prod --yes` from `web/`, aliased to `https://album-case.vercel.app`, deployment id `dpl_J1rq8nmj2yWQsBLCBDVRWEMwn8j6`. Prior to this, the last production deploy was ~6h stale (this project has no GitHub auto-deploy hook — pushing to `origin/main` does NOT deploy; deploys are always manual via the `vercel` CLI).
+- The write path of the artist-lock feature (actually locking/dragging/placing) was still never exercised live before this session ended — only read-only browser verification plus extensive code review. If bug #1 or #2 turns out to be inside the lock feature itself, this is the first real user contact with that code path.
+- `rankList.ts` grew from 509→565 lines and `main.ts` from 622→743 across the artist-lock feature — both already over the project's 300-line guideline; flagged as a candidate for extraction on the *next* feature touching either file.
+- Vercel dev auto-created a stray project named "web" on Vercel's dashboard during last session's manual verification — harmless, low-priority cleanup if Keith wants to tidy it.
 - `ALLOW_PUBLIC_WRITES` Vercel env var is still unused dead config, low-priority cleanup (carried over from prior sessions).
 - Vercel MCP tools (`list_deployments`, `get_runtime_errors`, etc.) return 403 for this project's scope — the `vercel` CLI works fine instead.
-- `web/.env.local` has a local-only dev `ALBUM_CASE_WRITE_KEY` (gitignored placeholder for `vercel dev` testing) — separate from the real rotated production key, which lives only in Vercel now.
 
 ## Files touched this session
-- `web/src/ranking/types.ts`, `web/src/ranking/locks.ts` (+test) — `ArtistLock` type, pure enforcement.
-- `web/src/artistLockAlbums.ts` (+test) — album grouping + filtered-to-global index mapping.
-- `web/src/artistLocksStorage.ts` (+test) — localStorage persistence, mirrors `lists.ts`.
-- `web/api/_schema.ts`, `web/api/ranking.ts` (+test) — `artist_locks_json` column + migration + POST/GET.
-- `web/src/rankingSync.ts` (+test) — client snapshot sync layer.
-- `web/src/ui/rankList.ts` — lock icon, live drag-blocking, reuse options for the scoped view.
-- `web/src/ui/artistLockView.ts` (new) — the scoped view, later fixed to be read-only while locked.
-- `web/src/main.ts` (+test) — state/persistence/sync wiring, handlers, `'artistLock'` view mode.
-- `web/src/style.css` — lock icon + scoped-view styling.
-- `docs/superpowers/specs/2026-07-07-artist-lock-design.md` — corrections found during implementation.
-- `docs/superpowers/plans/2026-07-07-artist-lock-implementation.md` — the 10-task plan, fully executed.
+None — this session was deployment + a bug/feature report, no code changes.
 
 ## Git state
 - Branch: `main`.
-- Last commit: `75e3897 Merge branch 'worktree-artist-lock'`.
+- Last commit: `36a3a09 chore: update handoff (session paused)`.
 - Uncommitted changes: no (working tree clean).
 - Stashed: no.
-- Ahead of `origin/main`: yes, by 16 commits — not yet pushed.
+- Ahead of `origin/main`: no — pushed and matches.
 
 ## Reason for handoff
-Session paused.
+Session paused (Keith closing down).
 
 ## Updated
-2026-07-08T03:46:51Z
+2026-07-08T05:54:06Z
