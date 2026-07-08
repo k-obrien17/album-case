@@ -471,6 +471,12 @@ async function main(): Promise<void> {
         persistRankingState();
         renderArtistLockView();
       },
+      onSetOverallRank: (from, to) => {
+        const clamped = nearestValidDropIndex(state.ranked, artistLocks, from, to);
+        state = { ranked: moveItem(state.ranked, from, clamped), pending: null };
+        persistRankingState();
+        renderArtistLockView();
+      },
       onPlace: (album, index) => {
         state = { ranked: insertAt(state.ranked, album, index), pending: null };
         lists = removeFromList(lists, album.mbid, 'wantToListen');
@@ -567,6 +573,12 @@ async function main(): Promise<void> {
     },
     onReorder: (from, to) => {
       state = { ranked: moveItem(state.ranked, from, to), pending: null };
+      persistRankingState();
+      rankList.render();
+    },
+    onSetOverallRank: (from, to) => {
+      const clamped = nearestValidDropIndex(state.ranked, artistLocks, from, to);
+      state = { ranked: moveItem(state.ranked, from, clamped), pending: null };
       persistRankingState();
       rankList.render();
     },

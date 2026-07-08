@@ -11,6 +11,11 @@ export type ArtistLockViewOptions = {
   getPool: () => Album[];
   getArtistLocks: () => ArtistLock[];
   onReorder: (from: number, to: number) => void;
+  /** Move the album at global index `from` to post-removal global index
+   *  `to`. Always global-space, regardless of this view's filtered
+   *  rendering -- distinct from `onReorder`, which exists for the
+   *  within-artist drag path and its filtered-to-global index translation. */
+  onSetOverallRank?: (from: number, to: number) => void;
   onPlace: (album: Album, globalIndex: number) => void;
   onLock: (lock: ArtistLock) => void;
   onUnlock: (artistMbid: string) => void;
@@ -147,6 +152,7 @@ export function mountArtistLockView(
     rankedCol.className = 'lock-ranked-col';
     ranklistController = mountRankList(rankedCol, {
       getRanked: () => artistAlbumsFor(artistMbid, opts.getRanked(), opts.getLists(), opts.getPool()).ranked,
+      getGlobalRanked: () => opts.getRanked(),
       getCandidate: () => null,
       hideCandidateColumn: true,
       emptyRankedMessage: `None of ${artistName}'s albums are ranked yet.`,
@@ -154,6 +160,9 @@ export function mountArtistLockView(
       onReorder: (from, to) => {
         const mapped = mapFilteredReorderToGlobal(opts.getRanked(), artistMbid, from, to);
         if (mapped) opts.onReorder(mapped.from, mapped.to);
+      },
+      onSetOverallRank: (from, to) => {
+        opts.onSetOverallRank?.(from, to);
       },
       onSetAside: () => {},
       onSkip: () => {},

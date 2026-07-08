@@ -37,6 +37,14 @@ describe('computeSubRanks', () => {
     expect(ranks.get('b')).toMatchObject({ yearRank: 1, yearTotal: 1 });
   });
 
+  it('ranks albums by their overall position in the full list', () => {
+    const ranked = [album({ mbid: 'a' }), album({ mbid: 'b' }), album({ mbid: 'c' })];
+    const ranks = computeSubRanks(ranked);
+    expect(ranks.get('a')).toMatchObject({ overallRank: 1, overallTotal: 3 });
+    expect(ranks.get('b')).toMatchObject({ overallRank: 2, overallTotal: 3 });
+    expect(ranks.get('c')).toMatchObject({ overallRank: 3, overallTotal: 3 });
+  });
+
   it('excludes a null-year album from year grouping but still ranks it by artist', () => {
     const ranked = [album({ mbid: 'a', release_year: null })];
     const ranks = computeSubRanks(ranked);
@@ -45,13 +53,22 @@ describe('computeSubRanks', () => {
       artistTotal: 1,
       yearRank: null,
       yearTotal: null,
+      overallRank: 1,
+      overallTotal: 1,
     });
   });
 
   it('always includes an entry for a solo artist/year, no suppression', () => {
     const ranked = [album({ mbid: 'a' })];
     const ranks = computeSubRanks(ranked);
-    expect(ranks.get('a')).toEqual({ artistRank: 1, artistTotal: 1, yearRank: 1, yearTotal: 1 });
+    expect(ranks.get('a')).toEqual({
+      artistRank: 1,
+      artistTotal: 1,
+      yearRank: 1,
+      yearTotal: 1,
+      overallRank: 1,
+      overallTotal: 1,
+    });
   });
 
   it('returns an empty map for an empty ranked list', () => {

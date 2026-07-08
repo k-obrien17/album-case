@@ -5,6 +5,8 @@ export type SubRank = {
   artistTotal: number;
   yearRank: number | null;
   yearTotal: number | null;
+  overallRank: number;
+  overallTotal: number;
 };
 
 export function computeSubRanks(ranked: Album[]): Map<string, SubRank> {
@@ -24,7 +26,7 @@ export function computeSubRanks(ranked: Album[]): Map<string, SubRank> {
   }
 
   const result = new Map<string, SubRank>();
-  for (const album of ranked) {
+  ranked.forEach((album, index) => {
     const artistGroup = byArtist.get(album.primary_artist_name) as Album[];
     const artistRank = artistGroup.indexOf(album) + 1;
     const artistTotal = artistGroup.length;
@@ -37,8 +39,15 @@ export function computeSubRanks(ranked: Album[]): Map<string, SubRank> {
       yearTotal = yearGroup.length;
     }
 
-    result.set(album.mbid, { artistRank, artistTotal, yearRank, yearTotal });
-  }
+    result.set(album.mbid, {
+      artistRank,
+      artistTotal,
+      yearRank,
+      yearTotal,
+      overallRank: index + 1,
+      overallTotal: ranked.length,
+    });
+  });
 
   return result;
 }
