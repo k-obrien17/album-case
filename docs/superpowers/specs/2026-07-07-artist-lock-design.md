@@ -51,20 +51,19 @@ export type ArtistLock = {
 };
 ```
 
-`RankingState` gains a third field:
-
-```ts
-export type RankingState = {
-  ranked: Album[];
-  pending: Pending | null;
-  artistLocks: ArtistLock[];
-};
-```
-
-It lives on `RankingState`, not `SavedLists`, because it is state about the
-*ranked order*, and `storage.ts` already round-trips `RankingState` through
-`localStorage` (`saveRanking`/`loadRanking`) exactly the way it does
-`ranked`/`pending` today — no new persistence path on the client.
+**Correction after cross-checking the code (during planning):** `artistLocks`
+does **not** live on `RankingState`. That type is threaded through
+`insertion.ts`, `assist.ts`, and `backup.ts` — none of which have anything to
+do with locks — so nesting it there would force every one of those unrelated
+modules (and their tests) to carry a field they never use. Instead
+`artistLocks: ArtistLock[]` is a third top-level piece of app state in
+`main.ts`, a sibling to `state` (`RankingState`) and `lists` (`SavedLists`),
+persisted the same way `lists.ts` persists `SavedLists`: a new
+`web/src/artistLocksStorage.ts` with `loadArtistLocks`/`saveArtistLocks`
+against its own `localStorage` key, mirroring `lists.ts` line for line. This
+is a smaller, better-isolated change than the original plan and needs no
+edits to `RankingState`, `insertion.ts`, `assist.ts`, `backup.ts`,
+`storage.ts`, `order.ts`, or `setAside.ts`.
 
 Server-side, `web/src/rankingSync.ts` and `web/api/ranking.ts` add a third
 sibling to `ranked`/`lists` in the snapshot payload and response, keyed the
@@ -167,14 +166,14 @@ re-locking always captures a fresh snapshot of the current order.
 
 **Handler placement:** `main.ts` is already 622 lines and `rankList.ts` is
 already 509 — both over this project's 300-line file guideline before this
-feature. Rather than growing either further, the scoped-view UI goes in a
-new `web/src/ui/artistLockView.ts`, and the open/lock/unlock orchestration
-(triggering discovery, reading/writing `state.artistLocks`, wiring into
-`persistRankingState`) goes in a new `web/src/artistLock.ts` — mirroring how
-`discovery.ts` already exists to keep artist-discovery orchestration out of
-`main.ts`. `main.ts` only gains the handful of thin callbacks that wire the
-row icon's click to that module, same shape as the existing
-`onDiscoverArtist` wiring.
+feature. The scoped-view UI goes in a new `web/src/ui/artistLockView.ts`, and
+every piece of pure logic (lock validity, album grouping, lock
+construction) goes in dedicated pure modules rather than `main.ts`. The thin
+DOM-event handlers that close over `state`/`lists`/`pool` stay in `main.ts`,
+same shape as the existing `handleDiscoverArtist`/`handleBlockArtist` —
+every other feature in this codebase wires handlers there, so splitting just
+this one out would be the inconsistent choice, not the consistent one.
+Exact file boundaries are finalized in the implementation plan.
 
 ## Edge cases
 
