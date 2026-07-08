@@ -31,6 +31,15 @@ export type RankListOptions = {
   onPlace: (index: number) => void;
   /** Move the ranked row at `from` to `to` (post-removal index). */
   onReorder: (from: number, to: number) => void;
+  /** Move the album currently at global index `from` to post-removal global
+   *  index `to`. Unlike `onReorder`, both indices are always in the full
+   *  global ranked array's space, never a filtered subset's -- this powers
+   *  the tap-to-edit "Overall" rank control, never drag. The caller is
+   *  responsible for any lock-safety clamping before acting on this; this
+   *  component does not clamp it (this instance's own `getNearestValidDrop`,
+   *  when present, is scoped to a different, incompatible purpose). Omit to
+   *  render the "Overall" figure as plain non-interactive text. */
+  onSetOverallRank?: (from: number, to: number) => void;
   /** Set the candidate aside into a saved list. */
   onSetAside: (album: Album, which: ListName) => void;
   /** Defer the candidate for this session without saving it anywhere. */
@@ -120,6 +129,9 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
   // Active assisted this-or-that placement (long lists only). Reset whenever
   // the candidate changes or the list drops below the assist threshold.
   let assist: AssistPlacement | null = null;
+  // mbid of the row whose "Overall" rank is being typed, if any. Only one
+  // row can be in edit mode at a time.
+  let editingOverallMbid: string | null = null;
 
   function positionGhost(x: number, y: number): void {
     if (!drag) return;
@@ -302,6 +314,9 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     sub.textContent = rankedSubtitle(album, subRanks.get(album.mbid));
     meta.append(title, sub);
 
+    const overallControl = buildOverallControl(album, subRanks.get(album.mbid));
+    if (overallControl) meta.append(overallControl);
+
     li.append(num, meta);
 
     if (opts.onDiscoverArtist) {
@@ -341,6 +356,76 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     li.append(grip);
 
     return li;
+  }
+
+  function buildOverallControl(album: Album, subRank: SubRank | undefined): HTMLElement | null {
+    if (!subRank) return null;
+
+    if (editingOverallMbid === album.mbid) {
+      const form = document.createElement('form');
+      form.className = 'candidate-place rank-overall-edit';
+
+      const input = document.createElement('input');
+      input.className = 'candidate-place-input';
+      input.type = 'number';
+      input.inputMode = 'numeric';
+      input.min = '1';
+      input.max = String(subRank.overallTotal);
+      input.value = String(subRank.overallRank);
+      input.setAttribute('aria-label', `Overall rank for ${album.title}`);
+
+      const btn = document.createElement('button');
+      btn.type = 'submit';
+      btn.className = 'candidate-place-button';
+      btn.textContent = 'Set';
+
+      form.addEventListener('submit', (ev) => {
+        ev.preventDefault();
+        const rank = Number(input.value);
+        if (!Number.isInteger(rank) || rank < 1 || rank > subRank.overallTotal) {
+          showStatus(`Enter 1-${subRank.overallTotal}.`);
+          return;
+        }
+        editingOverallMbid = null;
+        const globalRanked = opts.getGlobalRanked?.() ?? opts.getRanked();
+        const from = globalRanked.findIndex((a) => a.mbid === album.mbid);
+        if (from === -1) return;
+        opts.onSetOverallRank?.(from, rank - 1);
+      });
+
+      // Cancel on blur, unless focus just moved from the input to this same
+      // form's own submit button (a deferred check lets that focus change
+      // land first).
+      input.addEventListener('blur', () => {
+        window.setTimeout(() => {
+          if (editingOverallMbid === album.mbid && !form.contains(document.activeElement)) {
+            editingOverallMbid = null;
+            render();
+          }
+        }, 0);
+      });
+
+      form.append(input, btn);
+      return form;
+    }
+
+    if (!opts.onSetOverallRank) {
+      const span = document.createElement('span');
+      span.className = 'rank-overall';
+      span.textContent = `Overall ${subRank.overallRank}/${subRank.overallTotal}`;
+      return span;
+    }
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'rank-overall';
+    btn.textContent = `Overall ${subRank.overallRank}/${subRank.overallTotal}`;
+    btn.setAttribute('aria-label', `Edit overall rank for ${album.title}`);
+    btn.addEventListener('click', () => {
+      editingOverallMbid = album.mbid;
+      render();
+    });
+    return btn;
   }
 
   function actionButton(text: string, onClick: () => void): HTMLButtonElement {
