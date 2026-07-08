@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { hydrateAlbums, resolveInitialState, restoreFromCode } from './main';
+import { hydrateAlbums, resolveInitialState, restoreFromCode, serverSnapshotIsRicher } from './main';
 import type { SavedLists } from './lists';
 import type { Album, RankingState } from './ranking/types';
 
@@ -59,6 +59,53 @@ describe('resolveInitialState (server-authoritative load-on-open)', () => {
     expect(resolved.state.ranked).toEqual([album('x')]);
     expect(resolved.lists.wantToListen).toEqual([album('y')]);
     expect(resolved.artistLocks).toEqual(cached.artistLocks);
+  });
+});
+
+describe('serverSnapshotIsRicher', () => {
+  it('detects when the server has more ranked/list albums than the local cache', () => {
+    const server = {
+      ranked: [album('a'), album('b')],
+      lists: { wantToListen: [], notHeard: [], dontCare: [] } as SavedLists,
+      artistLocks: [],
+    };
+    const cached = {
+      state: { ranked: [album('a')], pending: null } as RankingState,
+      lists: { wantToListen: [], notHeard: [], dontCare: [] } as SavedLists,
+      artistLocks: [],
+    };
+
+    expect(serverSnapshotIsRicher(server, cached)).toBe(true);
+  });
+
+  it('detects when the server has artist locks missing from the local cache', () => {
+    const server = {
+      ranked: [album('a')],
+      lists: { wantToListen: [], notHeard: [], dontCare: [] } as SavedLists,
+      artistLocks: [{ artistMbid: VALID, order: ['a', 'b'] }],
+    };
+    const cached = {
+      state: { ranked: [album('a')], pending: null } as RankingState,
+      lists: { wantToListen: [], notHeard: [], dontCare: [] } as SavedLists,
+      artistLocks: [],
+    };
+
+    expect(serverSnapshotIsRicher(server, cached)).toBe(true);
+  });
+
+  it('keeps local pending work when the cache is richer than the server', () => {
+    const server = {
+      ranked: [album('a')],
+      lists: { wantToListen: [], notHeard: [], dontCare: [] } as SavedLists,
+      artistLocks: [],
+    };
+    const cached = {
+      state: { ranked: [album('a'), album('b')], pending: null } as RankingState,
+      lists: { wantToListen: [], notHeard: [], dontCare: [] } as SavedLists,
+      artistLocks: [],
+    };
+
+    expect(serverSnapshotIsRicher(server, cached)).toBe(false);
   });
 });
 

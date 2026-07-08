@@ -114,6 +114,35 @@ export function resolveInitialState(
   return { state: cached.state, lists: cached.lists, artistLocks: cached.artistLocks, fromServer: false };
 }
 
+function snapshotAlbumCount(snapshot: { ranked: Album[]; lists: SavedLists }): number {
+  return (
+    snapshot.ranked.length +
+    snapshot.lists.wantToListen.length +
+    snapshot.lists.notHeard.length +
+    snapshot.lists.dontCare.length
+  );
+}
+
+function lockWeight(locks: ArtistLock[]): number {
+  return locks.reduce((total, lock) => total + 1 + lock.order.length, 0);
+}
+
+/**
+ * A stale pending-sync flag can trap a browser on an old local copy forever
+ * when writes are locked. If the server clearly has a richer snapshot, prefer
+ * it; otherwise keep protecting the local unsynced edits.
+ */
+export function serverSnapshotIsRicher(
+  serverSnapshot: { ranked: Album[]; lists: SavedLists; artistLocks: ArtistLock[] },
+  cached: { state: RankingState; lists: SavedLists; artistLocks: ArtistLock[] }
+): boolean {
+  const cachedSnapshot = { ranked: cached.state.ranked, lists: cached.lists };
+  return (
+    snapshotAlbumCount(serverSnapshot) > snapshotAlbumCount(cachedSnapshot) ||
+    lockWeight(serverSnapshot.artistLocks) > lockWeight(cached.artistLocks)
+  );
+}
+
 export function hydrateAlbums(albums: Album[], byId: Map<string, Album>): Album[] {
   return albums.map((album) => ({ ...(byId.get(album.mbid) ?? {}), ...album }));
 }
@@ -225,11 +254,14 @@ async function main(): Promise<void> {
   // server snapshot is stale by definition -- prefer the local cache instead
   // of letting it clobber the unsynced edits, and retry the save below.
   const pendingSync = hasPendingSync();
-  const initial = resolveInitialState(pendingSync ? null : serverSnapshot, {
+  const cached = {
     state: cachedState,
     lists: cachedLists,
     artistLocks: cachedArtistLocks,
-  });
+  };
+  const recoverServerSnapshot =
+    pendingSync && !!serverSnapshot && serverSnapshotIsRicher(serverSnapshot, cached);
+  const initial = resolveInitialState(pendingSync && !recoverServerSnapshot ? null : serverSnapshot, cached);
   let state: RankingState = initial.state;
   let lists: SavedLists = initial.lists;
   let artistLocks: ArtistLock[] = initial.artistLocks;
@@ -237,6 +269,7 @@ async function main(): Promise<void> {
     saveRanking(state);
     saveLists(lists);
     saveArtistLocks(artistLocks);
+    if (recoverServerSnapshot) clearPendingSync();
   } else if (
     pendingSync ||
     (serverLoad.status === 'missing' &&
