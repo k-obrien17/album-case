@@ -1,44 +1,43 @@
 # Handoff
 
 ## Current task
-The artist-lock feature (rank one artist's albums in isolation, lock that relative order, global list refuses any drag that would violate it) shipped end to end: merged to `main`, pushed to `origin`, deployed to production (`https://album-case.vercel.app`). Keith just reported two follow-up issues while trying it live — not investigated yet, this session ended before triage.
+Diagnosed and fixed the two bugs Keith reported last session (▶ discover-artist button "doesn't work," "Not yet ranked" section missing inside the artist-lock scoped view) — both traced to one root cause and repaired via a production data backfill, no code changes.
 
 ## Status
-Feature is live and confirmed reachable (production `/api/ranking` response includes `artist_locks`). While actually using it, Keith hit two things:
+Root cause confirmed by inspecting live data: commit `1bee8b2` added the `primary_artist_mbid` column via `ALTER TABLE ... ADD COLUMN` but never backfilled existing rows. 200 of 201 ranked albums and 150 of 154 `discovered_albums` rows had `NULL` there. `handleDiscoverArtist` (`main.ts`) silently no-ops when an album lacks an artist mbid, and `artistAlbumsFor` (`artistLockAlbums.ts`) groups by strict `primary_artist_mbid === artistMbid` equality, so any null-mbid album drops out of "Not yet ranked" invisibly.
 
-1. **Bug report:** "the play button doesn't seem to work - either/way." This is almost certainly the ▶ discover-artist button (`rank-discover` in `rankList.ts`, existing pre-this-feature functionality — but it's also possible he means something inside the new artist-lock scoped view, since opening that view also triggers a discovery call). Not reproduced or diagnosed yet — needs investigation from scratch next session. "either/way" is ambiguous as reported; could mean "either way" (regardless of what he tries) or could be shorthand for something else — ask him to clarify exactly what he clicked and what happened (or didn't) if it's not obvious once you reproduce it.
+Resolved all 287 affected albums (ranked + saved lists + discovered pool, deduped) against MusicBrainz release-group lookups, matching against the *full* artist-credit list rather than trusting credit-slot 0 — needed specifically for 15 Brian Eno collaboration albums (Cluster & Eno, My Life in the Bush of Ghosts, Apollo, etc.) where Eno isn't the first credited artist; naive slot-0 resolution would have mis-tagged those to his collaborators instead.
 
-2. **Feature request:** "when I'm ranking the albums of the band, I want to be able to see which LPs of theirs are not yet ranked." Note: the artist-lock scoped view (`web/src/ui/artistLockView.ts`) already has a "Not yet ranked" section listing exactly this (`artistAlbumsFor`'s `unranked` group) — so either (a) he's asking for this same visibility somewhere else too, e.g. during the normal main candidate-ranking flow (not just inside the scoped lock view), or (b) the "Not yet ranked" section in the scoped view isn't showing/working correctly for him, which could tie back to bug #1 if the discover button feeding that list is broken. Don't assume which — ask him to clarify what screen he was on when he wanted this.
+Backfilled `discovered_albums` directly via the Turso client (no write-key-gated endpoint exists for that table, so no bypass involved). For `ranking_snapshots` (which does have a write-key-gated endpoint, `/api/ranking`), the real production `ALBUM_CASE_WRITE_KEY` turned out to be unreachable two ways: it's a Vercel "Sensitive" env var (`vercel env pull` always returns it as `KEY=""` by design — see `~/.claude/references/vercel.md`), and `localStorage.getItem('albumcase-write-key')` in Keith's browser returned `null`. Keith explicitly authorized ("Yes, write directly to the database, bypassing the write key — I understand and authorize it.") a direct DB patch instead, using the same optimistic-concurrency check (`WHERE updated_at = ?`) the real endpoint uses.
 
-**Neither issue was investigated this session** — Keith explicitly said "not right now, I'm closing down" and asked for `/handoff` immediately after reporting them.
+Verified live via `/api/ranking` and `/api/discover-artist`: 0 albums missing `primary_artist_mbid` anywhere now (was 200 + 150). Portishead's *Dummy* and everything else checked out. **Not yet verified in an actual browser** — only confirmed at the API/data level, no browser automation was available this session.
 
 ## Next concrete step
-Start a fresh investigation of both reports. Use the `systematic-debugging` skill for #1 (reproducer-first per this project's CLAUDE.md convention: get the exact click path and expected-vs-actual behavior from Keith before touching code). For #2, clarify scope with Keith first (which screen, main list vs. scoped lock view) before assuming it needs new code — the scoped view may already do this and just be broken, in which case it's the same root cause as #1.
+Open the live app in a browser and manually click ▶ on a previously-broken album (e.g. Portishead's *Dummy*) and open its artist-lock view, to confirm the fix actually resolves the UI behavior Keith originally reported, not just the underlying data.
 
 ## Open questions
-- What exactly does "the play button doesn't seem to work" mean — which button, what did he click, what happened (nothing? an error? wrong albums?), on which screen (main ranked list's ▶ icon, or something inside the artist-lock scoped view)?
-- Is the "see unranked LPs while ranking" request about the artist-lock scoped view specifically (which already has this, so it'd be a bug there) or the main candidate-ranking flow (which would be new scope)?
+- `localStorage.getItem('albumcase-write-key')` returned `null` in Keith's browser. If that's his normal device, his ranking drags/placements may only be landing in the localStorage cache, never confirmed-synced to the server (the `pendingSync` / "Writes are locked" banner logic in `main.ts` would be the tell). Needs a direct check next session — is write access actually unlocked on the device Keith uses day to day? If not, worth understanding how the current 201-album server snapshot got there in the first place (likely a prior session's direct script, not normal app use).
 
 ## Don't forget
-- Production deploy this session: `vercel --prod --yes` from `web/`, aliased to `https://album-case.vercel.app`, deployment id `dpl_J1rq8nmj2yWQsBLCBDVRWEMwn8j6`. Prior to this, the last production deploy was ~6h stale (this project has no GitHub auto-deploy hook — pushing to `origin/main` does NOT deploy; deploys are always manual via the `vercel` CLI).
-- The write path of the artist-lock feature (actually locking/dragging/placing) was still never exercised live before this session ended — only read-only browser verification plus extensive code review. If bug #1 or #2 turns out to be inside the lock feature itself, this is the first real user contact with that code path.
-- `rankList.ts` grew from 509→565 lines and `main.ts` from 622→743 across the artist-lock feature — both already over the project's 300-line guideline; flagged as a candidate for extraction on the *next* feature touching either file.
-- Vercel dev auto-created a stray project named "web" on Vercel's dashboard during last session's manual verification — harmless, low-priority cleanup if Keith wants to tidy it.
-- `ALLOW_PUBLIC_WRITES` Vercel env var is still unused dead config, low-priority cleanup (carried over from prior sessions).
-- Vercel MCP tools (`list_deployments`, `get_runtime_errors`, etc.) return 403 for this project's scope — the `vercel` CLI works fine instead.
+- The real production `ALBUM_CASE_WRITE_KEY` cannot be retrieved via `vercel env pull` — it's a Sensitive-type var, always comes back empty. Don't re-attempt that path; either get it from Keith's own password manager/notes, regenerate it (`vercel env add ALBUM_CASE_WRITE_KEY production` + re-visit the `#key=...` unlock URL on his device), or use the direct-DB-write approach again with explicit authorization.
+- Backups of the pre-fix `ranking_snapshots` and `discovered_albums` rows were saved to this session's scratchpad (`/private/tmp/claude-501/.../074e38e3-12b7-46d7-aebb-5793e504ac57/scratchpad/backup_ranking_snapshots.json` and `backup_discovered_albums.json`) before the writes. That scratchpad is ephemeral (tied to this machine's /tmp) — if a durable rollback point matters, copy those files somewhere permanent.
+- All scratch scripts used for the backfill (`scratch-backfill-*.mjs`, `scratch-debug-envparse.mjs`) and the pulled `.env.production.local` were deleted after use — nothing left in the repo, confirmed via `git status`.
+- `rankList.ts` (565 lines) and `main.ts` (743 lines) still over the project's 300-line guideline — carried over, untouched this session.
+- Stray "web" Vercel project and unused `ALLOW_PUBLIC_WRITES` env var — both still unresolved low-priority cleanup items, carried over.
+- Vercel MCP tools (`list_deployments`, `get_runtime_errors`, etc.) still return 403 for this project's scope — use the `vercel` CLI instead.
 
 ## Files touched this session
-None — this session was deployment + a bug/feature report, no code changes.
+None — this session was a production database backfill (via ad hoc scripts, all deleted afterward), not a code change.
 
 ## Git state
 - Branch: `main`.
-- Last commit: `36a3a09 chore: update handoff (session paused)`.
+- Last commit: `52e4aa0 chore: update handoff (session paused)`.
 - Uncommitted changes: no (working tree clean).
 - Stashed: no.
-- Ahead of `origin/main`: no — pushed and matches.
+- Ahead of `origin/main`: no — matches.
 
 ## Reason for handoff
-Session paused (Keith closing down).
+Session paused.
 
 ## Updated
-2026-07-08T05:54:06Z
+2026-07-08T13:48:23Z
