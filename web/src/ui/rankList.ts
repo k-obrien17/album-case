@@ -435,6 +435,9 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     btn.addEventListener('click', () => {
       editingOverallMbid = album.mbid;
       render();
+      const input = container.querySelector<HTMLInputElement>('.rank-overall-edit .candidate-place-input');
+      input?.focus();
+      input?.select();
     });
     return btn;
   }

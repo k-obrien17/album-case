@@ -375,7 +375,7 @@ button.rank-overall {
   text-decoration: underline;
   text-underline-offset: 2px;
   cursor: pointer;
-  min-height: 32px;
+  min-height: 44px;
 }
 
 button.rank-overall:hover {
