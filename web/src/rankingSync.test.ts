@@ -32,8 +32,9 @@ describe('ranking snapshot payload', () => {
       notHeard: [album('d')],
       dontCare: [album('e')],
     };
+    const artistLocks = [{ artistMbid: '33333333-3333-4333-8333-333333333333', order: ['a'] }];
 
-    expect(snapshotPayload('session-1', state, lists)).toEqual({
+    expect(snapshotPayload('session-1', state, lists, artistLocks)).toEqual({
       session_id: 'session-1',
       ranked: [album('a'), album('b')],
       lists: {
@@ -41,6 +42,7 @@ describe('ranking snapshot payload', () => {
         notHeard: [album('d')],
         dontCare: [album('e')],
       },
+      artist_locks: artistLocks,
     });
   });
 
@@ -48,10 +50,11 @@ describe('ranking snapshot payload', () => {
     const state: RankingState = { ranked: [album('a')], pending: null };
     const lists: SavedLists = { wantToListen: [], notHeard: [], dontCare: [] };
 
-    expect(snapshotPayload('session-1', state, lists, 123)).toEqual({
+    expect(snapshotPayload('session-1', state, lists, [], 123)).toEqual({
       session_id: 'session-1',
       ranked: [album('a')],
       lists,
+      artist_locks: [],
       base_updated_at: 123,
     });
   });
@@ -70,6 +73,7 @@ describe('ranking snapshot payload', () => {
       '11111111-1111-4111-8111-111111111111',
       { ranked: [album('a')], pending: null },
       { wantToListen: [], notHeard: [], dontCare: [] },
+      [],
       123
     );
 
@@ -90,6 +94,7 @@ describe('loadRankingSnapshot', () => {
         notHeard: [album('c')],
         dontCare: [album('d')],
       },
+      artist_locks: [{ artistMbid: '33333333-3333-4333-8333-333333333333', order: ['a'] }],
       updated_at: 123,
     };
     vi.stubGlobal(
@@ -110,6 +115,7 @@ describe('loadRankingSnapshot', () => {
         notHeard: [album('c')],
         dontCare: [album('d')],
       },
+      artistLocks: snapshot.artist_locks,
     });
   });
 
@@ -133,6 +139,7 @@ describe('loadRankingSnapshot', () => {
     expect(result).toEqual({
       ranked: [album('a')],
       lists: { wantToListen: [], notHeard: [], dontCare: [] },
+      artistLocks: [],
     });
   });
 
