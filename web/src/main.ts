@@ -570,6 +570,12 @@ async function main(): Promise<void> {
       persistRankingState();
       rankList.render();
     },
+    onSetOverallRank: (from, to) => {
+      const clamped = nearestValidDropIndex(state.ranked, artistLocks, from, to);
+      state = { ranked: moveItem(state.ranked, from, clamped), pending: null };
+      persistRankingState();
+      rankList.render();
+    },
     onSetAside: (album, which) => {
       // Record to the saved list first (so it is excluded), then drop it from
       // ranking state (setAsideAlbum also clears any stale placement), then
