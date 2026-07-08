@@ -352,11 +352,34 @@ body {
   overflow-wrap: anywhere;
 }
 
+.rank-row-arranged .rank-title,
+.lock-unranked-row-arranged .rank-title {
+  font-weight: 700;
+}
+
 .rank-sub {
   margin: 0;
   color: var(--color-muted);
   font-size: 0.8rem;
   overflow-wrap: anywhere;
+}
+
+.rank-row-arranged .rank-sub,
+.lock-unranked-row-arranged .rank-sub {
+  color: var(--color-fg);
+  font-weight: 600;
+}
+
+.rank-arranged {
+  align-self: flex-start;
+  margin-top: 3px;
+  padding: 2px 6px;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  line-height: 1.2;
 }
 
 .rank-overall {

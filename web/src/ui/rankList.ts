@@ -297,8 +297,9 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     subRanks: Map<string, SubRank>,
     lockedArtists: Set<string>
   ): HTMLLIElement {
+    const isArranged = lockedArtists.has(album.primary_artist_mbid ?? '');
     const li = document.createElement('li');
-    li.className = 'rank-row';
+    li.className = isArranged ? 'rank-row rank-row-arranged' : 'rank-row';
 
     const num = document.createElement('span');
     num.className = 'rank-num';
@@ -313,6 +314,13 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     sub.className = 'rank-sub';
     sub.textContent = rankedSubtitle(album, subRanks.get(album.mbid));
     meta.append(title, sub);
+
+    if (isArranged) {
+      const arranged = document.createElement('span');
+      arranged.className = 'rank-arranged';
+      arranged.textContent = 'Arranged';
+      meta.append(arranged);
+    }
 
     const overallControl = buildOverallControl(album, subRanks.get(album.mbid));
     if (overallControl) meta.append(overallControl);
@@ -330,13 +338,12 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     }
 
     if (opts.onOpenArtistLock) {
-      const isLocked = lockedArtists.has(album.primary_artist_mbid ?? '');
       const lockBtn = document.createElement('button');
       lockBtn.type = 'button';
-      lockBtn.className = isLocked ? 'rank-lock rank-lock-active' : 'rank-lock';
+      lockBtn.className = isArranged ? 'rank-lock rank-lock-active' : 'rank-lock';
       lockBtn.setAttribute(
         'aria-label',
-        isLocked
+        isArranged
           ? `${album.primary_artist_name}'s order is locked`
           : `Lock ${album.primary_artist_name}'s order`
       );

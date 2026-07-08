@@ -53,7 +53,7 @@ export function mountArtistLockView(
 
   function buildUnrankedRow(album: Album, maxRank: number, locked: boolean): HTMLLIElement {
     const li = document.createElement('li');
-    li.className = 'lock-unranked-row';
+    li.className = locked ? 'lock-unranked-row lock-unranked-row-arranged' : 'lock-unranked-row';
 
     const meta = document.createElement('div');
     meta.className = 'rank-meta';
@@ -64,6 +64,12 @@ export function mountArtistLockView(
     sub.className = 'rank-sub';
     sub.textContent = subtitle(album);
     meta.append(title, sub);
+    if (locked) {
+      const arranged = document.createElement('span');
+      arranged.className = 'rank-arranged';
+      arranged.textContent = 'Arranged';
+      meta.append(arranged);
+    }
 
     const form = document.createElement('form');
     form.className = 'candidate-place';
@@ -188,6 +194,7 @@ export function mountArtistLockView(
       onSetAside: () => {},
       onSkip: () => {},
       onBlockArtist: () => {},
+      getLockedArtistMbids: () => opts.getArtistLocks().map((lock) => lock.artistMbid),
       getNearestValidDrop: locked ? (from: number) => from : undefined,
     });
     wrap.append(rankedCol);
