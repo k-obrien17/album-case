@@ -1,49 +1,47 @@
 # Handoff
 
 ## Current task
-Brainstorming a new feature: rank one artist's albums against each other in an isolated view, then lock that relative order as a hard constraint the global ranked list must respect from then on. Using the `superpowers:brainstorming` skill — currently at the design-review step, not yet approved, no code written.
+Implementing the artist-lock feature: rank one artist's albums in isolation, lock that relative order, and have the global drag-to-place list refuse any drag that would violate an active lock. Design is approved; the implementation plan is written and committed; execution hasn't started yet.
 
 ## Status
-The write-key saga from the prior session is fully resolved and closed out (key rotated, all pending edits saved and verified live server-side — no follow-up needed there, don't reopen it).
+Keith approved the design spec ("good - go forth and use agents if necessary"). I invoked `writing-plans`, and while grounding the plan against the actual code found a real problem with the spec's data-model section: nesting `artistLocks` inside `RankingState` would have rippled into `insertion.ts`, `assist.ts`, and `backup.ts` — none of which have anything to do with locks. Corrected the spec (committed separately) and wrote the plan against the fixed design: `artistLocks` is a third top-level state variable in `main.ts`, sibling to `state`/`lists`, persisted the same way `lists.ts` persists `SavedLists`.
 
-This session pivoted straight into a new feature request. Five clarifying questions were asked and answered (see "Proposed design" below), a full design was presented to Keith in chat, and he ran `/handoff` before responding to "does this match what you had in mind?" So: **design proposed, not yet approved.** Per the brainstorming skill, nothing gets implemented until Keith approves it and it's written to a spec doc.
+The plan itself (`docs/superpowers/plans/2026-07-07-artist-lock-implementation.md`) is a 10-task TDD plan, fully grounded against the real code (rankList.ts's pointer-drag internals, main.ts's state wiring, api/ranking.ts's optimistic-concurrency schema pattern). All three docs (spec, spec correction, plan) are committed. I then asked Keith to choose an execution mode (subagent-driven vs. inline) per the writing-plans skill's required handoff step — session was paused before he answered.
+
+No product code has been touched yet. `web/` is untouched this session.
 
 ## Next concrete step
-Re-present the "Proposed design" section below to Keith (or just ask if it still matches) and get explicit approval or corrections. Once approved, follow the brainstorming skill's remaining steps: write the design to `docs/superpowers/specs/YYYY-MM-DD-artist-lock-design.md`, self-review it, have Keith review the written spec, then invoke `writing-plans` — do NOT skip straight to implementation.
+Ask Keith which execution mode he wants for `docs/superpowers/plans/2026-07-07-artist-lock-implementation.md`:
+1. **Subagent-driven** (recommended) — invoke `superpowers:subagent-driven-development`, fresh subagent per task with review between tasks.
+2. **Inline** — invoke `superpowers:executing-plans`, batch execution with checkpoints in this session.
 
-## Proposed design (awaiting approval)
-Answers already collected from Keith:
-- **Album scope in a batch session:** ALL of the artist's albums, including ones not yet in the global ranked list (pulled from Want to Listen / Haven't Heard / undiscovered).
-- **Placing not-yet-ranked albums:** reuse the existing "#/Place" rank-number input already in the candidate panel — no new insertion wizard, no waiting for the normal candidate loop.
-- **Artist-internal sub-ranking mechanic:** drag-to-place, scoped to just that artist's albums (same mechanic as the main list, just filtered).
-- **Entry point:** a new icon on each ranked row, next to the existing ▶ (discover) and ⇅ (reorder) icons.
-- **Enforcement UX:** block live during the drag — invalid drop zones are simply unavailable, no error-after-the-fact.
-- **Editability:** Unlock → re-batch → re-lock only. No live editing of a locked order in place.
-
-My proposed technical design (presented, not yet confirmed):
-1. **Lock scope (my judgment call, flag if wrong):** a lock only covers the artist's albums that are in the global ranked list *at the moment Lock is pressed*. Albums still unplaced are unconstrained until placed and the artist is re-locked. Keeps the model to "the order these specific albums currently sit in," not a prediction about albums that don't exist in the list yet.
-2. **Data model:** new `artistLocks` field (artist MBID → ordered album MBID list) added to the same ranking snapshot as `ranked`/`lists` — reuses the exact save/retry/conflict machinery built this session, no new sync path. One new DB column (`artist_locks_json`), added via the same idempotent `ALTER TABLE` pattern `discover-artist.ts` already uses for `primary_artist_mbid`.
-3. **Enforcement:** one pure function checks whether a given global order respects every lock. Used two ways: live during drag (disable invalid drop zones), and on submit for the rank-number input (reject out-of-range numbers with an inline message).
-4. **UI flow:** new row icon opens a scoped view for that artist — already-ranked albums are draggable among themselves (this *is* the real global list, filtered, so dragging here live-updates real positions); not-yet-ranked albums each get the "#/Place" control to slot into the global list. "Lock in order" freezes the current relative order; "Unlock" (once locked) removes the constraint.
+Once chosen, invoke that skill against the plan and start with Task 1 (`ArtistLock` type + pure enforcement module in `web/src/ranking/locks.ts`).
 
 ## Open questions
-- Does the proposed design (above) match what Keith actually wants? He hadn't responded when the session paused.
-- Specifically confirm/correct the "lock scope" judgment call in point 1 — it's the one place I made a decision rather than asking directly.
+- Subagent-driven vs. inline execution — awaiting Keith's choice (asked, unanswered when the session paused).
 
 ## Don't forget
-- `ALLOW_PUBLIC_WRITES` still exists as a Vercel env var (Preview + Production) — a leftover from the old fork's boolean write-kill-switch, deliberately never ported into code. Still unused; dead config, low-priority cleanup.
-- Vercel MCP tools (`list_deployments`, `get_runtime_errors`, etc.) return 403 for this project's scope — the CLI (`vercel` command) works fine and is what actually got used all last session.
-- `web/.env.local` has a local-only dev `ALBUM_CASE_WRITE_KEY` (gitignored placeholder for `vercel dev` testing, not a real secret) — separate from the real rotated production key, which lives only in Vercel now.
+- The plan's data-model correction: `artistLocks` lives as a third top-level app-state variable in `main.ts` (new `web/src/artistLocksStorage.ts`, mirrors `lists.ts`), NOT nested inside `RankingState`. See the spec's "Correction after cross-checking the code" note and the plan's Task 1/3 for why.
+- The plan also found that a drag *within* the artist-scoped sub-view can never violate any lock — reordering one artist's own rows never changes any other artist's mutual relative order. So `RankListOptions.getNearestValidDrop` (the new live-block hook) is optional and the scoped view simply omits it; only the main list view needs it.
+- `rankList.ts` (509 lines) and `main.ts` (622 lines) are already over this project's 300-line file guideline before this feature. The plan extends both rather than refactoring them down — flagged in the plan's constraints, not fixed, since a bigger refactor wasn't asked for.
+- `ALLOW_PUBLIC_WRITES` Vercel env var is still unused dead config, low-priority cleanup (carried over from prior sessions).
+- Vercel MCP tools (`list_deployments`, `get_runtime_errors`, etc.) return 403 for this project's scope — the `vercel` CLI works fine instead.
+- `web/.env.local` has a local-only dev `ALBUM_CASE_WRITE_KEY` (gitignored placeholder for `vercel dev` testing) — separate from the real rotated production key, which lives only in Vercel now.
+
+## Files touched this session
+- `docs/superpowers/specs/2026-07-07-artist-lock-design.md` (new) — approved design spec, later corrected in place (data-model section).
+- `docs/superpowers/plans/2026-07-07-artist-lock-implementation.md` (new) — 10-task TDD implementation plan.
+- No files under `web/` touched.
 
 ## Git state
 - Branch: `main`.
-- Last commit: `73ff6b9 chore: update handoff (session paused)`.
+- Last commit: `073a0e9 docs: add artist-lock implementation plan`.
 - Uncommitted changes: no (working tree clean).
 - Stashed: no.
-- Ahead of `origin/main`: no.
+- Ahead of `origin/main`: yes, by 5 commits (2 from the prior session's handoff-only commits, plus this session's spec, spec correction, and plan) — not yet pushed.
 
 ## Reason for handoff
 Session paused.
 
 ## Updated
-2026-07-08T00:17:55Z
+2026-07-08T00:39:37Z
