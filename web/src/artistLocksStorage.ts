@@ -35,8 +35,3 @@ export function saveArtistLocks(locks: ArtistLock[]): void {
     console.warn('tastetest: failed to persist artist locks to localStorage, continuing in-memory', err);
   }
 }
-
-/** @internal: Reset in-memory state for testing purposes. */
-export function __resetMemoryLocks(): void {
-  memoryLocks = null;
-}

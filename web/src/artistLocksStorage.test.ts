@@ -1,6 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ArtistLock } from './ranking/types';
-import { loadArtistLocks, saveArtistLocks, __resetMemoryLocks } from './artistLocksStorage';
+import { loadArtistLocks, saveArtistLocks } from './artistLocksStorage';
 
 const ARTIST_A = '11111111-1111-4111-8111-111111111111';
 
@@ -20,9 +20,9 @@ describe('artistLocksStorage', () => {
 
   afterEach(() => {
     localStorage.clear();
-    __resetMemoryLocks();
     // @ts-expect-error - restore the default Node test environment.
     delete globalThis.localStorage;
+    vi.restoreAllMocks();
   });
 
   it('returns an empty array when nothing is stored yet', () => {
@@ -36,7 +36,14 @@ describe('artistLocksStorage', () => {
   });
 
   it('returns an empty array for corrupted stored JSON rather than throwing', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // Reset in-memory state through the public API rather than a test-only
+    // export: the module is cached once per test file, so `memoryLocks`
+    // (module-level) can carry over from an earlier it() block regardless
+    // of declaration order.
+    saveArtistLocks([]);
     localStorage.setItem('tastetest-artist-locks', 'not json');
     expect(loadArtistLocks()).toEqual([]);
+    expect(warn).toHaveBeenCalled();
   });
 });
