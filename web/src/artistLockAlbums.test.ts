@@ -64,4 +64,19 @@ describe('mapFilteredReorderToGlobal', () => {
     const ranked = [album('a1', ARTIST_A)];
     expect(mapFilteredReorderToGlobal(ranked, ARTIST_A, 5, 0)).toBeNull();
   });
+
+  it('anchors a move to the front of the artist cluster without jumping past a leading unrelated row', () => {
+    // global: [Z, A1, W, A2] -- Z and W belong to a different artist
+    const ranked = [album('z1', ARTIST_B), album('a1', ARTIST_A), album('w1', ARTIST_B), album('a2', ARTIST_A)];
+    // filtered (A-only) view: [a1, a2] -- move filtered index 1 (a2) to filtered position 0
+    const mapped = mapFilteredReorderToGlobal(ranked, ARTIST_A, 1, 0);
+    // a2 lands right before a1 (global index 1), not at global index 0 (which would jump it above Z)
+    expect(mapped).toEqual({ from: 3, to: 1 });
+  });
+
+  it('is a true no-op when dragging a single-row artist cluster to its own position', () => {
+    const ranked = [album('z1', ARTIST_B), album('a1', ARTIST_A)];
+    const mapped = mapFilteredReorderToGlobal(ranked, ARTIST_A, 0, 0);
+    expect(mapped).toEqual({ from: 1, to: 1 });
+  });
 });

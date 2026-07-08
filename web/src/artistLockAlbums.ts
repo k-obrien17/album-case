@@ -67,7 +67,12 @@ export function mapFilteredReorderToGlobal(
     .map(({ i }) => i);
 
   const clampedTo = Math.max(0, Math.min(filteredTo, remainingFilteredIndices.length));
-  const to = clampedTo === 0 ? 0 : remainingFilteredIndices[clampedTo - 1] + 1;
+  const to =
+    clampedTo < remainingFilteredIndices.length
+      ? remainingFilteredIndices[clampedTo]
+      : remainingFilteredIndices.length > 0
+        ? remainingFilteredIndices[remainingFilteredIndices.length - 1] + 1
+        : withoutMoved.length;
 
   return { from, to };
 }
