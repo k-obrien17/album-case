@@ -9,7 +9,21 @@ export type ArtistPlays = { rank: number; artist: string; plays: number; hours: 
 type PreferredArtists = { by_plays: ArtistPlays[] };
 export type PriorityAlbumPlan = {
   version: string;
-  albums: Array<{ artist: string; title: string }>;
+  albums: PriorityAlbumPlanEntry[];
+};
+export type PriorityAlbumReviewStatus =
+  | 'accept'
+  | 'reject'
+  | 'defer'
+  | 'want_to_listen'
+  | 'not_heard';
+export type PriorityAlbumPlanEntry = {
+  artist: string;
+  title: string;
+  source?: string | string[];
+  reason?: string;
+  confidence?: number;
+  review_status?: PriorityAlbumReviewStatus;
 };
 
 let cachedPreferred: ArtistPlays[] | null = null;
@@ -68,7 +82,7 @@ export async function loadPriorityAlbumPlan(): Promise<PriorityAlbumPlan | null>
   cachedPriorityPlan = {
     version: data.version,
     albums: data.albums.filter(
-      (entry): entry is { artist: string; title: string } =>
+      (entry): entry is PriorityAlbumPlanEntry =>
         typeof entry?.artist === 'string' && typeof entry?.title === 'string'
     ),
   };

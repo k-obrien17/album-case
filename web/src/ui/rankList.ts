@@ -31,6 +31,8 @@ export type RankListOptions = {
   onPlace: (index: number) => void;
   /** Move the ranked row at `from` to `to` (post-removal index). */
   onReorder: (from: number, to: number) => void;
+  /** Remove a ranked album from the list and keep it out of future candidates. */
+  onRemoveRanked?: (album: Album) => void;
   /** Move the album currently at global index `from` to post-removal global
    *  index `to`. Unlike `onReorder`, both indices are always in the full
    *  global ranked array's space, never a filtered subset's -- this powers
@@ -350,6 +352,16 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
       lockBtn.textContent = '⚷';
       lockBtn.addEventListener('click', () => opts.onOpenArtistLock?.(album));
       li.append(lockBtn);
+    }
+
+    if (opts.onRemoveRanked) {
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'rank-remove';
+      removeBtn.setAttribute('aria-label', `Remove ${album.title} from ranked list`);
+      removeBtn.textContent = '×';
+      removeBtn.addEventListener('click', () => opts.onRemoveRanked?.(album));
+      li.append(removeBtn);
     }
 
     // A dedicated grip so the row body still flick-scrolls on touch; only the

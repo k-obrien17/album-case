@@ -15,6 +15,7 @@ export type ArtistLockViewOptions = {
   getPool: () => Album[];
   getArtistLocks: () => ArtistLock[];
   onReorder: (from: number, to: number) => void;
+  onRemoveRanked?: (album: Album) => void;
   /** Move the album at global index `from` to post-removal global index
    *  `to`. Always global-space, regardless of this view's filtered
    *  rendering -- distinct from `onReorder`, which exists for the
@@ -191,6 +192,7 @@ export function mountArtistLockView(
       onSetOverallRank: (from, to) => {
         opts.onSetOverallRank?.(from, to);
       },
+      onRemoveRanked: opts.onRemoveRanked,
       onSetAside: () => {},
       onSkip: () => {},
       onBlockArtist: () => {},

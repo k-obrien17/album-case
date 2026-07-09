@@ -1,4 +1,5 @@
 import type { Album } from './ranking/types';
+import type { PriorityAlbumPlanEntry, PriorityAlbumReviewStatus } from './seed';
 
 const PRIORITY_KEY = 'tastetest-priority-queue';
 const PRIORITY_PLAN_VERSION_KEY = 'albumcase-priority-plan-version';
@@ -144,10 +145,10 @@ export function priorityQueueFromArtists(orderedArtists: string[], pool: Album[]
   return out;
 }
 
-export type PriorityAlbumPlanEntry = {
-  artist: string;
-  title: string;
-};
+const QUEUED_REVIEW_STATUSES = new Set<PriorityAlbumReviewStatus | undefined>([
+  undefined,
+  'accept',
+]);
 
 function titleKey(title: string): string {
   return normalize(title)
@@ -169,6 +170,7 @@ export function priorityQueueFromAlbumPlan(plan: PriorityAlbumPlanEntry[], pool:
   const out: string[] = [];
   const seen = new Set<string>();
   for (const entry of plan) {
+    if (!QUEUED_REVIEW_STATUSES.has(entry.review_status)) continue;
     const normalizedTitle = titleKey(entry.title);
     let mbid: string | undefined;
     for (const artistKey of artistKeys(entry.artist)) {

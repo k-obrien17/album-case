@@ -114,6 +114,20 @@ describe('priorityQueueFromAlbumPlan', () => {
       )
     ).toEqual(['r1']);
   });
+
+  it('only queues accepted or unreviewed plan entries', () => {
+    expect(
+      priorityQueueFromAlbumPlan(
+        [
+          { artist: 'Radiohead', title: 'OK Computer', review_status: 'accept' },
+          { artist: 'Kanye West', title: 'The College Dropout', review_status: 'reject' },
+          { artist: 'Massive Attack', title: 'Blue Lines', review_status: 'defer' },
+          { artist: 'Kanye West', title: 'My Beautiful Dark Twisted Fantasy' },
+        ],
+        pool
+      )
+    ).toEqual(['r1', 'k2']);
+  });
 });
 
 describe('nextPriorityCandidate', () => {

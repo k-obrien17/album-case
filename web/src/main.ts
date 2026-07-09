@@ -526,6 +526,14 @@ async function main(): Promise<void> {
         persistRankingState();
         renderArtistLockView();
       },
+      onRemoveRanked: (album) => {
+        lists = addToList(lists, album, 'dontCare');
+        state = setAsideAlbum(state, album.mbid);
+        persistLists();
+        persistRankingState();
+        renderArtistLockView();
+        renderNav();
+      },
       onSetOverallRank: (from, to) => {
         const clamped = nearestValidDropIndex(state.ranked, artistLocks, from, to);
         state = { ranked: moveItem(state.ranked, from, clamped), pending: null };
@@ -633,6 +641,15 @@ async function main(): Promise<void> {
       state = { ranked: moveItem(state.ranked, from, to), pending: null };
       persistRankingState();
       rankList.render();
+    },
+    onRemoveRanked: (album) => {
+      lists = addToList(lists, album, 'dontCare');
+      state = setAsideAlbum(state, album.mbid);
+      persistLists();
+      persistRankingState();
+      reselectCandidate();
+      rankList.render();
+      renderNav();
     },
     onSetOverallRank: (from, to) => {
       const clamped = nearestValidDropIndex(state.ranked, artistLocks, from, to);
