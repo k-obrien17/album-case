@@ -49,6 +49,12 @@ import { loadSkippedAlbums, saveSkippedAlbums } from './skippedAlbums';
 import { loadArtistLocks, saveArtistLocks } from './artistLocksStorage';
 import { upsertLock, removeLock, nearestValidDropIndex } from './ranking/locks';
 import { mountArtistLockView } from './ui/artistLockView';
+import {
+  applyArtistCooldown,
+  loadCandidateArtistCooldown,
+  pushArtistCooldown,
+  saveCandidateArtistCooldown,
+} from './candidateCooldown';
 
 type ViewMode = 'ranked' | ListName | 'blockedArtists' | 'artistLock';
 
@@ -290,6 +296,7 @@ async function main(): Promise<void> {
   // "Skip for now" is sticky: skipped albums are excluded from selection and
   // persisted locally so they do not resurface on reload.
   const skippedAlbums = loadSkippedAlbums();
+  let candidateArtistCooldown = loadCandidateArtistCooldown();
 
   const shell = document.createElement('div');
   shell.className = 'app-shell';
@@ -342,10 +349,13 @@ async function main(): Promise<void> {
 
   function reselectCandidate(): void {
     // Selection excludes set-aside lists, skipped albums, and blocked artists.
-    const excluded = excludedMbids(lists);
+    let excluded = excludedMbids(lists);
     for (const mbid of blockedArtistMbids(pool, blockedArtists)) excluded.add(mbid);
     for (const mbid of skippedAlbums) excluded.add(mbid);
+    excluded = applyArtistCooldown(pool, state.ranked, excluded, candidateArtistCooldown);
     candidate = pickFrom(excluded);
+    candidateArtistCooldown = pushArtistCooldown(candidateArtistCooldown, candidate);
+    saveCandidateArtistCooldown(candidateArtistCooldown);
   }
 
   async function syncRankingSnapshot(): Promise<void> {
