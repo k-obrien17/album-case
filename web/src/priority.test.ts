@@ -144,4 +144,11 @@ describe('nextPriorityCandidate', () => {
     expect(result.candidate?.mbid).toBe('k1');
     expect(result.queue).toEqual(['k1']);
   });
+
+  it('interleaves queued albums by artist instead of playing full artist runs', () => {
+    const result = nextPriorityCandidate(['k1', 'k2', 'r1', 'm1'], pool, [], new Set());
+
+    expect(result.candidate?.mbid).toBe('k1');
+    expect(result.queue).toEqual(['k1', 'r1', 'm1', 'k2']);
+  });
 });

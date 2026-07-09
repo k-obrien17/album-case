@@ -51,6 +51,37 @@ function dedupe(ids: string[]): string[] {
   });
 }
 
+function diversifyByArtist(queue: string[], pool: Album[]): string[] {
+  const byId = new Map(pool.map((album) => [album.mbid, album]));
+  const buckets = new Map<string, string[]>();
+  const artistOrder: string[] = [];
+
+  for (const mbid of dedupe(queue)) {
+    const album = byId.get(mbid);
+    if (!album) continue;
+    const artistKey = artistKeys(album.primary_artist_name)[0] ?? album.primary_artist_name;
+    if (!buckets.has(artistKey)) {
+      buckets.set(artistKey, []);
+      artistOrder.push(artistKey);
+    }
+    buckets.get(artistKey)?.push(mbid);
+  }
+
+  const out: string[] = [];
+  let added = true;
+  while (added) {
+    added = false;
+    for (const artistKey of artistOrder) {
+      const bucket = buckets.get(artistKey);
+      const mbid = bucket?.shift();
+      if (!mbid) continue;
+      out.push(mbid);
+      added = true;
+    }
+  }
+  return out;
+}
+
 export function loadPriorityPlanVersion(): string | null {
   if (typeof localStorage === 'undefined') return null;
 
@@ -193,7 +224,7 @@ export function nextPriorityCandidate(
 ): { candidate: Album | null; queue: string[] } {
   const byId = new Map(pool.map((album) => [album.mbid, album]));
   const unavailable = new Set([...ranked.map((album) => album.mbid), ...excluded]);
-  const cleaned = dedupe(queue).filter((mbid) => byId.has(mbid) && !unavailable.has(mbid));
+  const cleaned = diversifyByArtist(queue, pool).filter((mbid) => byId.has(mbid) && !unavailable.has(mbid));
   const mbid = cleaned[0];
   return {
     candidate: mbid ? byId.get(mbid) ?? null : null,
