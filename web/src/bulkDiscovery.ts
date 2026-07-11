@@ -70,7 +70,7 @@ export async function runBulkDiscovery(
       const newToPool = result.albums.filter((a) => !poolIds.has(a.mbid));
       pool.push(...newToPool);
       newQueue.push(...result.albums.map((a) => a.mbid));
-      foundCount += result.albums.length;
+      foundCount += newToPool.length;
     }
 
     if (i < artists.length - 1) await delay(delayMs);

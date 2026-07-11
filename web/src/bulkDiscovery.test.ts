@@ -167,4 +167,26 @@ describe('runBulkDiscovery', () => {
 
     expect(discover).toHaveBeenCalledWith('Radiohead', 'artist-radiohead', ['existing-radiohead-1']);
   });
+
+  it('does not count an already-pooled album as "new" in the summary', async () => {
+    // The API merges previously-unranked albums back into a "found" result
+    // (so the single-artist "discover more" button can resurface backlog).
+    // For an artist already discovered before, that means `result.albums`
+    // can include an mbid the client's `pool` already has.
+    const alreadyPooled = album({
+      mbid: 'existing-bjork-1',
+      primary_artist_name: 'Björk',
+      primary_artist_mbid: 'artist-bjork',
+    });
+    const pool: Album[] = [alreadyPooled];
+    const discover = vi.fn(async (): Promise<DiscoverArtistResult> => ({
+      status: 'found',
+      albums: [alreadyPooled],
+    }));
+
+    const result = await runBulkDiscovery(rankedFor([bjork]), pool, [], { discover, delayMs: 0 });
+
+    expect(pool).toHaveLength(1);
+    expect(result.summary).toBe('Added 0 new albums from 1 artists.');
+  });
 });
