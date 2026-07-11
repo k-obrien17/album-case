@@ -36,6 +36,7 @@ import {
 } from './priority';
 import { loadRankingSnapshotDetailed, saveRankingSnapshot } from './rankingSync';
 import { discoverArtistDetailed, loadDiscoveredAlbums } from './discovery';
+import { runBulkDiscovery, TOP_ARTIST_DISCOVERY_COUNT } from './bulkDiscovery';
 import { clearWriteKey, extractKeyFromFragment, hasWriteKey, setWriteKey } from './writeKey';
 import { clearPendingSync, hasPendingSync, markPendingSync } from './syncStatus';
 import {
@@ -496,6 +497,28 @@ async function main(): Promise<void> {
     rankList.render();
   }
 
+  let bulkDiscoveryInFlight = false;
+
+  async function handleBulkDiscover(): Promise<void> {
+    if (bulkDiscoveryInFlight) return;
+    bulkDiscoveryInFlight = true;
+    renderNav();
+    try {
+      const result = await runBulkDiscovery(state.ranked, pool, priorityQueue, {
+        discover: (name, mbid, known) => discoverArtistDetailed(session.session_id, name, mbid, known),
+        onProgress: (msg) => rankList.showStatus(msg),
+      });
+      priorityQueue = result.priorityQueue;
+      savePriorityQueue(priorityQueue);
+      reselectCandidate();
+      rankList.render();
+      rankList.showStatus(result.summary);
+    } finally {
+      bulkDiscoveryInFlight = false;
+      renderNav();
+    }
+  }
+
   let lockedArtistMbid: string | null = null;
   let artistLockController: ReturnType<typeof mountArtistLockView> | null = null;
 
@@ -830,6 +853,17 @@ async function main(): Promise<void> {
       handleUnlock();
     });
     nav.append(writeBtn);
+
+    const bulkDiscoverBtn = document.createElement('button');
+    bulkDiscoverBtn.type = 'button';
+    bulkDiscoverBtn.className = 'view-tab';
+    bulkDiscoverBtn.textContent = bulkDiscoveryInFlight ? 'Discovering…' : 'Fill in more albums';
+    bulkDiscoverBtn.disabled = bulkDiscoveryInFlight;
+    bulkDiscoverBtn.title = `Bulk-discover the remaining catalog for your top ${TOP_ARTIST_DISCOVERY_COUNT} ranked artists`;
+    bulkDiscoverBtn.addEventListener('click', () => {
+      void handleBulkDiscover();
+    });
+    nav.append(bulkDiscoverBtn);
   }
 
   renderNav();
