@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { hydrateAlbums, resolveInitialState, restoreFromCode, serverSnapshotIsRicher } from './main';
+import { hydrateAlbums, reRate, resolveInitialState, restoreFromCode, serverSnapshotIsRicher } from './main';
 import type { SavedLists } from './lists';
 import type { Album, RankedAlbum, RankingState } from './ranking/types';
 
@@ -121,6 +121,29 @@ describe('hydrateAlbums', () => {
     expect(hydrateAlbums(saved, pool)).toEqual([
       albumWithArtistMbid('a', '11111111-1111-4111-8111-111111111111'),
     ]);
+  });
+});
+
+describe('reRate (splice at the computed index, not sort-after-append)', () => {
+  it('lets a dragged album actually land at index 0 even when the incumbent #1 is rated 10.00', () => {
+    // Guaranteed post-backfill state: rank #1 is always exactly the 10.00
+    // ceiling. Dropping anything else at index 0 computes an identical
+    // 10.00 rating (ratingForDropIndex's top clamp), which used to tie with
+    // the incumbent and lose to it under Array.prototype.sort's stability --
+    // making position 0 permanently unreachable.
+    const ranked: RankedAlbum[] = [
+      rankedAlbum('A', 10),
+      rankedAlbum('B', 8),
+      rankedAlbum('C', 6),
+      rankedAlbum('D', 4),
+    ];
+    const dragged = ranked[3]; // D, dropped at the very top
+
+    const result = reRate(ranked, dragged, 0);
+
+    expect(result.map((a) => a.mbid)).toEqual(['D', 'A', 'B', 'C']);
+    expect(result[0].mbid).toBe('D');
+    expect(result[0].rating).toBe(10);
   });
 });
 

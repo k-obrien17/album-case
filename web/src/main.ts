@@ -165,16 +165,25 @@ export function hydrateLists(lists: SavedLists, byId: Map<string, Album>): Saved
 /**
  * Remove `album` from `ranked` if present (re-rating an existing album),
  * compute its new rating for landing at `targetIndex` in the resulting
- * array, then return the full list with `album` re-inserted at its
- * rating-sorted position. `targetIndex` should already reflect any
- * lock-safety clamping (nearestValidDropIndex) the caller performed.
+ * array, then return the full list with `album` re-inserted at exactly
+ * that position. `targetIndex` should already reflect any lock-safety
+ * clamping (nearestValidDropIndex) the caller performed.
+ *
+ * Splices at `clampedIndex` directly instead of appending and re-sorting
+ * by rating (mirrors insertion.ts's applyPick). `ratingForDropIndex`
+ * computes `rating` specifically so this item belongs at `clampedIndex`,
+ * so placing it there is always correct on its own -- sorting afterward
+ * is not just redundant, it's actively wrong on ties: once the post-backfill
+ * #1 album sits at rating 10.00, dropping anything else at index 0 also
+ * computes 10.00, and Array.prototype.sort's stability would leave the
+ * incumbent ahead of the new item, making position 0 unreachable.
  */
-function reRate(ranked: RankedAlbum[], album: Album, targetIndex: number): RankedAlbum[] {
+export function reRate(ranked: RankedAlbum[], album: Album, targetIndex: number): RankedAlbum[] {
   const without = ranked.filter((a) => a.mbid !== album.mbid);
   const clampedIndex = Math.max(0, Math.min(targetIndex, without.length));
   const rating = ratingForDropIndex(without, clampedIndex);
   const rated: RankedAlbum = { ...album, rating };
-  return [...without, rated].sort((a, b) => b.rating - a.rating);
+  return [...without.slice(0, clampedIndex), rated, ...without.slice(clampedIndex)];
 }
 
 async function main(): Promise<void> {
