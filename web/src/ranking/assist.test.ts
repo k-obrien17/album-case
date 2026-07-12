@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { Album } from './types';
+import type { Album, RankedAlbum } from './types';
 import {
   startAssist,
   assistOpponent,
@@ -18,13 +18,18 @@ function album(mbid: string): Album {
   };
 }
 
+/** Build a minimal RankedAlbum fixture with a unique mbid and a given rating. */
+function rankedAlbum(mbid: string, rating: number): RankedAlbum {
+  return { ...album(mbid), rating };
+}
+
 /**
  * Drive an assisted placement to completion using a preference function:
  * `prefersCandidate(opponentMbid)` returns true when the candidate should rank
  * above that opponent. Returns the final insertion index.
  */
 function runAssist(
-  ranked: Album[],
+  ranked: RankedAlbum[],
   candidate: Album,
   prefersCandidate: (opponentMbid: string) => boolean
 ): { index: number; opponentsShown: string[] } {
@@ -43,7 +48,7 @@ function runAssist(
 
 describe('assisted binary placement', () => {
   // A ranked list ordered best-first: a > b > c > d > e > f > g > h.
-  const ranked = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map(album);
+  const ranked = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map((mbid, i) => rankedAlbum(mbid, 10 - i));
 
   it('lands the candidate at the correct index for a known comparison sequence', () => {
     const x = album('x');

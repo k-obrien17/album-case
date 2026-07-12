@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { Album, RankingState } from './types';
+import type { Album, RankedAlbum, RankingState } from './types';
 import { startPlacement, nextComparison, applyPick } from './insertion';
 
 /** Build a minimal Album fixture with a unique mbid. */
@@ -11,6 +11,11 @@ function album(mbid: string): Album {
     release_year: 2000,
     cover_url: `https://example.test/${mbid}.jpg`,
   };
+}
+
+/** Build a minimal RankedAlbum fixture with a unique mbid and a given rating. */
+function rankedAlbum(mbid: string, rating: number): RankedAlbum {
+  return { ...album(mbid), rating };
 }
 
 /** Deterministic PRNG (mulberry32) so fuzz runs are reproducible. */
@@ -74,7 +79,7 @@ describe('startPlacement', () => {
   });
 
   it('sets lo=0, hi=ranked.length for a non-empty list', () => {
-    const ranked = [album('a'), album('b'), album('c')];
+    const ranked = [rankedAlbum('a', 10), rankedAlbum('b', 9), rankedAlbum('c', 8)];
     const state: RankingState = { ranked, pending: null };
     const candidate = album('x');
     const next = startPlacement(state, candidate);
@@ -86,12 +91,12 @@ describe('startPlacement', () => {
 
 describe('nextComparison', () => {
   it('returns null when there is no pending placement', () => {
-    const state: RankingState = { ranked: [album('a')], pending: null };
+    const state: RankingState = { ranked: [rankedAlbum('a', 10)], pending: null };
     expect(nextComparison(state)).toBeNull();
   });
 
   it('returns the candidate vs the element at the deterministic midpoint', () => {
-    const ranked = [album('a'), album('b'), album('c'), album('d')];
+    const ranked = [rankedAlbum('a', 10), rankedAlbum('b', 9), rankedAlbum('c', 8), rankedAlbum('d', 7)];
     const state: RankingState = { ranked, pending: null };
     const candidate = album('x');
     const withPending = startPlacement(state, candidate);
@@ -102,7 +107,13 @@ describe('nextComparison', () => {
   });
 
   it('never returns an opponent outside the current ranked list', () => {
-    const ranked = [album('a'), album('b'), album('c'), album('d'), album('e')];
+    const ranked = [
+      rankedAlbum('a', 10),
+      rankedAlbum('b', 9),
+      rankedAlbum('c', 8),
+      rankedAlbum('d', 7),
+      rankedAlbum('e', 6),
+    ];
     let state: RankingState = startPlacement({ ranked, pending: null }, album('x'));
 
     let comparison = nextComparison(state);
@@ -118,7 +129,7 @@ describe('nextComparison', () => {
 
 describe('applyPick narrowing', () => {
   it('narrows hi to mid when the candidate wins', () => {
-    const ranked = [album('a'), album('b'), album('c'), album('d')];
+    const ranked = [rankedAlbum('a', 10), rankedAlbum('b', 9), rankedAlbum('c', 8), rankedAlbum('d', 7)];
     let state = startPlacement({ ranked, pending: null }, album('x'));
     // mid = 2, candidate wins -> hi becomes 2
     const comparison = nextComparison(state)!;
@@ -127,7 +138,7 @@ describe('applyPick narrowing', () => {
   });
 
   it('narrows lo to mid+1 when the opponent wins', () => {
-    const ranked = [album('a'), album('b'), album('c'), album('d')];
+    const ranked = [rankedAlbum('a', 10), rankedAlbum('b', 9), rankedAlbum('c', 8), rankedAlbum('d', 7)];
     let state = startPlacement({ ranked, pending: null }, album('x'));
     // mid = 2, opponent wins -> lo becomes 3
     const comparison = nextComparison(state)!;
@@ -138,10 +149,10 @@ describe('applyPick narrowing', () => {
   it('finalizes and splices the candidate into ranked once lo>=hi', () => {
     // Known scenario: ranked = [A,B,C,D] (most to least preferred).
     // Insert X such that X < B (loses to B) and X > C (beats C).
-    const A = album('A');
-    const B = album('B');
-    const C = album('C');
-    const D = album('D');
+    const A = rankedAlbum('A', 10);
+    const B = rankedAlbum('B', 9);
+    const C = rankedAlbum('C', 8);
+    const D = rankedAlbum('D', 7);
     const X = album('X');
     let state: RankingState = startPlacement({ ranked: [A, B, C, D], pending: null }, X);
 
@@ -160,14 +171,35 @@ describe('applyPick narrowing', () => {
     expect(state.ranked.map((a) => a.mbid)).toEqual(['A', 'B', 'X', 'C', 'D']);
   });
 
+  it('gives the finalized album a rating interpolated between its neighbors', () => {
+    const ranked = [rankedAlbum('a', 9), rankedAlbum('b', 7)];
+    let state = startPlacement({ ranked, pending: null }, album('x'));
+
+    // lo=0, hi=2 -> mid=1 -> opponent b (rating 7); candidate beats b -> hi=1
+    let comparison = nextComparison(state)!;
+    expect(comparison.opponent.mbid).toBe('b');
+    state = applyPick(state, comparison.candidate.mbid);
+
+    // lo=0, hi=1 -> mid=0 -> opponent a (rating 9); a beats candidate -> lo=1
+    comparison = nextComparison(state)!;
+    expect(comparison.opponent.mbid).toBe('a');
+    state = applyPick(state, comparison.opponent.mbid);
+
+    // lo=1, hi=1 -> finalized between a (9) and b (7) -> rating 8 (midpoint)
+    expect(state.pending).toBeNull();
+    expect(state.ranked.map((a) => a.mbid)).toEqual(['a', 'x', 'b']);
+    const inserted = state.ranked.find((a) => a.mbid === 'x');
+    expect(inserted?.rating).toBe(8);
+  });
+
   it('throws if the winner is neither the candidate nor the current opponent', () => {
-    const ranked = [album('a'), album('b'), album('c')];
+    const ranked = [rankedAlbum('a', 10), rankedAlbum('b', 9), rankedAlbum('c', 8)];
     const state = startPlacement({ ranked, pending: null }, album('x'));
     expect(() => applyPick(state, 'not-a-real-mbid')).toThrow();
   });
 
   it('is a no-op when there is no pending placement', () => {
-    const state: RankingState = { ranked: [album('a')], pending: null };
+    const state: RankingState = { ranked: [rankedAlbum('a', 10)], pending: null };
     const next = applyPick(state, 'a');
     expect(next).toEqual(state);
   });
@@ -176,7 +208,7 @@ describe('applyPick narrowing', () => {
 describe('comparison count bound', () => {
   it('inserts into a list of length k in at most ceil(log2(k+1)) comparisons', () => {
     for (const k of [0, 1, 2, 3, 4, 5, 8, 16, 31, 32, 100]) {
-      const ranked = Array.from({ length: k }, (_, i) => album(`existing-${i}`));
+      const ranked = Array.from({ length: k }, (_, i) => rankedAlbum(`existing-${i}`, k - i));
       const bound = Math.ceil(Math.log2(k + 1));
 
       let state = startPlacement({ ranked, pending: null }, album('candidate'));
@@ -246,7 +278,13 @@ describe('transitivity / no self-contradiction (property test)', () => {
 
 describe('resumability (JSON round-trip)', () => {
   it('survives JSON.stringify/parse mid-placement and continues from the same bounds', () => {
-    const ranked = [album('a'), album('b'), album('c'), album('d'), album('e')];
+    const ranked = [
+      rankedAlbum('a', 10),
+      rankedAlbum('b', 9),
+      rankedAlbum('c', 8),
+      rankedAlbum('d', 7),
+      rankedAlbum('e', 6),
+    ];
     let state = startPlacement({ ranked, pending: null }, album('x'));
 
     // Advance one comparison before "refreshing".

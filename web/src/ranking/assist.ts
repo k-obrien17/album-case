@@ -12,7 +12,7 @@
  * the current `opponent`, and hands the resolved `index` back to the normal
  * `onPlace` path so neighbor pairwise atoms still fire.
  */
-import type { Album, RankingState } from './types';
+import type { Album, RankedAlbum, RankingState } from './types';
 import { startPlacement, nextComparison, applyPick } from './insertion';
 
 export type AssistPlacement = {
@@ -27,7 +27,7 @@ export type AssistPlacement = {
  * single-comparison-away) list the engine may resolve immediately; callers
  * should check `assistResolved` before rendering a comparison.
  */
-export function startAssist(ranked: Album[], album: Album): AssistPlacement {
+export function startAssist(ranked: RankedAlbum[], album: Album): AssistPlacement {
   return { album, state: startPlacement({ ranked, pending: null }, album) };
 }
 
@@ -55,8 +55,12 @@ export function assistPick(placement: AssistPlacement, winnerMbid: string): Assi
  * The final insertion index once resolved: the candidate's position in the
  * finalized list. Only meaningful after `assistResolved` is true; before then
  * the candidate is not yet in the list, so this falls back to the list length.
+ * Matched by mbid, not object reference: `applyPick` now finalizes by
+ * spreading the candidate into a new `{ ...album, rating }` object (to attach
+ * its computed rating), so the placed `RankedAlbum` is never the same
+ * reference as `placement.album`.
  */
 export function assistIndex(placement: AssistPlacement): number {
-  const index = placement.state.ranked.indexOf(placement.album);
+  const index = placement.state.ranked.findIndex((a) => a.mbid === placement.album.mbid);
   return index < 0 ? placement.state.ranked.length : index;
 }

@@ -13,6 +13,7 @@
  * only ordinal position.
  */
 import type { Album, Comparison, RankingState } from './types';
+import { ratingForDropIndex } from './rating';
 
 /**
  * Begin inserting `album` into `state.ranked`.
@@ -66,6 +67,9 @@ export function nextComparison(state: RankingState): Comparison | null {
  * `winnerMbid` must be either the candidate's or the current opponent's
  * mbid; anything else indicates a caller bug (stale comparison, wrong
  * state) and throws rather than silently corrupting the list.
+ * On finalization the candidate's rating is computed via `ratingForDropIndex`
+ * before it is spliced into `ranked`, so the stored order and its ratings
+ * never disagree.
  */
 export function applyPick(state: RankingState, winnerMbid: string): RankingState {
   const { pending } = state;
@@ -91,9 +95,10 @@ export function applyPick(state: RankingState, winnerMbid: string): RankingState
   }
 
   if (newLo >= newHi) {
+    const rating = ratingForDropIndex(state.ranked, newLo);
     const ranked = [
       ...state.ranked.slice(0, newLo),
-      album,
+      { ...album, rating },
       ...state.ranked.slice(newLo),
     ];
     return { ranked, pending: null };
