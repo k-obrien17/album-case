@@ -1,5 +1,5 @@
 import type { SavedLists } from './lists';
-import type { Album, ArtistLock, RankingState } from './ranking/types';
+import type { Album, ArtistLock, RankedAlbum, RankingState } from './ranking/types';
 import { getWriteKey, writeKeyHeaders } from './writeKey';
 import { parseAlbumArray, parseRankedAlbumArray } from './album';
 
@@ -41,7 +41,7 @@ type SnapshotResponse = {
 export type RankingSnapshotLoad =
   | {
       status: 'found';
-      ranked: Album[];
+      ranked: RankedAlbum[];
       lists: SavedLists;
       artistLocks: ArtistLock[];
       updatedAt: number;
@@ -151,7 +151,7 @@ export async function loadRankingSnapshotDetailed(sessionId: string): Promise<Ra
 
 export async function loadRankingSnapshot(
   sessionId: string
-): Promise<{ ranked: Album[]; lists: SavedLists; artistLocks: ArtistLock[] } | null> {
+): Promise<{ ranked: RankedAlbum[]; lists: SavedLists; artistLocks: ArtistLock[] } | null> {
   const result = await loadRankingSnapshotDetailed(sessionId);
   if (result.status !== 'found') return null;
   return { ranked: result.ranked, lists: result.lists, artistLocks: result.artistLocks };

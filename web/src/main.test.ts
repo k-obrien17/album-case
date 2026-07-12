@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { hydrateAlbums, resolveInitialState, restoreFromCode, serverSnapshotIsRicher } from './main';
 import type { SavedLists } from './lists';
-import type { Album, RankingState } from './ranking/types';
+import type { Album, RankedAlbum, RankingState } from './ranking/types';
 
 function album(mbid: string): Album {
   return {
@@ -17,12 +17,16 @@ function albumWithArtistMbid(mbid: string, artistMbid: string): Album {
   return { ...album(mbid), primary_artist_mbid: artistMbid };
 }
 
+function rankedAlbum(mbid: string, rating: number = 5.0): RankedAlbum {
+  return { ...album(mbid), rating };
+}
+
 const VALID = '66666666-6666-4666-8666-666666666666';
 
 describe('resolveInitialState (server-authoritative load-on-open)', () => {
   it('prefers the full server snapshot over the localStorage cache', () => {
     const server = {
-      ranked: [album('a')],
+      ranked: [rankedAlbum('a')],
       lists: {
         wantToListen: [album('b')],
         notHeard: [],
@@ -39,7 +43,7 @@ describe('resolveInitialState (server-authoritative load-on-open)', () => {
     const resolved = resolveInitialState(server, cached);
 
     expect(resolved.fromServer).toBe(true);
-    expect(resolved.state.ranked).toEqual([album('a')]);
+    expect(resolved.state.ranked).toEqual([rankedAlbum('a')]);
     // dontCare round-trips through the snapshot into the resolved state.
     expect(resolved.lists.dontCare).toEqual([album('c')]);
     expect(resolved.lists.wantToListen).toEqual([album('b')]);

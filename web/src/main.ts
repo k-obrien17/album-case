@@ -1,7 +1,7 @@
 import './style.css';
-import type { Album, ArtistLock, RankingState } from './ranking/types';
-import { insertAt, moveItem } from './ranking/order';
+import type { Album, ArtistLock, RankedAlbum, RankingState } from './ranking/types';
 import { setAsideAlbum } from './ranking/setAside';
+import { ratingForDropIndex } from './ranking/rating';
 import {
   loadSeedPool,
   loadPreferredArtists,
@@ -107,7 +107,7 @@ export async function restoreFromCode(
  * localStorage cache. Pure so load-on-open precedence is unit-testable.
  */
 export function resolveInitialState(
-  serverSnapshot: { ranked: Album[]; lists: SavedLists; artistLocks: ArtistLock[] } | null,
+  serverSnapshot: { ranked: RankedAlbum[]; lists: SavedLists; artistLocks: ArtistLock[] } | null,
   cached: { state: RankingState; lists: SavedLists; artistLocks: ArtistLock[] }
 ): { state: RankingState; lists: SavedLists; artistLocks: ArtistLock[]; fromServer: boolean } {
   if (serverSnapshot) {
@@ -150,7 +150,7 @@ export function serverSnapshotIsRicher(
   );
 }
 
-export function hydrateAlbums(albums: Album[], byId: Map<string, Album>): Album[] {
+export function hydrateAlbums<T extends Album>(albums: T[], byId: Map<string, Album>): T[] {
   return albums.map((album) => ({ ...(byId.get(album.mbid) ?? {}), ...album }));
 }
 
@@ -160,6 +160,21 @@ export function hydrateLists(lists: SavedLists, byId: Map<string, Album>): Saved
     notHeard: hydrateAlbums(lists.notHeard, byId),
     dontCare: hydrateAlbums(lists.dontCare, byId),
   };
+}
+
+/**
+ * Remove `album` from `ranked` if present (re-rating an existing album),
+ * compute its new rating for landing at `targetIndex` in the resulting
+ * array, then return the full list with `album` re-inserted at its
+ * rating-sorted position. `targetIndex` should already reflect any
+ * lock-safety clamping (nearestValidDropIndex) the caller performed.
+ */
+function reRate(ranked: RankedAlbum[], album: Album, targetIndex: number): RankedAlbum[] {
+  const without = ranked.filter((a) => a.mbid !== album.mbid);
+  const clampedIndex = Math.max(0, Math.min(targetIndex, without.length));
+  const rating = ratingForDropIndex(without, clampedIndex);
+  const rated: RankedAlbum = { ...album, rating };
+  return [...without, rated].sort((a, b) => b.rating - a.rating);
 }
 
 async function main(): Promise<void> {
@@ -555,7 +570,8 @@ async function main(): Promise<void> {
       getPool: () => pool,
       getArtistLocks: () => artistLocks,
       onReorder: (from, to) => {
-        state = { ranked: moveItem(state.ranked, from, to), pending: null };
+        const album = state.ranked[from];
+        state = { ranked: reRate(state.ranked, album, to), pending: null };
         persistRankingState();
         renderArtistLockView();
       },
@@ -569,12 +585,13 @@ async function main(): Promise<void> {
       },
       onSetOverallRank: (from, to) => {
         const clamped = nearestValidDropIndex(state.ranked, artistLocks, from, to);
-        state = { ranked: moveItem(state.ranked, from, clamped), pending: null };
+        const album = state.ranked[from];
+        state = { ranked: reRate(state.ranked, album, clamped), pending: null };
         persistRankingState();
         renderArtistLockView();
       },
       onPlace: (album, index) => {
-        state = { ranked: insertAt(state.ranked, album, index), pending: null };
+        state = { ranked: reRate(state.ranked, album, index), pending: null };
         lists = removeFromList(lists, album.mbid, 'wantToListen');
         lists = removeFromList(lists, album.mbid, 'notHeard');
         lists = removeFromList(lists, album.mbid, 'dontCare');
@@ -664,14 +681,15 @@ async function main(): Promise<void> {
         });
       }
 
-      state = { ranked: insertAt(before, placed, clamped), pending: null };
+      state = { ranked: reRate(before, placed, clamped), pending: null };
       persistRankingState();
       reselectCandidate();
       rankList.render();
       renderNav();
     },
     onReorder: (from, to) => {
-      state = { ranked: moveItem(state.ranked, from, to), pending: null };
+      const album = state.ranked[from];
+      state = { ranked: reRate(state.ranked, album, to), pending: null };
       persistRankingState();
       rankList.render();
     },
@@ -686,7 +704,8 @@ async function main(): Promise<void> {
     },
     onSetOverallRank: (from, to) => {
       const clamped = nearestValidDropIndex(state.ranked, artistLocks, from, to);
-      state = { ranked: moveItem(state.ranked, from, clamped), pending: null };
+      const album = state.ranked[from];
+      state = { ranked: reRate(state.ranked, album, clamped), pending: null };
       persistRankingState();
       rankList.render();
     },
