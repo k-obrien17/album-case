@@ -88,7 +88,7 @@ describe('/api/ranking', () => {
     await handler(
       postReq({
         session_id: '11111111-1111-4111-8111-111111111111',
-        ranked: [album('22222222-2222-4222-8222-222222222222')],
+        ranked: [{ ...album('22222222-2222-4222-8222-222222222222'), rating: 8.0 }],
         lists: { wantToListen: [], notHeard: [], dontCare: [] },
         base_updated_at: 123,
       }) as never,
@@ -126,7 +126,7 @@ describe('/api/ranking', () => {
     await handler(
       postReq({
         session_id: '11111111-1111-4111-8111-111111111111',
-        ranked: [album('22222222-2222-4222-8222-222222222222')],
+        ranked: [{ ...album('22222222-2222-4222-8222-222222222222'), rating: 8.0 }],
         lists: { wantToListen: [], notHeard: [], dontCare: [] },
         artist_locks: artistLocks,
       }) as never,
@@ -182,5 +182,92 @@ describe('/api/ranking', () => {
 
     expect(res.statusCode).toBe(200);
     expect((res.body as { snapshot: { artist_locks: unknown } }).snapshot.artist_locks).toEqual([]);
+  });
+
+  it('accepts a valid rating on an album in the ranked array', async () => {
+    vi.stubEnv('TURSO_DATABASE_URL', 'libsql://example.test');
+    vi.stubEnv('TURSO_AUTH_TOKEN', 'token');
+    vi.stubEnv('ALBUM_CASE_WRITE_KEY', 'secret-123');
+    const mbid = '22222222-2222-4222-8222-222222222222';
+    const rankedAlbum = { ...album(mbid), rating: 8.43 };
+    dbMock.execute.mockResolvedValue({ rows: [] });
+    dbMock.batch.mockResolvedValue([{ rowsAffected: 1 }, { rowsAffected: 1 }]);
+
+    const postRes = makeRes();
+    await handler(
+      postReq({
+        session_id: '11111111-1111-4111-8111-111111111111',
+        ranked: [rankedAlbum],
+        lists: { wantToListen: [], notHeard: [], dontCare: [] },
+      }) as never,
+      postRes as never
+    );
+    expect(postRes.statusCode).toBe(200);
+
+    const insertCall = dbMock.batch.mock.calls[0][0][1];
+    expect(insertCall.args).toContain(JSON.stringify([rankedAlbum]));
+
+    dbMock.execute.mockResolvedValue({
+      rows: [
+        {
+          ranking_json: JSON.stringify([rankedAlbum]),
+          lists_json: '{"wantToListen":[],"notHeard":[],"dontCare":[]}',
+          artist_locks_json: null,
+          updated_at: 123,
+        },
+      ],
+    });
+    const getRes = makeRes();
+    await handler(
+      getReq({ session_id: '11111111-1111-4111-8111-111111111111' }) as never,
+      getRes as never
+    );
+
+    expect(getRes.statusCode).toBe(200);
+    expect((getRes.body as { snapshot: { ranked: unknown } }).snapshot.ranked).toEqual([rankedAlbum]);
+  });
+
+  it('rejects a ranked album missing a rating', async () => {
+    vi.stubEnv('TURSO_DATABASE_URL', 'libsql://example.test');
+    vi.stubEnv('TURSO_AUTH_TOKEN', 'token');
+    vi.stubEnv('ALBUM_CASE_WRITE_KEY', 'secret-123');
+    dbMock.execute.mockResolvedValue({ rows: [] });
+    const res = makeRes();
+
+    await handler(
+      postReq({
+        session_id: '11111111-1111-4111-8111-111111111111',
+        ranked: [album('22222222-2222-4222-8222-222222222222')],
+        lists: { wantToListen: [], notHeard: [], dontCare: [] },
+      }) as never,
+      res as never
+    );
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toEqual({ error: 'invalid_snapshot' });
+  });
+
+  it('does not require a rating on albums inside lists (wantToListen/notHeard/dontCare)', async () => {
+    vi.stubEnv('TURSO_DATABASE_URL', 'libsql://example.test');
+    vi.stubEnv('TURSO_AUTH_TOKEN', 'token');
+    vi.stubEnv('ALBUM_CASE_WRITE_KEY', 'secret-123');
+    dbMock.execute.mockResolvedValue({ rows: [] });
+    dbMock.batch.mockResolvedValue([{ rowsAffected: 1 }, { rowsAffected: 1 }]);
+    const res = makeRes();
+
+    await handler(
+      postReq({
+        session_id: '11111111-1111-4111-8111-111111111111',
+        ranked: [],
+        lists: {
+          wantToListen: [album('33333333-3333-4333-8333-333333333333')],
+          notHeard: [],
+          dontCare: [],
+        },
+      }) as never,
+      res as never
+    );
+
+    expect(res.statusCode).toBe(200);
   });
 });

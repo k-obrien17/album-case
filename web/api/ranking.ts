@@ -20,6 +20,10 @@ type Album = {
   cover_url: string;
 };
 
+// A ranked-list entry additionally requires a rating (the single source of
+// truth for its position). Pool/list albums have no rating.
+type RankedAlbum = Album & { rating: number };
+
 type SnapshotLists = {
   wantToListen: Album[];
   notHeard: Album[];
@@ -124,6 +128,30 @@ function parseAlbumList(value: unknown): Album[] | null {
   return albums;
 }
 
+// Ranked entries additionally require a numeric rating. Kept separate from
+// parseAlbum/parseAlbumList, which stay untouched for pool/list albums that
+// have no rating.
+function parseRankedAlbum(value: unknown): RankedAlbum | null {
+  const album = parseAlbum(value);
+  if (!album) return null;
+  const rating = isObject(value) ? value.rating : undefined;
+  if (typeof rating !== 'number') return null;
+  return { ...album, rating };
+}
+
+function parseRankedAlbumList(value: unknown): RankedAlbum[] | null {
+  if (!Array.isArray(value)) return null;
+  const seen = new Set<string>();
+  const albums: RankedAlbum[] = [];
+  for (const item of value) {
+    const album = parseRankedAlbum(item);
+    if (!album || seen.has(album.mbid)) return null;
+    seen.add(album.mbid);
+    albums.push(album);
+  }
+  return albums;
+}
+
 function parseLists(value: unknown): SnapshotLists | null {
   if (!isObject(value)) return null;
   const wantToListen = parseAlbumList(value.wantToListen);
@@ -159,7 +187,7 @@ function validate(body: RankingBody | null):
   | {
       ok: true;
       sessionId: string;
-      ranked: Album[];
+      ranked: RankedAlbum[];
       lists: SnapshotLists;
       artistLocks: ArtistLock[];
       baseUpdatedAt: number | null | undefined;
@@ -168,7 +196,7 @@ function validate(body: RankingBody | null):
   if (!body) return { ok: false, message: 'invalid_json' };
   if (!isSessionId(body.session_id)) return { ok: false, message: 'invalid_session' };
 
-  const ranked = parseAlbumList(body.ranked);
+  const ranked = parseRankedAlbumList(body.ranked);
   const lists = parseLists(body.lists);
   const artistLocks = parseArtistLocks(body.artist_locks);
   if (!ranked || !lists || !artistLocks) return { ok: false, message: 'invalid_snapshot' };
@@ -214,7 +242,7 @@ WHERE session_id = ?
     return;
   }
 
-  const ranked = JSON.parse(String(row.ranking_json)) as Album[];
+  const ranked = JSON.parse(String(row.ranking_json)) as RankedAlbum[];
   const lists = JSON.parse(String(row.lists_json)) as Partial<SnapshotLists>;
   const artistLocks = row.artist_locks_json ? (JSON.parse(String(row.artist_locks_json)) as ArtistLock[]) : [];
   res.status(200).json({

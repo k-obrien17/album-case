@@ -88,7 +88,7 @@ describe('loadRankingSnapshot', () => {
 
   it('returns full album records including dontCare, no seed pool needed', async () => {
     const snapshot = {
-      ranked: [album('a')],
+      ranked: [{ ...album('a'), rating: 8.43 }],
       lists: {
         wantToListen: [album('b')],
         notHeard: [album('c')],
@@ -109,7 +109,7 @@ describe('loadRankingSnapshot', () => {
     const result = await loadRankingSnapshot('11111111-1111-4111-8111-111111111111');
 
     expect(result).toEqual({
-      ranked: [album('a')],
+      ranked: [{ ...album('a'), rating: 8.43 }],
       lists: {
         wantToListen: [album('b')],
         notHeard: [album('c')],
@@ -121,7 +121,7 @@ describe('loadRankingSnapshot', () => {
 
   it('defaults a missing dontCare bucket to an empty list (older snapshot)', async () => {
     const snapshot = {
-      ranked: [album('a')],
+      ranked: [{ ...album('a'), rating: 8.43 }],
       lists: { wantToListen: [], notHeard: [] },
       updated_at: 1,
     };
@@ -137,7 +137,7 @@ describe('loadRankingSnapshot', () => {
     const result = await loadRankingSnapshot('11111111-1111-4111-8111-111111111111');
 
     expect(result).toEqual({
-      ranked: [album('a')],
+      ranked: [{ ...album('a'), rating: 8.43 }],
       lists: { wantToListen: [], notHeard: [], dontCare: [] },
       artistLocks: [],
     });

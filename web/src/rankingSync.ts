@@ -1,7 +1,7 @@
 import type { SavedLists } from './lists';
 import type { Album, ArtistLock, RankingState } from './ranking/types';
 import { getWriteKey, writeKeyHeaders } from './writeKey';
-import { parseAlbumArray } from './album';
+import { parseAlbumArray, parseRankedAlbumArray } from './album';
 
 /**
  * The snapshot carries FULL album records (not just mbids). The server is the
@@ -138,7 +138,7 @@ export async function loadRankingSnapshotDetailed(sessionId: string): Promise<Ra
   // malformed payload degrades to empty rather than crashing the loop.
   return {
     status: 'found',
-    ranked: parseAlbumArray(body.snapshot.ranked),
+    ranked: parseRankedAlbumArray(body.snapshot.ranked),
     lists: {
       wantToListen: parseAlbumArray(body.snapshot.lists?.wantToListen),
       notHeard: parseAlbumArray(body.snapshot.lists?.notHeard),
