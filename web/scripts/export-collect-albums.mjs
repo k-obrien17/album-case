@@ -49,18 +49,19 @@ if (!row) {
 }
 
 import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { dirname } from 'node:path';
 
 const ranked = JSON.parse(String(row.ranking_json));
 
-// This script lives at web/scripts/, one level deeper than media-library's
-// scripts/ — hence three '..' segments, not two, to reach the Projects/
-// sibling (verified: resolve(HERE, '..','..','..', 'keithrobrien', ...)).
-const HERE = dirname(fileURLToPath(import.meta.url));
+// Hardcoded, like OWNER_ID above: this is a personal, single-machine script.
+// Deriving the path from the script's own location (import.meta.url) breaks
+// depending on where the repo happens to be checked out -- the main repo vs.
+// a temporary git worktree (which nests two levels deeper), producing a
+// silently wrong sibling path. A fixed absolute default is more robust, and
+// still fully overridable via COLLECT_OUT for any other machine/need.
 const OUT =
   process.env.COLLECT_OUT ||
-  resolve(HERE, '..', '..', '..', 'keithrobrien', 'content', 'collect', 'albums.json');
+  '/Users/keithobrien/Desktop/Claude/Projects/keithrobrien/content/collect/albums.json';
 
 if (!existsSync(dirname(OUT))) {
   console.error(`Output directory does not exist: ${dirname(OUT)}. Set COLLECT_OUT to a valid path.`);
