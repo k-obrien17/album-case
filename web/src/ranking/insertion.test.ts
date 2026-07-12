@@ -73,7 +73,9 @@ describe('startPlacement', () => {
     const a = album('a');
     const next = startPlacement(state, a);
 
-    expect(next.ranked).toEqual([a]);
+    expect(next.ranked).toEqual([{ ...a, rating: 10 }]);
+    expect(next.ranked[0].rating).toBe(10);
+    expect(typeof next.ranked[0].rating).toBe('number');
     expect(next.pending).toBeNull();
     expect(nextComparison(next)).toBeNull();
   });

@@ -21,14 +21,18 @@ import { ratingForDropIndex } from './rating';
  * On an empty list there is nothing to compare against, so the placement
  * finalizes immediately: `album` becomes the sole element and `pending`
  * is left `null` (so a subsequent `nextComparison` call returns `null`).
+ * As with `applyPick`'s finalization branch, the candidate's rating is
+ * computed via `ratingForDropIndex` before it is appended, so this
+ * shortcut path never inserts an album missing a `rating`.
  */
 export function startPlacement(state: RankingState, album: Album): RankingState {
   const lo = 0;
   const hi = state.ranked.length;
 
   if (lo >= hi) {
+    const rating = ratingForDropIndex(state.ranked, state.ranked.length);
     return {
-      ranked: [...state.ranked, album],
+      ranked: [...state.ranked, { ...album, rating }],
       pending: null,
     };
   }
