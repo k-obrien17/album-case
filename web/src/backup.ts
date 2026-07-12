@@ -1,6 +1,7 @@
 import type { SavedLists } from './lists';
-import type { Album, RankingState } from './ranking/types';
+import type { Album, RankedAlbum, RankingState } from './ranking/types';
 import { parseAlbum } from './album';
+import { ratingForDropIndex } from './ranking/rating';
 
 type BackupBundle = {
   version: 1;
@@ -75,8 +76,16 @@ export function parseRankingBackup(raw: string, pool: Album[]): ParseResult {
   if (!isObject(payload)) return { ok: false, error: 'backup must be a JSON object' };
 
   const rankingSource = isObject(payload.ranking) ? payload.ranking : payload;
-  const ranked = canonicalAlbums(rankingSource.ranked, pool);
-  if (!ranked) return { ok: false, error: 'backup contains a malformed or duplicate album entry' };
+  const albumList = canonicalAlbums(rankingSource.ranked, pool);
+  if (!albumList) return { ok: false, error: 'backup contains a malformed or duplicate album entry' };
+
+  // Recompute ratings based on positions in the loaded ranked list.
+  // Build incrementally so each album's rating accounts for previously-placed albums.
+  const ranked: RankedAlbum[] = [];
+  for (const album of albumList) {
+    const rating = ratingForDropIndex(ranked, ranked.length);
+    ranked.push({ ...album, rating });
+  }
 
   const lists = parseLists(payload.lists, pool);
   return {

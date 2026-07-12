@@ -12,10 +12,14 @@ function album(mbid: string): Album {
   };
 }
 
+function rankedAlbum(mbid: string, rating: number = 5.0) {
+  return { ...album(mbid), rating };
+}
+
 describe('setAsideAlbum', () => {
   it('always drops any in-progress placement to null', () => {
     const state: RankingState = {
-      ranked: [album('a'), album('b')],
+      ranked: [rankedAlbum('a'), rankedAlbum('b')],
       pending: { album: album('c'), lo: 0, hi: 2 },
     };
     const next = setAsideAlbum(state, 'c');
@@ -24,7 +28,7 @@ describe('setAsideAlbum', () => {
 
   it('removes the target album from ranked when present', () => {
     const state: RankingState = {
-      ranked: [album('a'), album('b'), album('c')],
+      ranked: [rankedAlbum('a'), rankedAlbum('b'), rankedAlbum('c')],
       pending: null,
     };
     const next = setAsideAlbum(state, 'b');
@@ -33,7 +37,7 @@ describe('setAsideAlbum', () => {
 
   it('leaves the other ranked entries and their order intact', () => {
     const state: RankingState = {
-      ranked: [album('x'), album('y'), album('z')],
+      ranked: [rankedAlbum('x'), rankedAlbum('y'), rankedAlbum('z')],
       pending: null,
     };
     const next = setAsideAlbum(state, 'y');
@@ -42,7 +46,7 @@ describe('setAsideAlbum', () => {
 
   it('is a no-op on ranked for an mbid that is not present (still drops pending)', () => {
     const state: RankingState = {
-      ranked: [album('a'), album('b')],
+      ranked: [rankedAlbum('a'), rankedAlbum('b')],
       pending: { album: album('c'), lo: 0, hi: 2 },
     };
     const next = setAsideAlbum(state, 'missing');
@@ -52,7 +56,7 @@ describe('setAsideAlbum', () => {
 
   it('does not mutate the input state', () => {
     const original: RankingState = {
-      ranked: [album('a'), album('b')],
+      ranked: [rankedAlbum('a'), rankedAlbum('b')],
       pending: { album: album('c'), lo: 0, hi: 2 },
     };
     const snapshotRanked = original.ranked.map((a) => a.mbid);

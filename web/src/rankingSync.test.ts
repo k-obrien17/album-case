@@ -19,6 +19,10 @@ function album(mbid: string): Album {
   };
 }
 
+function rankedAlbum(mbid: string, rating: number = 5.0) {
+  return { ...album(mbid), rating };
+}
+
 describe('ranking snapshot payload', () => {
   afterEach(() => {
     clearWriteKey();
@@ -26,7 +30,7 @@ describe('ranking snapshot payload', () => {
   });
 
   it('serializes FULL album records (not just mbids) plus session id', () => {
-    const state: RankingState = { ranked: [album('a'), album('b')], pending: null };
+    const state: RankingState = { ranked: [rankedAlbum('a'), rankedAlbum('b')], pending: null };
     const lists: SavedLists = {
       wantToListen: [album('c')],
       notHeard: [album('d')],
@@ -36,7 +40,7 @@ describe('ranking snapshot payload', () => {
 
     expect(snapshotPayload('session-1', state, lists, artistLocks)).toEqual({
       session_id: 'session-1',
-      ranked: [album('a'), album('b')],
+      ranked: [rankedAlbum('a'), rankedAlbum('b')],
       lists: {
         wantToListen: [album('c')],
         notHeard: [album('d')],
@@ -47,12 +51,12 @@ describe('ranking snapshot payload', () => {
   });
 
   it('includes the snapshot version when provided', () => {
-    const state: RankingState = { ranked: [album('a')], pending: null };
+    const state: RankingState = { ranked: [rankedAlbum('a')], pending: null };
     const lists: SavedLists = { wantToListen: [], notHeard: [], dontCare: [] };
 
     expect(snapshotPayload('session-1', state, lists, [], 123)).toEqual({
       session_id: 'session-1',
-      ranked: [album('a')],
+      ranked: [rankedAlbum('a')],
       lists,
       artist_locks: [],
       base_updated_at: 123,
@@ -71,7 +75,7 @@ describe('ranking snapshot payload', () => {
 
     const result = await saveRankingSnapshot(
       '11111111-1111-4111-8111-111111111111',
-      { ranked: [album('a')], pending: null },
+      { ranked: [rankedAlbum('a')], pending: null },
       { wantToListen: [], notHeard: [], dontCare: [] },
       [],
       123

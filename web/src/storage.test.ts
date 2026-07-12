@@ -12,6 +12,7 @@ describe('ranking state persistence', () => {
           primary_artist_name: 'Artist A',
           release_year: 2000,
           cover_url: 'https://example.test/a.jpg',
+          rating: 5.0,
         },
       ],
       pending: null,
@@ -30,6 +31,7 @@ describe('ranking state persistence', () => {
           primary_artist_name: 'Artist A',
           release_year: 2000,
           cover_url: 'https://example.test/a.jpg',
+          rating: 5.0,
         },
       ],
       pending: {
