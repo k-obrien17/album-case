@@ -32,9 +32,35 @@ const pool = [album('a'), album('b'), album('c'), album('d')];
 const lists: SavedLists = { wantToListen: [album('c')], notHeard: [album('d')], dontCare: [] };
 
 describe('ranking backups', () => {
-  it('exports and imports a ranking backup bundle', () => {
-    const state: RankingState = { ranked: [rankedAlbum('a'), rankedAlbum('b')], pending: null };
+  it('exports and imports a ranking backup bundle, preserving each album\'s real rating', () => {
+    // Distinct ratings per album: if restore silently recomputed from
+    // position instead of preserving the stored value, these would come
+    // back as different numbers than 9.2/6.7.
+    const state: RankingState = { ranked: [rankedAlbum('a', 9.2), rankedAlbum('b', 6.7)], pending: null };
     const parsed = parseRankingBackup(createRankingBackup(state, lists), pool);
+
+    expect(parsed).toEqual({
+      ok: true,
+      state: { ranked: [rankedAlbum('a', 9.2), rankedAlbum('b', 6.7)], pending: null },
+      lists,
+    });
+  });
+
+  it('falls back to recomputing ratings from position for a legacy backup with no stored rating', () => {
+    // Simulates a pre-migration backup file: ranked entries have no `rating`
+    // field at all (built directly, bypassing createRankingBackup).
+    const raw = JSON.stringify({
+      version: 1,
+      ranking: {
+        ranked: [
+          { ...album('a') },
+          { ...album('b') },
+        ],
+        pending: null,
+      },
+      lists,
+    });
+    const parsed = parseRankingBackup(raw, pool);
 
     expect(parsed).toEqual({
       ok: true,
@@ -44,11 +70,13 @@ describe('ranking backups', () => {
   });
 
   it('imports a legacy direct RankingState JSON file', () => {
+    // "legacy" here means the direct (unwrapped) RankingState shape, not a
+    // missing rating -- these entries carry real ratings, which must survive.
     const parsed = parseRankingBackup(JSON.stringify({ ranked: [rankedAlbum('b'), rankedAlbum('a')], pending: null }), pool);
 
     expect(parsed).toEqual({
       ok: true,
-      state: { ranked: restoreRanked(['b', 'a']), pending: null },
+      state: { ranked: [rankedAlbum('b'), rankedAlbum('a')], pending: null },
       lists: null,
     });
   });
@@ -63,19 +91,20 @@ describe('ranking backups', () => {
 
     expect(parsed).toEqual({
       ok: true,
-      state: { ranked: restoreRanked(['a']), pending: null },
+      state: { ranked: [rankedAlbum('a')], pending: null },
       lists: { wantToListen: [album('c')], notHeard: [], dontCare: [] },
     });
   });
 
   it('preserves a previously-ranked album that is no longer in the seed', () => {
     // A backup must survive a seed change: an album ranked under an older seed
-    // is kept from its stored record rather than dropped.
+    // is kept from its stored record rather than dropped, and its stored
+    // rating is preserved along with it.
     const parsed = parseRankingBackup(JSON.stringify({ ranked: [rankedAlbum('a'), rankedAlbum('gone')], pending: null }), pool);
 
     expect(parsed).toEqual({
       ok: true,
-      state: { ranked: restoreRanked(['a', 'gone']), pending: null },
+      state: { ranked: [rankedAlbum('a'), rankedAlbum('gone')], pending: null },
       lists: null,
     });
   });
