@@ -11,6 +11,13 @@ export type Album = {
   cover_url: string;
 };
 
+/** An album that's actually in the ranked list — carries a rating, the
+ *  single source of truth for its position. Pool/candidate/seed albums
+ *  are plain `Album`s with no rating until they're placed. */
+export type RankedAlbum = Album & {
+  rating: number; // 1.00-10.00, 2 decimal places.
+};
+
 /**
  * A frozen relative order for one artist's albums. `order` holds album mbids
  * in locked relative order (index 0 = most preferred). Enforcement only
@@ -35,7 +42,7 @@ export type Pending = {
  * Deliberately plain-data so it round-trips through JSON for persistence.
  */
 export type RankingState = {
-  ranked: Album[];
+  ranked: RankedAlbum[];
   pending: Pending | null;
 };
 
