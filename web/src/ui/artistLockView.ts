@@ -1,4 +1,4 @@
-import type { Album, ArtistLock } from '../ranking/types';
+import type { Album, ArtistLock, RankedAlbum } from '../ranking/types';
 import type { SavedLists } from '../lists';
 import { artistAlbumsFor, mapFilteredReorderToGlobal } from '../artistLockAlbums';
 import { buildLock } from '../ranking/locks';
@@ -10,7 +10,7 @@ export type ArtistDiscoverViewResult =
 
 export type ArtistLockViewOptions = {
   album: Album;
-  getRanked: () => Album[];
+  getRanked: () => RankedAlbum[];
   getLists: () => SavedLists;
   getPool: () => Album[];
   getArtistLocks: () => ArtistLock[];

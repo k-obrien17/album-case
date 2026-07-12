@@ -1,4 +1,4 @@
-import type { Album } from '../ranking/types';
+import type { Album, RankedAlbum } from '../ranking/types';
 import { computeSubRanks, type SubRank } from '../ranking/subRank';
 import type { ListName } from '../lists';
 import {
@@ -20,12 +20,12 @@ import {
  */
 
 export type RankListOptions = {
-  getRanked: () => Album[];
+  getRanked: () => RankedAlbum[];
   /** The full global ranked array, for computing correct year-rank and
    *  overall-rank when this instance renders a filtered subset (e.g. the
    *  artist-lock scoped view). Omit when `getRanked` already returns the
    *  full global list -- the main ranked-list view does. */
-  getGlobalRanked?: () => Album[];
+  getGlobalRanked?: () => RankedAlbum[];
   getCandidate: () => Album | null;
   /** Insert the current candidate at `index`. */
   onPlace: (index: number) => void;
@@ -294,7 +294,7 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
   }
 
   function buildRow(
-    album: Album,
+    album: RankedAlbum,
     index: number,
     subRanks: Map<string, SubRank>,
     lockedArtists: Set<string>
@@ -324,8 +324,19 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
       meta.append(arranged);
     }
 
+    const ratingEl = document.createElement('span');
+    ratingEl.className = 'rank-rating';
+    ratingEl.textContent = album.rating.toFixed(2);
+
     const overallControl = buildOverallControl(album, subRanks.get(album.mbid));
-    if (overallControl) meta.append(overallControl);
+    if (overallControl) {
+      const overallRow = document.createElement('div');
+      overallRow.className = 'rank-overall-row';
+      overallRow.append(overallControl, ratingEl);
+      meta.append(overallRow);
+    } else {
+      meta.append(ratingEl);
+    }
 
     li.append(num, meta);
 

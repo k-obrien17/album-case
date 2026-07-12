@@ -382,6 +382,12 @@ body {
   line-height: 1.2;
 }
 
+.rank-overall-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .rank-overall {
   display: block;
   margin: 2px 0 0;
@@ -392,6 +398,13 @@ body {
   font-family: var(--font-mono);
   font-size: 0.8rem;
   text-align: left;
+}
+
+.rank-rating {
+  margin: 2px 0 0;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
 }
 
 button.rank-overall {

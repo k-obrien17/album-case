@@ -1,10 +1,10 @@
 import type { Album } from './ranking/types';
 import type { SavedLists } from './lists';
 
-export type ArtistLockAlbums = {
+export type ArtistLockAlbums<T extends Album = Album> = {
   /** This artist's albums currently in the global ranked list, in current
    *  relative order. */
-  ranked: Album[];
+  ranked: T[];
   /** This artist's albums not yet in the global ranked list: saved-list
    *  entries plus still-a-bare-candidate pool entries, de-duped. */
   unranked: Album[];
@@ -12,13 +12,15 @@ export type ArtistLockAlbums = {
 
 /** Group one artist's known albums into ranked/unranked, for the
  *  artist-scoped lock view. `pool` is the full candidate pool (already
- *  includes discovered albums by the time this is called). */
-export function artistAlbumsFor(
+ *  includes discovered albums by the time this is called). Generic over `T`
+ *  so a `RankedAlbum[]` input keeps its `rating` in the returned `ranked`
+ *  array instead of widening to plain `Album`. */
+export function artistAlbumsFor<T extends Album>(
   artistMbid: string,
-  ranked: Album[],
+  ranked: T[],
   lists: SavedLists,
   pool: Album[]
-): ArtistLockAlbums {
+): ArtistLockAlbums<T> {
   const byArtist = (album: Album) => album.primary_artist_mbid === artistMbid;
 
   const rankedAlbums = ranked.filter(byArtist);
