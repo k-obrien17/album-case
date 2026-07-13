@@ -6,7 +6,8 @@
  * Usage:
  *   node --env-file=web/.env.local web/scripts/import-album-canon.mjs
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { createClient } from '@libsql/client';
 import { parseCanonCsv, isLpReleaseGroup, isConfidentMatch } from './lib/canon-import.mjs';
 
@@ -73,6 +74,7 @@ const artistLocks = snapshotRow.artist_locks_json ? JSON.parse(String(snapshotRo
 const baseUpdatedAt = Number(snapshotRow.updated_at);
 
 const backupPath = `web/scripts/backups/canon-import-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+mkdirSync(dirname(backupPath), { recursive: true });
 writeFileSync(backupPath, JSON.stringify({ ranked: currentRanked, lists, artist_locks: artistLocks, updated_at: baseUpdatedAt }, null, 2));
 console.log(`Backup written to ${backupPath}`);
 
@@ -142,7 +144,6 @@ console.log('Wrote web/scripts/canon-import-report.json for inspection.');
 
 // --- Build the replace list: confident matches update-or-add; everything else
 //     currently in `ranked` that the file doesn't mention is left untouched. ---
-const currentByMbid = new Map(currentRanked.map((a) => [a.mbid, a]));
 const fileMbids = new Set(confident.map((c) => c.mbid));
 
 const updatedOrNew = confident.map((c) => ({
@@ -153,11 +154,28 @@ const updatedOrNew = confident.map((c) => ({
   release_year: c.release_year,
   cover_url: c.cover_url,
   rating: c.row.rating,
+  ranking: c.row.ranking,
 }));
 
 const untouched = currentRanked.filter((a) => !fileMbids.has(a.mbid));
 
-const newRanked = [...updatedOrNew, ...untouched].sort((a, b) => b.rating - a.rating);
+// Tiebreak on the CSV's own Ranking column so tied ratings don't silently
+// depend on stable-sort plus input order (175 of 375 adjacent pairs in the
+// real data are rating ties). `untouched` albums carry no CSV ranking, so
+// they sort after tied CSV-sourced albums via the `?? Infinity` fallback.
+const newRanked = [...updatedOrNew, ...untouched]
+  .sort((a, b) => b.rating - a.rating || (a.ranking ?? Infinity) - (b.ranking ?? Infinity))
+  // `ranking` is a sort-only field, not part of the Album schema -- strip it
+  // before this is ever written so it can't leak into the stored snapshot.
+  .map(({ mbid, title, primary_artist_name, primary_artist_mbid, release_year, cover_url, rating }) => ({
+    mbid,
+    title,
+    primary_artist_name,
+    ...(primary_artist_mbid ? { primary_artist_mbid } : {}),
+    release_year,
+    cover_url,
+    rating,
+  }));
 
 console.log(`Replace list: ${updatedOrNew.length} from the file (updated or new), ${untouched.length} untouched existing, ${newRanked.length} total.`);
 
@@ -166,9 +184,9 @@ console.log(`Replace list: ${updatedOrNew.length} from the file (updated or new)
 // so this should never trip -- but an `untouched` album carrying an old
 // sub-8 backfill rating (or a different source file later) would silently
 // violate the rule, so fail loudly rather than write it.
-const belowFloor = newRanked.filter((a) => a.rating < 8);
+const belowFloor = newRanked.filter((a) => typeof a.rating !== 'number' || Number.isNaN(a.rating) || a.rating < 8);
 if (belowFloor.length > 0) {
-  console.error(`\nABORT: ${belowFloor.length} album(s) rated below the 8.0 floor:`);
+  console.error(`\nABORT: ${belowFloor.length} album(s) rated below 8.0 or not a valid number:`);
   for (const a of belowFloor.slice(0, 10)) {
     console.error(`  - ${a.title} (${a.primary_artist_name}) = ${a.rating}`);
   }
