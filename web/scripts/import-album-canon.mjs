@@ -312,10 +312,65 @@ if (conflictingLocks.length > 0) {
   console.log(`\nNo artist lock conflicts detected across ${artistLocks.length} lock(s).`);
 }
 
+// --- Saved-list pruning. The API enforces that an album cannot be BOTH in
+//     `ranked` AND in a saved list (web/api/ranking.ts's
+//     `ranked_album_in_saved_list` check). The canon file can promote an
+//     album that's currently sitting in wantToListen/notHeard/dontCare
+//     straight into `ranked`, which would otherwise violate that invariant
+//     and fail the write after this script's ~2.5 minutes of matching.
+//     Keith's decision: the canon wins -- any saved-list album that now
+//     appears in `newRanked` is removed from its saved list. This runs on
+//     the FINAL `newRanked` (after sort, floor check, and lock-tie repair)
+//     so the dry run reports exactly what the real run would do, and it
+//     runs on `lists` -- the original snapshot's lists -- not on any
+//     already-mutated copy, so the backup above (already written) stays the
+//     true pre-import state while `prunedLists` below is what gets posted.
+const newRankedIds = new Set(newRanked.map((a) => a.mbid));
+const prunedLists = {
+  wantToListen: lists.wantToListen.filter((a) => !newRankedIds.has(a.mbid)),
+  notHeard: lists.notHeard.filter((a) => !newRankedIds.has(a.mbid)),
+  dontCare: lists.dontCare.filter((a) => !newRankedIds.has(a.mbid)),
+};
+
+const newRankedByMbid = new Map(newRanked.map((a) => [a.mbid, a]));
+const pruned = [];
+for (const [listName, original] of Object.entries(lists)) {
+  for (const album of original) {
+    if (newRankedIds.has(album.mbid)) {
+      pruned.push({ listName, album, rating: newRankedByMbid.get(album.mbid)?.rating });
+    }
+  }
+}
+
+if (pruned.length > 0) {
+  console.log(`\nPruning ${pruned.length} album(s) from saved lists (they are now ranked by the canon):`);
+  for (const { listName, album, rating } of pruned) {
+    console.log(`  - ${album.title} (${album.primary_artist_name}) -- was in "${listName}", now ranked at ${rating}`);
+  }
+} else {
+  console.log('\nNo saved-list albums collide with the ranked list.');
+}
+
+// Defensive re-check of the exact invariant the API enforces (validate() in
+// web/api/ranking.ts): abort locally with a clear message rather than
+// discovering a collision via a 400 after the write attempt.
+const prunedSaved = [...prunedLists.wantToListen, ...prunedLists.notHeard, ...prunedLists.dontCare];
+const stillColliding = prunedSaved.filter((a) => newRankedIds.has(a.mbid));
+if (stillColliding.length > 0) {
+  console.error(`\nABORT: ${stillColliding.length} pruned saved-list album(s) still collide with newRanked:`);
+  for (const a of stillColliding.slice(0, 10)) {
+    console.error(`  - ${a.title} (${a.primary_artist_name})`);
+  }
+  console.error('This should be impossible after pruning -- fix the pruning logic before writing.');
+  process.exit(1);
+}
+console.log('Collision check passed: no saved-list album shares an mbid with the ranked list.');
+
 // --- The actual write. Gated behind an explicit env var so this can never
 //     fire by accident: everything above this line is read-only (matching,
-//     backup, floor check, lock repair/conflict report). Without the env var
-//     set, the script stops here having written nothing to production. ---
+//     backup, floor check, lock repair/conflict report, saved-list prune
+//     report). Without the env var set, the script stops here having
+//     written nothing to production. ---
 if (process.env.CONFIRM_CANON_IMPORT !== 'yes') {
   console.log('\nDry run complete. Set CONFIRM_CANON_IMPORT=yes to actually write this to production.');
   client.close();
@@ -334,7 +389,7 @@ const res = await fetch('https://album-case.vercel.app/api/ranking', {
   body: JSON.stringify({
     session_id: OWNER_ID,
     ranked: newRanked,
-    lists,
+    lists: prunedLists,
     artist_locks: artistLocks,
     base_updated_at: baseUpdatedAt,
   }),
