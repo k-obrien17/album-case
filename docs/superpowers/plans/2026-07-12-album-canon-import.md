@@ -16,7 +16,7 @@
 - Rating comes directly from the CSV's `Rating` column — no interpolation, no comparison walk. This is explicitly different from every other album-entry path in the app (drag-to-place, direct-rate) because a real, externally-sourced number already exists per row.
 - MusicBrainz release-group search: `query=artist:"<artist>" AND releasegroup:"<title>"` (Lucene-escape embedded quotes in either value), filtered through a duplicated copy of `isLpReleaseGroup` (from `web/api/_lp.ts` — 2-line function, duplicated per this project's established script-boundary convention, not imported since scripts are plain `.mjs`).
 - Confidence threshold, reused from the (unbuilt but still-valid) bulk-list-import spec's design: exactly one candidate with MusicBrainz `score` ≥ 90 auto-accepts; anything else (zero candidates, multiple candidates, low score) goes to a report file, not an interactive queue — this is a script, not the in-app UI.
-- Rate limit: 1000ms between MusicBrainz calls (396 rows ≈ 7 minutes total runtime — expected and fine for a one-time script).
+- Rate limit: 1000ms between MusicBrainz calls, but only for rows that don't already match the owner's existing library by normalized artist+title — roughly 244 of the 396 rows should resolve locally with zero network cost, leaving ~152 real MusicBrainz calls (~2.5 minutes), not 396 (~7 minutes).
 - **Mandatory backup before any write** — full current ranking snapshot to a timestamped local file. Non-negotiable per the spec; no task in this plan skips it.
 - **Artist-lock conflicts are reported, never auto-resolved** — 14 locks currently live in production (per this session's own verification). The script must not modify or drop any lock.
 - Albums currently in `ranked` that don't appear anywhere in the 396-row file are left completely untouched — same rating, same relative position (their exact index may shift as other ratings around them change, but their own rating is never touched by this script).
@@ -190,16 +190,18 @@ git commit -m "feat(scripts): add CSV parsing and matching logic for the canon i
 
 ---
 
-### Task 2: MusicBrainz matching against real data (no writes yet)
+### Task 2: Local-library matching + backup, then MusicBrainz only for genuine misses
 
 **Files:**
-- Create: `web/scripts/import-album-canon.mjs` (orchestration script — this task only builds the matching/reporting half, not the backup/write half)
+- Create: `web/scripts/import-album-canon.mjs` (orchestration script)
 
 **Interfaces:**
 - Consumes: `parseCanonCsv`, `isLpReleaseGroup`, `isConfidentMatch` (Task 1).
-- Produces: a working script that reads the real CSV, matches every row against MusicBrainz, and writes a report — no Turso read, no backup, no write yet (those are Tasks 3-5).
+- Produces: a working script that fetches the current ranking snapshot, backs it up, matches every CSV row against the owner's OWN existing library first (zero network cost), and only hits MusicBrainz for rows that don't match anything already known — writing a report for inspection. Still no write to production (that's Task 5).
 
-- [ ] **Step 1: Write the script's matching phase**
+**Corrected from the original plan draft during execution**: matching every row against MusicBrainz regardless of whether it's already in the owner's library would waste ~244 unnecessary network calls (out of 396 rows, roughly 244 are albums Album Case already has a real, verified `mbid` for) and — worse — risks a fresh search resolving to a *different* release-group edition than the one already in the owner's actual data. Fetching the current snapshot first and matching locally by normalized artist+title avoids both problems: existing albums get their already-correct `mbid` reused directly, and only the ~152 genuinely new albums need a live MusicBrainz lookup. This cuts expected runtime from ~7 minutes to roughly ~2.5 minutes and improves match fidelity for the majority of rows.
+
+- [ ] **Step 1: Write the script**
 
 Create `web/scripts/import-album-canon.mjs`:
 
@@ -213,6 +215,7 @@ Create `web/scripts/import-album-canon.mjs`:
  *   node --env-file=web/.env.local web/scripts/import-album-canon.mjs
  */
 import { readFileSync, writeFileSync } from 'node:fs';
+import { createClient } from '@libsql/client';
 import { parseCanonCsv, isLpReleaseGroup, isConfidentMatch } from './lib/canon-import.mjs';
 
 const CSV_PATH = process.env.CANON_CSV || `${process.env.HOME}/Desktop/album-canon-8-to-10-rated-and-interspersed.csv`;
@@ -220,8 +223,15 @@ const MB_BASE = 'https://musicbrainz.org/ws/2';
 const USER_AGENT = 'AlbumCase/0.1 (keith@totalemphasis.com)';
 const DELAY_MS = 1000;
 
+// Matches web/src/owner.ts's OWNER_ID.
+const OWNER_ID = 'c0ffee00-0000-4000-8000-000000000001';
+
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function normalize(s) {
+  return s.toLowerCase().trim().replace(/\s+/g, ' ');
 }
 
 function releaseYear(group) {
@@ -243,16 +253,70 @@ async function searchReleaseGroup(artist, title) {
   return (data['release-groups'] ?? []).filter(isLpReleaseGroup);
 }
 
+function db() {
+  const url = process.env.TURSO_DATABASE_URL;
+  const authToken = process.env.TURSO_AUTH_TOKEN;
+  if (!url || !authToken) {
+    console.error('Missing TURSO_DATABASE_URL / TURSO_AUTH_TOKEN. Run `vercel env pull web/.env.local` first.');
+    process.exit(1);
+  }
+  return createClient({ url, authToken });
+}
+
+// --- Fetch current snapshot and back it up FIRST, before any matching. ---
+const client = db();
+const snapshotRows = await client.execute({
+  sql: 'SELECT ranking_json, lists_json, artist_locks_json, updated_at FROM ranking_snapshots WHERE session_id = ?',
+  args: [OWNER_ID],
+});
+const snapshotRow = snapshotRows.rows[0];
+if (!snapshotRow) {
+  console.error('No ranking snapshot found for the owner session.');
+  process.exit(1);
+}
+
+const currentRanked = JSON.parse(String(snapshotRow.ranking_json));
+const lists = JSON.parse(String(snapshotRow.lists_json));
+const artistLocks = snapshotRow.artist_locks_json ? JSON.parse(String(snapshotRow.artist_locks_json)) : [];
+const baseUpdatedAt = Number(snapshotRow.updated_at);
+
+const backupPath = `web/scripts/backups/canon-import-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+writeFileSync(backupPath, JSON.stringify({ ranked: currentRanked, lists, artist_locks: artistLocks, updated_at: baseUpdatedAt }, null, 2));
+console.log(`Backup written to ${backupPath}`);
+
+// --- Build a local lookup so already-known albums never need a MusicBrainz call. ---
+const localIndex = new Map(currentRanked.map((a) => [`${normalize(a.primary_artist_name)}|${normalize(a.title)}`, a]));
+
+// --- Parse the CSV and match every row: local first, MusicBrainz only on a miss. ---
 const csvText = readFileSync(CSV_PATH, 'utf-8');
 const rows = parseCanonCsv(csvText);
 console.log(`Parsed ${rows.length} rows from ${CSV_PATH}`);
 
 const confident = [];
 const needsReview = [];
+let localHits = 0;
+let mbCalls = 0;
 
 for (let i = 0; i < rows.length; i++) {
   const row = rows[i];
-  process.stdout.write(`\rMatching ${i + 1}/${rows.length}...`);
+  process.stdout.write(`\rMatching ${i + 1}/${rows.length} (${localHits} local, ${mbCalls} MusicBrainz)...`);
+
+  const localMatch = localIndex.get(`${normalize(row.artist)}|${normalize(row.album)}`);
+  if (localMatch) {
+    localHits++;
+    confident.push({
+      row,
+      mbid: localMatch.mbid,
+      title: localMatch.title,
+      primary_artist_name: localMatch.primary_artist_name,
+      ...(localMatch.primary_artist_mbid ? { primary_artist_mbid: localMatch.primary_artist_mbid } : {}),
+      release_year: localMatch.release_year,
+      cover_url: localMatch.cover_url,
+    });
+    continue; // no delay needed, no network call made
+  }
+
+  mbCalls++;
   try {
     const candidates = await searchReleaseGroup(row.artist, row.album);
     if (isConfidentMatch(candidates)) {
@@ -273,111 +337,19 @@ for (let i = 0; i < rows.length; i++) {
   } catch (err) {
     needsReview.push({ row, error: String(err) });
   }
-  if (i < rows.length - 1) await delay(DELAY_MS);
+  await delay(DELAY_MS); // only rate-limit actual MusicBrainz calls, not local hits
 }
 console.log(); // newline after the progress carriage-returns
 
+console.log(`Local library hits: ${localHits} | MusicBrainz calls: ${mbCalls}`);
 console.log(`Confident matches: ${confident.length}`);
 console.log(`Needs review: ${needsReview.length}`);
 
 writeFileSync('web/scripts/canon-import-report.json', JSON.stringify({ confident, needsReview }, null, 2));
 console.log('Wrote web/scripts/canon-import-report.json for inspection.');
-```
 
-- [ ] **Step 2: Run it for real against the actual 396-row file**
-
-```bash
-cd /Users/keithobrien/Desktop/Claude/Projects/album-case
-node web/scripts/import-album-canon.mjs
-```
-
-Expected: takes roughly 7 minutes (396 rows × ~1s). Prints progress, then a confident/needs-review count, then writes `web/scripts/canon-import-report.json`.
-
-- [ ] **Step 3: Inspect the report**
-
-```bash
-node -e "
-const r = JSON.parse(require('fs').readFileSync('web/scripts/canon-import-report.json'));
-console.log('confident:', r.confident.length, '| needs review:', r.needsReview.length);
-console.log('first 3 confident:', r.confident.slice(0,3).map(c => c.title + ' - ' + c.primary_artist_name));
-console.log('first 5 needing review:', r.needsReview.slice(0,5).map(n => n.row.album + ' / ' + n.row.artist));
-"
-```
-
-Expected: the vast majority of the 244 already-known albums should confidently match (they're the same albums Album Case already has real MBIDs for); the ~152 new ones will mostly match too, with some genuinely ambiguous or hard-to-find titles landing in `needsReview`. There is no fixed pass/fail threshold here — this step is about eyeballing the report for anything systematically wrong (e.g., if confident match count is near zero, something is broken in the query construction, not just normal ambiguity).
-
-- [ ] **Step 4: Add the scratch artifacts to `.gitignore`**
-
-`web/.gitignore` doesn't currently cover either the report file or the backups directory Task 3 will introduce. Add both now:
-
-```bash
-cat >> web/.gitignore << 'EOF'
-
-# canon import scratch artifacts (personal ranking data — never commit)
-scripts/canon-import-report.json
-scripts/backups/
-EOF
-```
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add web/scripts/import-album-canon.mjs web/.gitignore
-git commit -m "feat(scripts): add MusicBrainz matching phase for the canon import"
-```
-
----
-
-### Task 3: Backup + replace-list construction (still no write)
-
-**Files:**
-- Modify: `web/scripts/import-album-canon.mjs`
-
-**Interfaces:** none new — extends the same script with the backup and replace-building phases.
-
-- [ ] **Step 1: Add the backup fetch and the replace-list construction, without writing anything yet**
-
-Append to `web/scripts/import-album-canon.mjs` (after the reporting block from Task 2):
-
-```js
-import { createClient } from '@libsql/client';
-
-// Matches web/src/owner.ts's OWNER_ID.
-const OWNER_ID = 'c0ffee00-0000-4000-8000-000000000001';
-
-function db() {
-  const url = process.env.TURSO_DATABASE_URL;
-  const authToken = process.env.TURSO_AUTH_TOKEN;
-  if (!url || !authToken) {
-    console.error('Missing TURSO_DATABASE_URL / TURSO_AUTH_TOKEN. Run `vercel env pull web/.env.local` first.');
-    process.exit(1);
-  }
-  return createClient({ url, authToken });
-}
-
-const client = db();
-const snapshotRows = await client.execute({
-  sql: 'SELECT ranking_json, lists_json, artist_locks_json, updated_at FROM ranking_snapshots WHERE session_id = ?',
-  args: [OWNER_ID],
-});
-const snapshotRow = snapshotRows.rows[0];
-if (!snapshotRow) {
-  console.error('No ranking snapshot found for the owner session.');
-  process.exit(1);
-}
-
-const currentRanked = JSON.parse(String(snapshotRow.ranking_json));
-const lists = JSON.parse(String(snapshotRow.lists_json));
-const artistLocks = snapshotRow.artist_locks_json ? JSON.parse(String(snapshotRow.artist_locks_json)) : [];
-const baseUpdatedAt = Number(snapshotRow.updated_at);
-
-// Mandatory backup, before anything else touches this data.
-const backupPath = `web/scripts/backups/canon-import-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
-writeFileSync(backupPath, JSON.stringify({ ranked: currentRanked, lists, artist_locks: artistLocks, updated_at: baseUpdatedAt }, null, 2));
-console.log(`Backup written to ${backupPath}`);
-
-// Build the replace list: confident matches update-or-add; everything else
-// currently in `ranked` that the file doesn't mention is left untouched.
+// --- Build the replace list: confident matches update-or-add; everything else
+//     currently in `ranked` that the file doesn't mention is left untouched. ---
 const currentByMbid = new Map(currentRanked.map((a) => [a.mbid, a]));
 const fileMbids = new Set(confident.map((c) => c.mbid));
 
@@ -398,17 +370,31 @@ const newRanked = [...updatedOrNew, ...untouched].sort((a, b) => b.rating - a.ra
 console.log(`Replace list: ${updatedOrNew.length} from the file (updated or new), ${untouched.length} untouched existing, ${newRanked.length} total.`);
 ```
 
-- [ ] **Step 2: Run and inspect — still no write to production**
+Note: this task's file already includes what was originally planned as Task 3's content (the backup fetch and replace-list construction) — moving the snapshot fetch earlier was required to build the local-match index before the matching loop runs, so it made sense to fold backup + replace-list construction into this same task rather than artificially split them. Task 3 (next) is now just verification of this combined script's output, not new code.
+
+- [ ] **Step 2: Run it for real against the actual 396-row file**
 
 ```bash
-node web/scripts/import-album-canon.mjs
+cd /Users/keithobrien/Desktop/Claude/Projects/album-case
+node --env-file=web/.env.local web/scripts/import-album-canon.mjs
 ```
 
-This re-runs the full MusicBrainz matching phase (accept the ~7 minute cost again for now — Task 4 will make this resumable from the cached report if it's a real problem in practice, but don't add that complexity unless Step 2 here turns out to be genuinely too slow to iterate on).
+Expected: local hits should account for roughly 244 of the 396 rows (however many of the CSV's artist/title pairs match the current library's normalized artist+title exactly — some may not match due to minor formatting differences and will correctly fall through to a live MusicBrainz search instead, which is fine, just slower for those specific rows). Total runtime should be well under the original ~7 minute estimate. Prints the backup path, the local/MusicBrainz split, confident/needs-review counts, and the final replace-list summary.
 
-Expected: prints the backup path, then the replace-list summary (`X from the file, Y untouched, Z total`). `Z` should be `updatedOrNew.length + untouched.length`, and roughly `244 + 152 = 396` minus whatever landed in `needsReview` plus whatever untouched-existing count remains — sanity-check the arithmetic makes sense given Task 2's confident/review counts, don't just trust the printed total blindly.
+- [ ] **Step 3: Inspect the report**
 
-- [ ] **Step 3: Verify the backup file is real and complete**
+```bash
+node -e "
+const r = JSON.parse(require('fs').readFileSync('web/scripts/canon-import-report.json'));
+console.log('confident:', r.confident.length, '| needs review:', r.needsReview.length);
+console.log('first 3 confident:', r.confident.slice(0,3).map(c => c.title + ' - ' + c.primary_artist_name));
+console.log('first 5 needing review:', r.needsReview.slice(0,5).map(n => n.row.album + ' / ' + n.row.artist));
+"
+```
+
+Expected: the vast majority of the 244 already-known albums should confidently match (mostly via the local index); the ~152 new ones will mostly match too via live MusicBrainz search, with some genuinely ambiguous or hard-to-find titles landing in `needsReview`. There is no fixed pass/fail threshold here — this step is about eyeballing the report for anything systematically wrong (e.g., if the local-hit count is near zero when it should be near 244, something is broken in the normalization/matching, not just normal ambiguity).
+
+- [ ] **Step 4: Verify the backup file is real and complete**
 
 ```bash
 node -e "
@@ -420,11 +406,51 @@ console.log('first album:', b.ranked[0].title, b.ranked[0].rating);
 
 Expected: 244 (the current real count), first album matching what you already know is rank #1 in production.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Add the scratch artifacts to `.gitignore`**
+
+```bash
+cat >> web/.gitignore << 'EOF'
+
+# canon import scratch artifacts (personal ranking data — never commit)
+scripts/canon-import-report.json
+scripts/backups/
+EOF
+```
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add web/scripts/import-album-canon.mjs web/.gitignore
+git commit -m "feat(scripts): add canon import matching (local-library-first) with mandatory backup"
+```
+
+---
+
+### Task 3: Sanity-check the replace-list arithmetic (verification only, no new code expected)
+
+**Files:** none expected — this task is a check, not new functionality. If it finds a real problem, fix it in `web/scripts/import-album-canon.mjs` and note the fix; otherwise there's nothing to commit.
+
+**Interfaces:** none new.
+
+- [ ] **Step 1: Confirm the replace-list totals are internally consistent**
+
+Using Task 2's own printed output (no need to re-run the ~2-3 minute script again just for this — reuse the numbers already printed, or re-run only if you have a specific reason to distrust them):
+
+- `updatedOrNew.length` should equal `confident.length` from the same run.
+- `untouched.length` should equal `244 - (number of confident matches whose mbid was already in the current 244-album library)` — i.e., roughly `244 - localHits` if every local hit's mbid made it into `confident` (it should have, by construction).
+- `newRanked.length` should equal `updatedOrNew.length + untouched.length`, and should be in the range `[244, 396]` — it can never be less than the original 244 (nothing is deleted) and can never exceed 396 (the file's own row count) plus whatever was already untouched beyond the file's scope (there shouldn't be any, since the file's ~244 known albums should cover the full existing library — if `untouched.length` is unexpectedly large, that's a sign some existing albums aren't being recognized as "already in the file" and would be worth investigating before proceeding).
+
+If any of these don't hold, do not proceed to Task 4 — fix `import-album-canon.mjs`'s replace-list logic first, re-verify, and only then continue.
+
+- [ ] **Step 2: Spot-check a handful of specific albums by hand**
+
+Pick 3 albums you know are in both the current library and the CSV file (e.g. the top 3 by rank), and confirm each one's entry in `confident` has the correct, familiar `mbid` (matching what you already know from earlier session verification) — not a fresh, possibly-different MusicBrainz release-group id for the same album.
+
+- [ ] **Step 3: If everything checks out, no commit needed for this task. If a fix was required, commit it:**
 
 ```bash
 git add web/scripts/import-album-canon.mjs
-git commit -m "feat(scripts): add mandatory backup and replace-list construction"
+git commit -m "fix(scripts): correct replace-list construction in the canon import"
 ```
 
 ---
@@ -438,7 +464,7 @@ git commit -m "feat(scripts): add mandatory backup and replace-list construction
 
 - [ ] **Step 1: Add the lock-conflict check**
 
-Append (this needs `newRanked` from Task 3 and `artistLocks` from the same snapshot fetch):
+Append (this needs `newRanked` and `artistLocks`, both already in scope from Task 2's snapshot fetch and replace-list construction):
 
 ```js
 function isValidOrder(ranked, locks) {
