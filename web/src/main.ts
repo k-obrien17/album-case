@@ -48,8 +48,6 @@ import {
 } from './artistBlocks';
 import { loadSkippedAlbums, saveSkippedAlbums } from './skippedAlbums';
 import { loadArtistLocks, saveArtistLocks } from './artistLocksStorage';
-import { upsertLock, removeLock, nearestValidDropIndex } from './ranking/locks';
-import { mountArtistLockView } from './ui/artistLockView';
 import {
   applyArtistCooldown,
   loadCandidateArtistCooldown,
@@ -57,7 +55,7 @@ import {
   saveCandidateArtistCooldown,
 } from './candidateCooldown';
 
-type ViewMode = 'ranked' | ListName | 'blockedArtists' | 'artistLock';
+type ViewMode = 'ranked' | ListName | 'blockedArtists';
 
 type RestoreSnapshot = { state: RankingState; lists: SavedLists };
 
@@ -200,6 +198,22 @@ export function insertAtRating(ranked: RankedAlbum[], album: Album, rating: numb
   const insertAt = ranked.findIndex((a) => a.rating < rating);
   const index = insertAt === -1 ? ranked.length : insertAt;
   return [...ranked.slice(0, index), rated, ...ranked.slice(index)];
+}
+
+/**
+ * Set the rating of the ranked album currently at global index `from` to
+ * `rating`, re-inserting it at wherever that rating lands it. No lock
+ * parameter -- artist locks are paused (see ranking/locks.ts). Removes the
+ * album, then re-inserts via `insertAtRating`, which splices at the computed
+ * index directly rather than appending and re-sorting -- append-then-sort
+ * broke on rating ties (a stable sort strands the new album behind an
+ * equal-rated incumbent). See insertAtRating's own doc comment.
+ */
+export function setRating(ranked: RankedAlbum[], from: number, rating: number): RankedAlbum[] {
+  const album = ranked[from];
+  if (!album) return ranked;
+  const without = ranked.filter((a) => a.mbid !== album.mbid);
+  return insertAtRating(without, album, rating);
 }
 
 async function main(): Promise<void> {
@@ -474,13 +488,6 @@ async function main(): Promise<void> {
     queueRankingSnapshotSync();
   }
 
-  function persistArtistLocks(): void {
-    saveArtistLocks(artistLocks);
-    markPendingSync();
-    updateSyncBanner();
-    queueRankingSnapshotSync();
-  }
-
   function removeBlockedFromPriorityQueue(): void {
     const blockedIds = blockedArtistMbids(pool, blockedArtists);
     priorityQueue = priorityQueue.filter((mbid) => !blockedIds.has(mbid));
@@ -559,139 +566,11 @@ async function main(): Promise<void> {
     }
   }
 
-  let lockedArtistMbid: string | null = null;
-  let artistLockController: ReturnType<typeof mountArtistLockView> | null = null;
-
-  function findAlbumByArtist(artistMbid: string): Album | null {
-    return (
-      state.ranked.find((a) => a.primary_artist_mbid === artistMbid) ??
-      [...lists.wantToListen, ...lists.notHeard, ...lists.dontCare].find(
-        (a) => a.primary_artist_mbid === artistMbid
-      ) ??
-      pool.find((a) => a.primary_artist_mbid === artistMbid) ??
-      null
-    );
-  }
-
-  function renderArtistLockView(): void {
-    if (!lockedArtistMbid) {
-      showView('ranked');
-      return;
-    }
-    const artistMbid = lockedArtistMbid;
-    const artistAlbum = findAlbumByArtist(artistMbid);
-    if (!artistAlbum) {
-      lockedArtistMbid = null;
-      showView('ranked');
-      return;
-    }
-
-    artistLockController?.teardown();
-    stage.textContent = '';
-    artistLockController = mountArtistLockView(stage, {
-      album: artistAlbum,
-      getRanked: () => state.ranked,
-      getLists: () => lists,
-      getPool: () => pool,
-      getArtistLocks: () => artistLocks,
-      onReorder: (from, to) => {
-        const album = state.ranked[from];
-        state = { ranked: reRate(state.ranked, album, to), pending: null };
-        persistRankingState();
-        renderArtistLockView();
-      },
-      onRemoveRanked: (album) => {
-        lists = addToList(lists, album, 'dontCare');
-        state = setAsideAlbum(state, album.mbid);
-        persistLists();
-        persistRankingState();
-        renderArtistLockView();
-        renderNav();
-      },
-      onSetOverallRank: (from, to) => {
-        const clamped = nearestValidDropIndex(state.ranked, artistLocks, from, to);
-        const album = state.ranked[from];
-        state = { ranked: reRate(state.ranked, album, clamped), pending: null };
-        persistRankingState();
-        renderArtistLockView();
-      },
-      // Same tradeoff as the main ranked list's onSetRating: a typed rating
-      // targets a value, not a slot, so it isn't run through
-      // nearestValidDropIndex the way onSetOverallRank is.
-      onSetRating: (from, rating) => {
-        const album = state.ranked[from];
-        if (!album) return;
-        const without = state.ranked.filter((a) => a.mbid !== album.mbid);
-        state = { ranked: insertAtRating(without, album, rating), pending: null };
-        persistRankingState();
-        renderArtistLockView();
-      },
-      onPlace: (album, index) => {
-        state = { ranked: reRate(state.ranked, album, index), pending: null };
-        lists = removeFromList(lists, album.mbid, 'wantToListen');
-        lists = removeFromList(lists, album.mbid, 'notHeard');
-        lists = removeFromList(lists, album.mbid, 'dontCare');
-        persistRankingState();
-        persistLists();
-        renderArtistLockView();
-      },
-      onLock: (lock) => {
-        artistLocks = upsertLock(artistLocks, lock);
-        persistArtistLocks();
-        renderArtistLockView();
-      },
-      onUnlock: (mbid) => {
-        artistLocks = removeLock(artistLocks, mbid);
-        persistArtistLocks();
-        renderArtistLockView();
-      },
-      onDiscover: async () => {
-        const knownMbids = pool
-          .filter((a) => a.primary_artist_mbid === artistMbid)
-          .map((a) => a.mbid);
-        const result = await discoverArtistDetailed(
-          session.session_id,
-          artistAlbum.primary_artist_name,
-          artistMbid,
-          knownMbids
-        );
-        if (result.status !== 'found') return result;
-
-        let count = 0;
-        const poolIds = new Set(pool.map((a) => a.mbid));
-        for (const found of result.albums) {
-          if (!poolIds.has(found.mbid)) {
-            pool.push(found);
-            poolIds.add(found.mbid);
-            count += 1;
-          }
-        }
-        return { status: 'found', count };
-      },
-      onClose: () => {
-        lockedArtistMbid = null;
-        showView('ranked');
-      },
-    });
-  }
-
-  function handleOpenArtistLock(album: Album): void {
-    if (!album.primary_artist_mbid) {
-      rankList.showStatus(`Refresh Album Case to lock ${album.primary_artist_name}'s order.`);
-      return;
-    }
-    lockedArtistMbid = album.primary_artist_mbid;
-    showView('artistLock');
-  }
-
   reselectCandidate();
 
   const rankList = mountRankList(stage, {
     getRanked: () => state.ranked,
     getCandidate: () => candidate,
-    getLockedArtistMbids: () => artistLocks.map((lock) => lock.artistMbid),
-    getNearestValidDrop: (from, to) => nearestValidDropIndex(state.ranked, artistLocks, from, to),
-    onOpenArtistLock: (album) => handleOpenArtistLock(album),
     onPlace: (index) => {
       if (!candidate) return;
       const before = state.ranked;
@@ -738,24 +617,16 @@ async function main(): Promise<void> {
       rankList.render();
       renderNav();
     },
+    // Artist locks are paused (not enforced) -- see ranking/locks.ts's header
+    // comment. This just moves to the requested index, no clamping.
     onSetOverallRank: (from, to) => {
-      const clamped = nearestValidDropIndex(state.ranked, artistLocks, from, to);
       const album = state.ranked[from];
-      state = { ranked: reRate(state.ranked, album, clamped), pending: null };
+      state = { ranked: reRate(state.ranked, album, to), pending: null };
       persistRankingState();
       rankList.render();
     },
-    // A typed rating targets a value, not a slot, so there's no index to run
-    // through nearestValidDropIndex the way onSetOverallRank does -- same
-    // tradeoff onDirectRate below already accepts for a freshly-placed
-    // candidate. Remove-then-reinsert via insertAtRating (not append-then-
-    // sort) so a rating tie can't strand the album behind an equal-rated
-    // incumbent -- see insertAtRating's doc comment.
     onSetRating: (from, rating) => {
-      const album = state.ranked[from];
-      if (!album) return;
-      const without = state.ranked.filter((a) => a.mbid !== album.mbid);
-      state = { ranked: insertAtRating(without, album, rating), pending: null };
+      state = { ranked: setRating(state.ranked, from, rating), pending: null };
       persistRankingState();
       rankList.render();
     },
@@ -864,18 +735,12 @@ async function main(): Promise<void> {
     if (view === 'ranked' && next !== 'ranked') {
       rankList.teardown();
     }
-    if (view === 'artistLock' && next !== 'artistLock') {
-      artistLockController?.teardown();
-      artistLockController = null;
-    }
     view = next;
 
     if (view === 'ranked') {
       rankList.render();
     } else if (view === 'blockedArtists') {
       renderBlockedArtists();
-    } else if (view === 'artistLock') {
-      renderArtistLockView();
     } else {
       renderCurrentSavedList(view);
     }

@@ -517,7 +517,12 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
       form.addEventListener('submit', (ev) => {
         ev.preventDefault();
         submittingRating = false;
-        const rating = Number(input.value);
+        const raw = input.value.trim();
+        if (raw === '') {
+          showStatus('Enter 0-10.');
+          return;
+        }
+        const rating = Number(raw);
         if (!Number.isFinite(rating) || rating < 0 || rating > 10) {
           showStatus('Enter 0-10.');
           return;
@@ -649,7 +654,12 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
 
     form.addEventListener('submit', (ev) => {
       ev.preventDefault();
-      const rating = Number(input.value);
+      const raw = input.value.trim();
+      if (raw === '') {
+        showStatus('Enter 0-10.');
+        return;
+      }
+      const rating = Number(raw);
       if (!Number.isFinite(rating) || rating < 0 || rating > 10) {
         showStatus('Enter 0-10.');
         return;

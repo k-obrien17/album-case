@@ -5,7 +5,7 @@
  * mirroring media-library/scripts/export-collect-watching.mjs. kro renders
  * it at build time; there is no runtime coupling to this database.
  *
- * Publishes each album's REAL stored `rating` (1-10, 2dp), which is now the
+ * Publishes each album's REAL stored `rating` (0-10, 2dp), which is now the
  * primary organizing value of the ranked list. This script used to derive a
  * score from rank position instead -- correct back when ratings didn't exist
  * (see docs/superpowers/specs/2026-07-11-album-score-export-design.md), but

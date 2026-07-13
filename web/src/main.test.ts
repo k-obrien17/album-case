@@ -6,6 +6,7 @@ import {
   resolveInitialState,
   restoreFromCode,
   serverSnapshotIsRicher,
+  setRating,
 } from './main';
 import type { SavedLists } from './lists';
 import type { Album, RankedAlbum, RankingState } from './ranking/types';
@@ -183,18 +184,12 @@ describe('insertAtRating (splice at the computed index, not sort-after-append)',
   });
 });
 
-describe('onSetRating (remove-then-reinsert via insertAtRating, 0-10 range)', () => {
-  // Mirrors main.ts's onSetRating handler exactly: filter the album out of
-  // the ranked list, then re-insert it at its new rating via insertAtRating
-  // -- never append-then-sort (see insertAtRating's own describe block above
-  // for why that breaks on ties).
-  function setRating(ranked: RankedAlbum[], mbid: string, rating: number): RankedAlbum[] {
-    const album = ranked.find((a) => a.mbid === mbid);
-    if (!album) return ranked;
-    const without = ranked.filter((a) => a.mbid !== mbid);
-    return insertAtRating(without, album, rating);
-  }
-
+describe('setRating (remove-then-reinsert via insertAtRating, 0-10 range)', () => {
+  // Exercises the REAL exported setRating from main.ts (not a local copy) --
+  // filters the album out of the ranked list by global index, then
+  // re-inserts it at its new rating via insertAtRating -- never
+  // append-then-sort (see insertAtRating's own describe block above for why
+  // that breaks on ties).
   const ranked: RankedAlbum[] = [
     rankedAlbum('A', 9),
     rankedAlbum('B', 7),
@@ -203,25 +198,25 @@ describe('onSetRating (remove-then-reinsert via insertAtRating, 0-10 range)', ()
   ];
 
   it('moves an album up the list when its rating is raised above a neighbor', () => {
-    const result = setRating(ranked, 'D', 8);
+    const result = setRating(ranked, 3, 8); // D at index 3
     expect(result.map((a) => a.mbid)).toEqual(['A', 'D', 'B', 'C']);
     expect(result[1].rating).toBe(8);
   });
 
   it('moves an album down the list when its rating is lowered below a neighbor', () => {
-    const result = setRating(ranked, 'A', 4);
+    const result = setRating(ranked, 0, 4); // A at index 0
     expect(result.map((a) => a.mbid)).toEqual(['B', 'C', 'A', 'D']);
     expect(result[2].rating).toBe(4);
   });
 
   it('accepts the 0 floor, landing the album at the bottom of the list', () => {
-    const result = setRating(ranked, 'A', 0);
+    const result = setRating(ranked, 0, 0); // A at index 0
     expect(result.map((a) => a.mbid)).toEqual(['B', 'C', 'D', 'A']);
     expect(result[3].rating).toBe(0);
   });
 
   it('accepts the 10 ceiling, landing the album at the top of the list', () => {
-    const result = setRating(ranked, 'D', 10);
+    const result = setRating(ranked, 3, 10); // D at index 3
     expect(result.map((a) => a.mbid)).toEqual(['D', 'A', 'B', 'C']);
     expect(result[0].rating).toBe(10);
   });

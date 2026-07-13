@@ -1,6 +1,28 @@
 import type { Album, ArtistLock } from './types';
 import { moveItem } from './order';
 
+/**
+ * PAUSED as of 2026-07-13. Keith has 14 real locks in production; the DATA
+ * (`artist_locks`) is still read from Turso, held in state, and written back
+ * unchanged on every save (see `main.ts` and `rankingSync.ts`). What is
+ * PAUSED is enforcement and editing: nothing in `main.ts` currently calls
+ * `nearestValidDropIndex`/`wouldViolateLock`/`isValidOrder` to constrain a
+ * drag or a typed rank/rating, and the artist-lock UI entry point
+ * (`onOpenArtistLock`, the "Arranged" badge, `renderArtistLockView`) has been
+ * removed from `main.ts`'s wiring. `ui/artistLockView.ts` still exists and
+ * still works against this module -- it is just not mounted by anything.
+ *
+ * To re-enable: in `main.ts`, re-import `upsertLock`, `removeLock`,
+ * `nearestValidDropIndex` from this module and `mountArtistLockView` from
+ * `./ui/artistLockView`; re-add the `'artistLock'` ViewMode branch,
+ * `lockedArtistMbid`/`artistLockController` state, `findAlbumByArtist`,
+ * `renderArtistLockView`, `handleOpenArtistLock`, and `persistArtistLocks`;
+ * re-wire `onOpenArtistLock`, `getLockedArtistMbids`, and `getNearestValidDrop`
+ * into the main list's `mountRankList` call; and re-clamp both
+ * `onSetOverallRank` handlers through `nearestValidDropIndex`. Check git
+ * history around this comment's introduction for the exact prior wiring.
+ */
+
 /** True if `ranked`'s relative order satisfies every lock. Locked albums no
  *  longer present in `ranked` (e.g. set aside) are simply skipped -- a lock
  *  only constrains members currently in the ranked list. */
