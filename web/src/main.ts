@@ -11,6 +11,7 @@ import {
 } from './seed';
 import type { ArtistPlays } from './seed';
 import { loadRanking, saveRanking } from './storage';
+import { filterAlbums } from './search';
 import { getOrCreateSession, isValidSessionId } from './session';
 import { OWNER_ID } from './owner';
 import {
@@ -353,6 +354,16 @@ async function main(): Promise<void> {
   const skippedAlbums = loadSkippedAlbums();
   let candidateArtistCooldown = loadCandidateArtistCooldown();
 
+  // Local search over the ranked list, plus the MusicBrainz fallback when
+  // nothing local matches. Kept in main.ts, not rankList.ts -- rankList is a
+  // pure render layer over whatever state it's handed.
+  let searchQuery = '';
+  let searchResults:
+    | { status: 'idle' }
+    | { status: 'loading' }
+    | { status: 'error' }
+    | { status: 'done'; albums: Album[] } = { status: 'idle' };
+
   const shell = document.createElement('div');
   shell.className = 'app-shell';
 
@@ -569,7 +580,49 @@ async function main(): Promise<void> {
   reselectCandidate();
 
   const rankList = mountRankList(stage, {
-    getRanked: () => state.ranked,
+    getRanked: () => filterAlbums(state.ranked, searchQuery),
+    getGlobalRanked: () => state.ranked,
+    getSearchQuery: () => searchQuery,
+    onSearchQueryChange: (query) => {
+      searchQuery = query;
+      searchResults = { status: 'idle' }; // a new query invalidates old results
+      rankList.render();
+    },
+    onSearchMusicBrainz: (query) => {
+      void (async () => {
+        searchResults = { status: 'loading' };
+        rankList.render();
+        try {
+          const res = await fetch(`/api/search-album?q=${encodeURIComponent(query)}`);
+          if (!res.ok) throw new Error(String(res.status));
+          const body = (await res.json()) as { albums: Album[] };
+          searchResults = { status: 'done', albums: body.albums ?? [] };
+        } catch {
+          searchResults = { status: 'error' };
+        }
+        rankList.render();
+      })();
+    },
+    getSearchResults: () => searchResults,
+    onRateSearchResult: (album, rating) => {
+      state = { ranked: insertAtRating(state.ranked, album, rating), pending: null };
+
+      // HARD REQUIREMENT: api/ranking.ts rejects any snapshot where an album is
+      // both ranked and in a saved list (400 ranked_album_in_saved_list). A
+      // searched album may already be sitting in one -- e.g. previously set
+      // aside as "want to listen" and now being rated from search.
+      lists = removeFromList(lists, album.mbid, 'wantToListen');
+      lists = removeFromList(lists, album.mbid, 'notHeard');
+      lists = removeFromList(lists, album.mbid, 'dontCare');
+
+      searchQuery = '';
+      searchResults = { status: 'idle' };
+      persistRankingState();
+      persistLists();
+      reselectCandidate();
+      rankList.render();
+      renderNav();
+    },
     getCandidate: () => candidate,
     onPlace: (index) => {
       if (!candidate) return;

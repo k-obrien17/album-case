@@ -19,6 +19,16 @@ import {
  * reorder. Safe DOM construction throughout (createElement/textContent).
  */
 
+/** The current state of a MusicBrainz fallback search. Four distinct
+ *  members (not one member with a union-typed `status`) so a sequence of
+ *  `status === '...'` equality checks narrows `results` cleanly down to the
+ *  `'done'` member without an explicit final guard. */
+export type SearchResultsState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'error' }
+  | { status: 'done'; albums: Album[] };
+
 export type RankListOptions = {
   getRanked: () => RankedAlbum[];
   /** The full global ranked array, for computing correct year-rank and
@@ -88,6 +98,18 @@ export type RankListOptions = {
   getSearchQuery?: () => string;
   /** Fired on every keystroke of the search input. */
   onSearchQueryChange?: (query: string) => void;
+  /** Fired when the user taps "Search MusicBrainz" from the no-local-matches
+   *  empty state. Omit to hide the MusicBrainz fallback entirely (plain
+   *  "no matches" text only). */
+  onSearchMusicBrainz?: (query: string) => void;
+  /** The current MusicBrainz result state for the empty state to render.
+   *  Omit (or return 'idle') to show only the initial "Search MusicBrainz"
+   *  prompt. */
+  getSearchResults?: () => SearchResultsState;
+  /** Add a MusicBrainz search result to the ranked list at a typed 0-10
+   *  rating. No comparison happened, so unlike onPlace this never fires a
+   *  pairwise atom -- same precedent as onDirectRate. */
+  onRateSearchResult?: (album: Album, rating: number) => void;
 };
 
 /**
@@ -834,6 +856,139 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     return wrap;
   }
 
+  /** One MusicBrainz result row: title/artist/year, plus either a rating
+   *  input (add-at-rating) or "Already in your list" when the album is
+   *  already ranked. Checked against the GLOBAL ranked list (never the
+   *  filtered one this instance renders) so a match is never missed just
+   *  because the current query happens to filter it out. */
+  function buildSearchResultRow(album: Album): HTMLLIElement {
+    const li = document.createElement('li');
+    li.className = 'rank-search-result';
+
+    const meta = document.createElement('div');
+    meta.className = 'rank-meta';
+    const title = document.createElement('p');
+    title.className = 'rank-title';
+    title.textContent = album.title;
+    const sub = document.createElement('p');
+    sub.className = 'rank-sub';
+    sub.textContent = subtitle(album);
+    meta.append(title, sub);
+    li.append(meta);
+
+    const globalRanked = opts.getGlobalRanked?.() ?? opts.getRanked();
+    const alreadyRanked = globalRanked.some((a) => a.mbid === album.mbid);
+    if (alreadyRanked) {
+      const already = document.createElement('span');
+      already.className = 'rank-search-already';
+      already.textContent = 'Already in your list';
+      li.append(already);
+      return li;
+    }
+
+    const form = document.createElement('form');
+    form.className = 'candidate-place';
+    form.noValidate = true;
+
+    const input = document.createElement('input');
+    input.className = 'candidate-place-input';
+    input.type = 'number';
+    input.inputMode = 'decimal';
+    input.min = '0';
+    input.max = '10';
+    input.step = '0.01';
+    input.placeholder = '0-10';
+    input.setAttribute('aria-label', `Rating for ${album.title}`);
+
+    const btn = document.createElement('button');
+    btn.type = 'submit';
+    btn.className = 'candidate-place-button';
+    btn.textContent = 'Add';
+
+    form.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      const raw = input.value.trim();
+      if (raw === '') {
+        showStatus('Enter 0-10.');
+        return;
+      }
+      const rating = Number(raw);
+      if (!Number.isFinite(rating) || rating < 0 || rating > 10) {
+        showStatus('Enter 0-10.');
+        return;
+      }
+      opts.onRateSearchResult?.(album, Math.round(rating * 100) / 100);
+    });
+
+    form.append(input, btn);
+    li.append(form);
+    return li;
+  }
+
+  /** The no-local-matches empty state: a plain message, plus (when
+   *  `onSearchMusicBrainz` is wired) the MusicBrainz fallback -- an idle
+   *  "search" prompt, a loading state, an error + retry, or the results
+   *  list itself. `query` is already trimmed by the caller. */
+  function buildSearchEmptyState(query: string): HTMLLIElement {
+    const empty = document.createElement('li');
+    empty.className = 'rank-empty rank-search-empty';
+
+    const message = document.createElement('p');
+    message.textContent = `No albums in your list match "${query}".`;
+    empty.append(message);
+
+    if (!opts.onSearchMusicBrainz) return empty;
+
+    const searchBtn = (label: string): HTMLButtonElement => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'candidate-action';
+      btn.textContent = label;
+      btn.addEventListener('click', () => opts.onSearchMusicBrainz?.(query));
+      return btn;
+    };
+
+    const results: SearchResultsState = opts.getSearchResults?.() ?? { status: 'idle' };
+
+    if (results.status === 'idle') {
+      empty.append(searchBtn(`Search MusicBrainz for "${query}"`));
+      return empty;
+    }
+
+    if (results.status === 'loading') {
+      const loading = document.createElement('p');
+      loading.className = 'rank-search-status';
+      loading.textContent = 'Searching MusicBrainz…';
+      empty.append(loading);
+      return empty;
+    }
+
+    if (results.status === 'error') {
+      const err = document.createElement('p');
+      err.className = 'rank-search-status';
+      err.textContent = "Couldn't reach MusicBrainz. Try again.";
+      empty.append(err, searchBtn(`Search MusicBrainz for "${query}"`));
+      return empty;
+    }
+
+    // status === 'done'
+    if (results.albums.length === 0) {
+      const none = document.createElement('p');
+      none.className = 'rank-search-status';
+      none.textContent = 'No albums found.';
+      empty.append(none);
+      return empty;
+    }
+
+    const resultsList = document.createElement('ul');
+    resultsList.className = 'rank-search-results';
+    for (const album of results.albums) {
+      resultsList.append(buildSearchResultRow(album));
+    }
+    empty.append(resultsList);
+    return empty;
+  }
+
   function render(): void {
     // Capture focus/caret state BEFORE clearing the container. render()
     // rebuilds the DOM from scratch, so the search input is destroyed and
@@ -880,13 +1035,16 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     listEl.textContent = '';
     const ranked = opts.getRanked();
     if (ranked.length === 0) {
-      const empty = document.createElement('li');
-      empty.className = filtered ? 'rank-empty rank-search-empty' : 'rank-empty';
-      empty.textContent = filtered
-        ? `No albums in your list match "${query.trim()}".`
-        : (opts.emptyRankedMessage ??
-          'Your ranked list is empty. Drag the next album in, or tap it to start.');
-      listEl.append(empty);
+      if (filtered) {
+        listEl.append(buildSearchEmptyState(query.trim()));
+      } else {
+        const empty = document.createElement('li');
+        empty.className = 'rank-empty';
+        empty.textContent =
+          opts.emptyRankedMessage ??
+          'Your ranked list is empty. Drag the next album in, or tap it to start.';
+        listEl.append(empty);
+      }
     } else {
       const subRanks = computeSubRanks(opts.getGlobalRanked?.() ?? ranked);
       const lockedArtists = new Set(opts.getLockedArtistMbids?.() ?? []);
