@@ -163,7 +163,7 @@ const untouched = currentRanked.filter((a) => !fileMbids.has(a.mbid));
 // depend on stable-sort plus input order (175 of 375 adjacent pairs in the
 // real data are rating ties). `untouched` albums carry no CSV ranking, so
 // they sort after tied CSV-sourced albums via the `?? Infinity` fallback.
-const newRanked = [...updatedOrNew, ...untouched]
+const ratingSorted = [...updatedOrNew, ...untouched]
   .sort((a, b) => b.rating - a.rating || (a.ranking ?? Infinity) - (b.ranking ?? Infinity))
   // `ranking` is a sort-only field, not part of the Album schema -- strip it
   // before this is ever written so it can't leak into the stored snapshot.
@@ -176,6 +176,59 @@ const newRanked = [...updatedOrNew, ...untouched]
     cover_url,
     rating,
   }));
+
+// --- Lock-order tiebreak repair pass. Ratings alone fully determine order
+//     whenever two albums differ; when the CSV rates two albums IDENTICALLY,
+//     the rating data expresses no preference between them, so if both belong
+//     to the same artist lock, the lock's relative order should win instead
+//     of an arbitrary CSV-Ranking tiebreak. This is honoring a lock, not
+//     modifying one -- locks are never edited or dropped.
+//
+//     A naive "sort by lock position" comparator is unsound here: a
+//     comparator must be transitive, and lock membership is per-artist and
+//     partial (unrelated albums have no lock relationship), so splicing a
+//     partial order into the global comparator can produce inconsistent
+//     results. Instead this is a separate post-pass that ONLY exchanges
+//     albums holding the EXACT SAME rating, so the rating-descending order
+//     established above is preserved exactly -- no album ever moves past one
+//     with a different rating.
+//
+//     For each lock, collect the ascending indices its member albums occupy
+//     in `ranked`, group those indices by the rating at that index (equal
+//     ratings sort adjacently, but a third same-rating album not in this
+//     lock could sit between two lock members -- grouping by rating rather
+//     than assuming contiguous indices handles that correctly), and within
+//     any group of 2+ indices, reassign the albums at those index slots so
+//     they appear in the lock's specified relative order (order[0] = most
+//     preferred = lowest/earliest index). Indices outside a tie group, and
+//     all non-lock albums, are never touched.
+function repairLockTies(ranked, locks) {
+  const result = [...ranked];
+  for (const lock of locks) {
+    const lockIndices = [];
+    for (let i = 0; i < result.length; i++) {
+      if (lock.order.includes(result[i].mbid)) lockIndices.push(i);
+    }
+    const indicesByRating = new Map();
+    for (const i of lockIndices) {
+      const rating = result[i].rating;
+      if (!indicesByRating.has(rating)) indicesByRating.set(rating, []);
+      indicesByRating.get(rating).push(i);
+    }
+    for (const indices of indicesByRating.values()) {
+      if (indices.length < 2) continue;
+      const albumsInLockOrder = indices
+        .map((i) => result[i])
+        .sort((a, b) => lock.order.indexOf(a.mbid) - lock.order.indexOf(b.mbid));
+      indices.forEach((i, j) => {
+        result[i] = albumsInLockOrder[j];
+      });
+    }
+  }
+  return result;
+}
+
+const newRanked = repairLockTies(ratingSorted, artistLocks);
 
 console.log(`Replace list: ${updatedOrNew.length} from the file (updated or new), ${untouched.length} untouched existing, ${newRanked.length} total.`);
 
@@ -196,12 +249,17 @@ if (belowFloor.length > 0) {
 }
 console.log(`Rating floor check passed: all ${newRanked.length} albums are rated 8.0 or above.`);
 
-// --- Artist-lock conflict detection. Locks are NEVER modified or dropped by
-//     this script -- only reported. Mirrors the relative-order semantics of
-//     web/src/ranking/locks.ts's isValidOrder (locked albums no longer
-//     present in the new list are simply skipped, not treated as violations),
-//     reimplemented standalone since this script can't import a .ts file
-//     (same duplication convention as isLpReleaseGroup).
+// --- Artist-lock conflict detection. Runs AFTER the tie-repair pass above,
+//     so any tie-only lock violations are already resolved by the time this
+//     runs; what it reports now is a genuine rating-level disagreement (the
+//     CSV rates the lock's albums DIFFERENTLY in a way that contradicts the
+//     locked order), which is real signal and must NOT be auto-fixed. Locks
+//     are NEVER modified or dropped by this script -- only reported. Mirrors
+//     the relative-order semantics of web/src/ranking/locks.ts's
+//     isValidOrder (locked albums no longer present in the new list are
+//     simply skipped, not treated as violations), reimplemented standalone
+//     since this script can't import a .ts file (same duplication
+//     convention as isLpReleaseGroup).
 function isValidOrder(ranked, locks) {
   const indexByMbid = new Map(ranked.map((a, i) => [a.mbid, i]));
   return locks.every((lock) => {
