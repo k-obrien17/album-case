@@ -79,6 +79,15 @@ export type RankListOptions = {
   hideCandidateColumn?: boolean;
   /** Override the empty-ranked-list message. */
   emptyRankedMessage?: string;
+  /** The live search query. When non-empty, this instance is rendering a
+   *  FILTERED subset: row grips and the candidate card are suppressed, because
+   *  a drop index computed against a partial list would produce a wrong rating.
+   *  The rating and overall-rank editors remain available -- both resolve a
+   *  filtered row back to its global index by mbid, so they are index-safe.
+   *  Omit to disable search entirely. */
+  getSearchQuery?: () => string;
+  /** Fired on every keystroke of the search input. */
+  onSearchQueryChange?: (query: string) => void;
 };
 
 /**
@@ -313,7 +322,8 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     album: RankedAlbum,
     index: number,
     subRanks: Map<string, SubRank>,
-    lockedArtists: Set<string>
+    lockedArtists: Set<string>,
+    filtered: boolean
   ): HTMLLIElement {
     const isArranged = lockedArtists.has(album.primary_artist_mbid ?? '');
     const li = document.createElement('li');
@@ -389,15 +399,19 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
       li.append(removeBtn);
     }
 
-    // A dedicated grip so the row body still flick-scrolls on touch; only the
-    // grip disables native scrolling (touch-action:none via .rank-grip).
-    const grip = document.createElement('button');
-    grip.type = 'button';
-    grip.className = 'rank-grip';
-    grip.setAttribute('aria-label', `Reorder ${album.title}`);
-    grip.textContent = '⇅';
-    grip.addEventListener('pointerdown', (ev) => startDrag({ type: 'row', index }, album, ev));
-    li.append(grip);
+    if (!filtered) {
+      // A dedicated grip so the row body still flick-scrolls on touch; only the
+      // grip disables native scrolling (touch-action:none via .rank-grip).
+      // Suppressed while filtered: a drop index computed against a partial
+      // list would produce a wrong rating.
+      const grip = document.createElement('button');
+      grip.type = 'button';
+      grip.className = 'rank-grip';
+      grip.setAttribute('aria-label', `Reorder ${album.title}`);
+      grip.textContent = '⇅';
+      grip.addEventListener('pointerdown', (ev) => startDrag({ type: 'row', index }, album, ev));
+      li.append(grip);
+    }
 
     return li;
   }
@@ -797,9 +811,53 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     return card;
   }
 
+  /** The search box shown above the ranked list. Returns null when
+   *  `onSearchQueryChange` is omitted (search disabled entirely). Focus/caret
+   *  preservation across the re-render this triggers is handled by render()
+   *  itself, not here -- see the comment at the top of render(). */
+  function buildSearchBox(): HTMLElement | null {
+    if (!opts.onSearchQueryChange) return null;
+    const wrap = document.createElement('div');
+    wrap.className = 'rank-search';
+
+    const input = document.createElement('input');
+    input.type = 'search';
+    input.className = 'rank-search-input';
+    input.placeholder = 'Search your albums';
+    input.setAttribute('aria-label', 'Search your albums');
+    input.value = opts.getSearchQuery?.() ?? '';
+    input.addEventListener('input', () => {
+      opts.onSearchQueryChange?.(input.value);
+    });
+
+    wrap.append(input);
+    return wrap;
+  }
+
   function render(): void {
+    // Capture focus/caret state BEFORE clearing the container. render()
+    // rebuilds the DOM from scratch, so the search input is destroyed and
+    // recreated on every call (Task 4 wires onSearchQueryChange to trigger a
+    // re-render on every keystroke). Naively tracking focus via the input's
+    // own focus/blur listeners doesn't work: removing a focused element from
+    // the DOM (the `container.textContent = ''` below) fires a synchronous
+    // blur first, which would clear that state before it's ever read. Reading
+    // `document.activeElement` here, before anything is torn down, sidesteps
+    // that ordering problem entirely.
+    const prevSearchInput = container.querySelector<HTMLInputElement>('.rank-search-input');
+    const searchWasFocused = !!prevSearchInput && document.activeElement === prevSearchInput;
+    const searchCaret = searchWasFocused ? prevSearchInput!.selectionStart : null;
+
     container.textContent = '';
     indicator.remove();
+
+    // Non-empty (trimmed) query -> this instance is rendering a FILTERED
+    // subset. Row grips and the candidate card are suppressed: a drop index
+    // computed against a partial list would produce a wrong rating. The
+    // rating/overall-rank editors stay available -- both resolve a filtered
+    // row back to its global index by mbid.
+    const query = opts.getSearchQuery?.() ?? '';
+    const filtered = query.trim() !== '';
 
     const layout = document.createElement('div');
     layout.className = 'rank-layout';
@@ -812,6 +870,9 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
       statusMessage = null;
     }
 
+    const searchBox = buildSearchBox();
+    if (searchBox) layout.append(searchBox);
+
     const listCol = document.createElement('div');
     listCol.className = 'rank-list-col';
 
@@ -820,21 +881,24 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     const ranked = opts.getRanked();
     if (ranked.length === 0) {
       const empty = document.createElement('li');
-      empty.className = 'rank-empty';
-      empty.textContent =
-        opts.emptyRankedMessage ??
-        'Your ranked list is empty. Drag the next album in, or tap it to start.';
+      empty.className = filtered ? 'rank-empty rank-search-empty' : 'rank-empty';
+      empty.textContent = filtered
+        ? `No albums in your list match "${query.trim()}".`
+        : (opts.emptyRankedMessage ??
+          'Your ranked list is empty. Drag the next album in, or tap it to start.');
       listEl.append(empty);
     } else {
       const subRanks = computeSubRanks(opts.getGlobalRanked?.() ?? ranked);
       const lockedArtists = new Set(opts.getLockedArtistMbids?.() ?? []);
-      ranked.forEach((album, i) => listEl.append(buildRow(album, i, subRanks, lockedArtists)));
+      ranked.forEach((album, i) =>
+        listEl.append(buildRow(album, i, subRanks, lockedArtists, filtered))
+      );
     }
     listCol.append(listEl);
 
     const candidateCol = document.createElement('div');
     candidateCol.className = 'candidate-col';
-    if (!opts.hideCandidateColumn) {
+    if (!opts.hideCandidateColumn && !filtered) {
       const candidate = opts.getCandidate();
       if (candidate) {
         // Long list -> assisted this-or-that by default; short list -> drag/tap.
@@ -856,8 +920,22 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
       }
     }
 
-    layout.append(...(opts.hideCandidateColumn ? [listCol] : [candidateCol, listCol]));
+    layout.append(
+      ...(opts.hideCandidateColumn || filtered ? [listCol] : [candidateCol, listCol])
+    );
     container.append(layout);
+
+    // Restore focus + caret to the search input, which render() just
+    // recreated from scratch. Without this, a keystroke-triggered re-render
+    // (Task 4 wires onSearchQueryChange to trigger one) drops focus after a
+    // single character and the box becomes unusable.
+    if (searchWasFocused) {
+      const input = container.querySelector<HTMLInputElement>('.rank-search-input');
+      if (input) {
+        input.focus();
+        if (searchCaret != null) input.setSelectionRange(searchCaret, searchCaret);
+      }
+    }
   }
 
   function teardown(): void {

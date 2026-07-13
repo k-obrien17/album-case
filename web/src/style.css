@@ -322,6 +322,39 @@ body {
   font-size: 0.72rem;
 }
 
+/* Search box: filters the ranked list live. Sits above the candidate/list
+   columns, full width. */
+.rank-search {
+  display: flex;
+}
+
+.rank-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border-btn);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-mono);
+  font-size: 1rem;
+}
+
+.rank-search-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+/* Shown in place of the ranked list when a search query matches nothing
+   locally. Task 4 hangs a "search MusicBrainz" action off this class. */
+.rank-search-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
 .rank-list {
   list-style: none;
   margin: 0;
