@@ -160,3 +160,20 @@ const untouched = currentRanked.filter((a) => !fileMbids.has(a.mbid));
 const newRanked = [...updatedOrNew, ...untouched].sort((a, b) => b.rating - a.rating);
 
 console.log(`Replace list: ${updatedOrNew.length} from the file (updated or new), ${untouched.length} untouched existing, ${newRanked.length} total.`);
+
+// Hard floor: nothing in this library may be rated below 8. The canon file is
+// 8-to-10 by construction, and every currently-ranked album is covered by it,
+// so this should never trip -- but an `untouched` album carrying an old
+// sub-8 backfill rating (or a different source file later) would silently
+// violate the rule, so fail loudly rather than write it.
+const belowFloor = newRanked.filter((a) => a.rating < 8);
+if (belowFloor.length > 0) {
+  console.error(`\nABORT: ${belowFloor.length} album(s) rated below the 8.0 floor:`);
+  for (const a of belowFloor.slice(0, 10)) {
+    console.error(`  - ${a.title} (${a.primary_artist_name}) = ${a.rating}`);
+  }
+  if (belowFloor.length > 10) console.error(`  ...and ${belowFloor.length - 10} more.`);
+  console.error('Nothing was written. Fix the source data or the replace-list logic first.');
+  process.exit(1);
+}
+console.log(`Rating floor check passed: all ${newRanked.length} albums are rated 8.0 or above.`);
