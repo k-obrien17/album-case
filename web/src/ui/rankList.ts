@@ -477,6 +477,11 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     btn.textContent = `Overall ${subRank.overallRank}/${subRank.overallTotal}`;
     btn.setAttribute('aria-label', `Edit overall rank for ${album.title}`);
     btn.addEventListener('click', () => {
+      // Close the sibling editor. Opening one re-renders synchronously, which
+      // destroys the other's form before its deferred blur-cancel can fire --
+      // so that cancel bails on `!form.isConnected` and never clears its state,
+      // leaving both editors stuck open on the same row.
+      editingRatingMbid = null;
       editingOverallMbid = album.mbid;
       render();
       const input = container.querySelector<HTMLInputElement>('.rank-overall-edit .candidate-place-input');
@@ -568,6 +573,9 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     btn.textContent = album.rating.toFixed(2);
     btn.setAttribute('aria-label', `Edit rating for ${album.title}`);
     btn.addEventListener('click', () => {
+      // See the note in the overall-rank control: close the sibling editor, or
+      // both end up stuck open on the same row.
+      editingOverallMbid = null;
       editingRatingMbid = album.mbid;
       render();
       const input = container.querySelector<HTMLInputElement>('.rank-rating-edit .candidate-place-input');

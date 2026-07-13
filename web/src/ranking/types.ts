@@ -15,7 +15,7 @@ export type Album = {
  *  single source of truth for its position. Pool/candidate/seed albums
  *  are plain `Album`s with no rating until they're placed. */
 export type RankedAlbum = Album & {
-  rating: number; // 1.00-10.00, 2 decimal places.
+  rating: number; // 0.00-10.00, 2 decimal places.
 };
 
 /**
