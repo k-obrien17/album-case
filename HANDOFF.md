@@ -1,50 +1,64 @@
 # Handoff
 
 ## Current task
-Implementing a major architecture pivot: `rating` becomes the stored, primary value that determines an album's position (replacing today's pure drag-to-place/array-splice model), driven by Keith wanting to wholesale-adopt a 396-album ChatGPT-generated canon (re-rates his existing 244, adds ~152 new). Two design specs and one 8-task implementation plan are written and committed; execution has not started.
+Just finished brainstorming a **search feature** (design agreed, not yet spec'd or built). Everything before it — the rating-primary architecture pivot, the 396-album canon import, editable ratings, and pausing artist locks — is **built, merged, deployed, and live**.
 
 ## Status
-- **Shipped and merged this session, not yet pushed/deployed:** the album-score-export feature (derives a 1-10 rating from rank position at export time only, writes to `keithrobrien.com`'s new `/collect/albums` page). Fully built, reviewed, tested in both repos (`album-case` main at `55213ab`, `keithrobrien` main at `01108c0`). Both repos' `main` are ahead of their `origin/main` (album-case by 9 commits, keithrobrien by 4) — nothing pushed, nothing deployed, both awaiting Keith's go-ahead.
-- **Superseded, not yet reconsidered:** `docs/superpowers/specs/2026-07-11-bulk-album-list-import-design.md` (paste-a-Pitchfork-list-into-the-queue) — written and approved before the rating pivot, never implemented. The new rating-primary direction likely makes its "insert into priority queue, still requires drag-to-place" design obsolete for anything that arrives with its own rating (which is now the more likely case) — needs a decision before ever building it, not a blind go-ahead.
-- **Current focus, spec'd and planned, zero code written:**
-  - `docs/superpowers/specs/2026-07-12-rating-primary-architecture-design.md` — the core pivot. `RankedAlbum = Album & { rating: number }` (kept as a *separate* type from plain `Album`, not a universal required field — verified that requiring it everywhere would break the static seed pool and discovery pipeline, which construct plain `Album`s with no rating). Existing 244 albums backfill from current position via the same formula already built for the site export.
-  - `docs/superpowers/specs/2026-07-12-album-canon-import-design.md` — the specific 396-album import (depends entirely on the architecture spec above). Full wholesale replace, mandatory backup first, artist-lock conflict reporting (14 locks currently live in production).
-  - `docs/superpowers/plans/2026-07-12-rating-primary-architecture.md` — 8-task implementation plan for the architecture spec, self-reviewed, committed. **This is the next thing to execute.** Traced the real data flow carefully before writing it (confirmed `main.ts` never touches `pending`/`applyPick` directly — the whole binary-search/assist flow lives in `assist.ts`'s own scratch state, which is why the plan's `insertion.ts` changes are small despite the type ripple).
-  - No implementation plan yet for the canon-import spec — can't be written until the architecture plan is actually built (nothing to import ratings *into* otherwise).
-- The real source file for the canon import is `~/Desktop/album-canon-8-to-10-rated-and-interspersed.xlsx` (confirmed structure via direct parsing: columns Ranking/Album/Artist/Year/Rating, 396 rows) — needs manual conversion to CSV before the canon-import plan is written (Keith chose a local script over an in-app upload feature, explicitly to avoid adding an xlsx-parsing dependency).
+Album Case is live at https://album-case.vercel.app with **376 ranked albums**, all rated 8.0–10.0, sorted by rating. Everything below shipped this session and is verified against production. No known bugs, no half-finished work, working tree clean.
+
+What shipped:
+- **Rating is now the primary organizing value.** An album's position is derived from its rating (list is always rating-sorted descending), not from array position. `RankedAlbum = Album & { rating: number }` — kept as a *separate* type from plain `Album`, because the seed pool and discovery pipeline legitimately have no rating.
+- **The 396-album canon import ran successfully.** Keith's 244 existing albums were re-rated from a ChatGPT-generated CSV and ~132 new albums added. 20 CSV rows couldn't be matched to MusicBrainz and were skipped (reported by name). 2 albums (Untrue/Burial, Things Fall Apart/The Roots) were promoted out of "Haven't heard" into the ranked list, per Keith's explicit call.
+- **Ratings are directly editable.** Tap any row's rating → type a new number → the album re-sorts. Range is **0–10** (widened from 1–10 at Keith's request; the 8.0 floor was import-only).
+- **Artist locks are PAUSED.** Not enforced anywhere, UI hidden — but the **14 real locks are preserved untouched** in the snapshot and still round-trip through every save. Fully reversible; a re-enable recipe is documented in a header comment in `web/src/ranking/locks.ts`. `locks.ts`, its tests, and `artistLockView.ts` are all intact on disk (dead-but-preserved, they tree-shake out).
+- **The site export now publishes real ratings**, not a score re-derived from rank position (it was inventing numbers that drifted — publishing 9.98 for an album actually rated 9.99).
 
 ## Next concrete step
-Execute `docs/superpowers/plans/2026-07-12-rating-primary-architecture.md` via subagent-driven-development, same flow as this session's other implemented features (fresh subagent per task, task review after each, final whole-branch review, then the same 4-option finishing-a-development-branch flow). Keith was asked "proceed now, or review the plan first?" when the session ended — don't assume "go," check first.
+Write the spec for the search feature (design already agreed with Keith — see below), then build it. Keith had just been asked "does this match what you're picturing?" and had not yet answered when the session paused, so **confirm the design before writing the spec**.
+
+Agreed search design (one box, two modes, no mode switch):
+- Type → live-filters the 376 ranked albums by title **and** artist; results show rank + rating.
+- Tap a result → jumps to that album in the list, ready to edit its rating.
+- Nothing matches → a "Search MusicBrainz for *[query]*" option appears. Pick a result, type a rating, it's ranked immediately.
+- Local filtering is instant (list is already in memory). The MusicBrainz call only fires when explicitly asked for — never on every keystroke.
+- Reuses existing machinery: the MusicBrainz release-group search + `isLpReleaseGroup` studio-LP filter from `web/scripts/lib/canon-import.mjs`, and the rating input from `buildRatingControl` in `web/src/ui/rankList.ts`.
 
 ## Open questions
-- Proceed with executing the rating-architecture plan now, or does Keith want to review it first? (asked, unanswered when session paused)
-- Push + deploy the already-merged score-export work (both repos)? Separate small decision, independent of the rating-architecture work.
-- Does the bulk-album-list-import spec (2026-07-11) get built as originally designed, get amended for the rating-primary model, or get shelved in favor of the canon-import mechanism covering that need instead?
+- Confirm the search design above before spec'ing it (Keith hadn't answered yet).
+- **Bulk-add blocker:** `web/scripts/import-album-canon.mjs` hard-aborts on any rating below 8.0. That guard was correct for the canon import but is now wrong — ratings run 0–10. It must become a parameter (default off) before Keith can bulk-add a CSV containing anything under 8. Nothing else about bulk-add needs building (see below).
+- The `/collect/albums` page for keithrobrien.com is built, merged locally, and **deliberately unpushed/undeployed** per Keith's "not until I say so." Its `albums.json` is already refreshed with the real post-canon ratings. `keithrobrien` main is 5 commits ahead of origin, waiting on his word.
 
 ## Don't forget
-- This is the single largest, riskiest change to Album Case so far — it converts something that was previously *guaranteed* correct by construction (no self-contradicting order was structurally possible) into something that depends on floating-point interpolation math being right everywhere. Extra test rigor on `ratingForDropIndex`'s edges (empty list, single album, exact-tie clamping) is called out explicitly in the plan — don't skip it.
-- Expect most or all of the 14 live artist locks to get flagged as contradicted once the canon import runs (ChatGPT's ordering had zero awareness of them) — per Keith's explicit choice, locks get reported, never auto-modified.
-- The canon-import's mandatory backup step (full ranking snapshot to a timestamped local file before any wholesale write) is not optional — it's the only rollback path for a bulk-replace of Keith's entire personal ranking.
-- `web/scripts/export-collect-albums.mjs`'s formula gets duplicated (not imported) into the new `backfill-ratings.mjs` script per the plan — same duplication-over-cross-import convention already established for `OWNER_ID`, since these are separate standalone `.mjs` files.
-- Sent Keith an ad-hoc full 244-album rating export earlier this session (`/tmp/all-albums-with-scores.tsv`, delivered via SendUserFile) — that was purely for his review, not persisted anywhere, not to be confused with any real data source.
+- **Bulk-adding albums already works** — no new build needed. Make a CSV with the same 5 columns (`Ranking,Album,Artist,Year,Rating`) and run:
+  `CANON_CSV=~/path/to.csv CONFIRM_CANON_IMPORT=yes node --env-file=web/.env.local web/scripts/import-album-canon.mjs`
+  It's incremental, not destructive: albums in the file are added or re-rated; anything *not* in the file is left untouched. It matches the local library first (free), only hits MusicBrainz for genuinely new albums, backs up first, and reports what it couldn't match. Only the 8.0 floor (above) blocks it.
+- **RESTORE POINT** for the canon import: `web/scripts/backups/RESTORE-POINT-pre-canon-import.json` (244 albums, 14 locks, the pre-import saved lists). Gitignored, so it's local-only — do not delete it. A restore POST must **omit** `base_updated_at` (the backup's value is the pre-import one; passing it would 409).
+- `web/scripts/backups/` and `canon-import-report.json` are gitignored (they contain personal ranking data). Never commit them.
+- The rating floor guard in the import script is import-specific and is the *only* remaining 8.0 constraint. The app itself allows 0–10 everywhere.
+- `ALBUM_CASE_WRITE_KEY` was **rotated** this session (the old one was a Vercel Sensitive var and unreadable by anyone, including Keith). The new value is in `web/.env.local` and in Vercel Production + Preview. Not stored anywhere else.
+- An unrelated, pre-existing uncommitted edit sits in `keithrobrien`'s `app/te-tokens.css` — not mine, left alone.
+- Beware: `Number('') === 0`. Now that 0 is a legal rating, any new numeric rating input must reject empty/whitespace explicitly — an empty field silently rating an album 0.00 was a real bug caught in review this session.
 
 ## Files touched this session
-- `web/src/bulkDiscovery.ts`, `web/src/bulkDiscovery.test.ts` — bug fix (summary-count), deployed.
-- `web/scripts/export-collect-albums.mjs` — new, score-export script, merged to `main`.
-- `keithrobrien/app/collect/albums/page.tsx`, `keithrobrien/app/collect/page.tsx`, `keithrobrien/app/sitemap.ts`, `keithrobrien/content/collect/albums.json` — new page + wiring, merged to `main`.
-- `docs/superpowers/specs/2026-07-11-album-score-export-design.md` — corrected mid-session (original version wrongly assumed `content/collect/music.json` was a wired-up target; it isn't, that's a separate songs feature).
-- `docs/superpowers/plans/2026-07-11-album-score-export-albumcase.md`, `...-keithrobrien.md` — implementation plans, both fully executed.
-- `docs/superpowers/specs/2026-07-12-rating-primary-architecture-design.md`, `2026-07-12-album-canon-import-design.md` — new specs.
-- `docs/superpowers/plans/2026-07-12-rating-primary-architecture.md` — new 8-task implementation plan, not yet executed.
-- `HANDOFF.md` — this file, full rewrite.
+Far too many to list individually (rating pivot + canon import + editable ratings + paused locks). The load-bearing ones:
+- `web/src/ranking/types.ts` — added `RankedAlbum`; `RankingState.ranked` is now `RankedAlbum[]`.
+- `web/src/ranking/rating.ts` — `ratingForDropIndex` (interpolation); floor clamp is now 0.
+- `web/src/main.ts` — exported `reRate`, `insertAtRating`, `setRating`; all placement/reorder handlers compute ratings instead of splicing positions; lock enforcement removed.
+- `web/src/ui/rankList.ts` — `buildRatingControl` (the new tap-to-edit rating); direct-rate candidate input; lock UI removed.
+- `web/src/ranking/locks.ts` — untouched functionally, but carries the PAUSED header comment + re-enable recipe.
+- `web/api/ranking.ts`, `web/src/album.ts`, `web/src/rankingSync.ts`, `web/src/backup.ts` — ranked-specific parsing that requires a rating (kept separate from plain `parseAlbum`, which still serves pool/lists/discovery).
+- `web/scripts/import-album-canon.mjs` + `web/scripts/lib/canon-import.mjs` (+ tests) — the canon importer.
+- `web/scripts/backfill-ratings.mjs` — one-time backfill (already run; don't re-run).
+- `web/scripts/export-collect-albums.mjs` — now publishes real ratings.
 
 ## Git state
-- **album-case**: branch `main`, last commit `04fab5e docs: add implementation plan for rating-primary architecture`, uncommitted changes: no, ahead of `origin/main` by 9 commits (unpushed).
-- **keithrobrien**: branch `main`, last commit `01108c0 chore(collect): generate real albums.json from Album Case`, uncommitted: one pre-existing unrelated modification (`app/te-tokens.css`, not touched this session, not mine), ahead of `origin/main` by 4 commits (unpushed).
-- No worktrees left over from this session (both `album-score-export` worktrees, in both repos, were created, used, and cleaned up). The unrelated `overall-rank-edit` worktree in `album-case` predates this session and was untouched.
+- **album-case**: branch `main`, last commit `12a691c fix(rank-list): close the sibling editor, correct the stale 0-10 comment`. Uncommitted: no. Stashed: no. **In sync with origin/main** (pushed and deployed).
+- **keithrobrien**: branch `main`, **5 commits ahead of origin**, unpushed by design (the `/collect/albums` page is gated on Keith's say-so). One pre-existing uncommitted file (`app/te-tokens.css`, not mine).
+- 214 tests pass, `tsc --noEmit` clean, `npm run build` clean.
+- One stale worktree remains from a much earlier session: `.claude/worktrees/overall-rank-edit` (branch `worktree-overall-rank-edit`). Untouched all session; unclear if still wanted.
 
 ## Reason for handoff
 session paused
 
 ## Updated
-2026-07-12T18:58:31Z
+2026-07-13T16:35:24Z
