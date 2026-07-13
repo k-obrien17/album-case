@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { hydrateAlbums, reRate, resolveInitialState, restoreFromCode, serverSnapshotIsRicher } from './main';
+import {
+  hydrateAlbums,
+  insertAtRating,
+  reRate,
+  resolveInitialState,
+  restoreFromCode,
+  serverSnapshotIsRicher,
+} from './main';
 import type { SavedLists } from './lists';
 import type { Album, RankedAlbum, RankingState } from './ranking/types';
 
@@ -144,6 +151,35 @@ describe('reRate (splice at the computed index, not sort-after-append)', () => {
     expect(result.map((a) => a.mbid)).toEqual(['D', 'A', 'B', 'C']);
     expect(result[0].mbid).toBe('D');
     expect(result[0].rating).toBe(10);
+  });
+});
+
+describe('insertAtRating (splice at the computed index, not sort-after-append)', () => {
+  it('places a directly-rated 10 right after an existing incumbent 10.00, not scrambling the list', () => {
+    // Same guaranteed post-backfill state as reRate's regression case: rank
+    // #1 is always exactly the 10.00 ceiling. Typing "10" for a brand-new
+    // candidate used to append-then-sort, and Array.prototype.sort's
+    // stability kept the incumbent ahead of the new entry on the tie --
+    // silently landing the new album at index 1 while claiming to be a "10".
+    // That part of the observed behavior is actually correct (there's no
+    // drop-position intent for a typed rating, so a tie resolves by placing
+    // the new entry after existing equal-or-higher ones); what append-then-
+    // sort got wrong was risking a full re-sort of the whole list on any
+    // tie. This proves the new album lands at exactly index 1, immediately
+    // after the incumbent, with the rest of the order undisturbed.
+    const ranked: RankedAlbum[] = [
+      rankedAlbum('A', 10),
+      rankedAlbum('B', 8),
+      rankedAlbum('C', 6),
+      rankedAlbum('D', 4),
+    ];
+    const newAlbum = album('E');
+
+    const result = insertAtRating(ranked, newAlbum, 10);
+
+    expect(result.map((a) => a.mbid)).toEqual(['A', 'E', 'B', 'C', 'D']);
+    expect(result[1].mbid).toBe('E');
+    expect(result[1].rating).toBe(10);
   });
 });
 

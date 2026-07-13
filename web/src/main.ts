@@ -186,6 +186,22 @@ export function reRate(ranked: RankedAlbum[], album: Album, targetIndex: number)
   return [...without.slice(0, clampedIndex), rated, ...without.slice(clampedIndex)];
 }
 
+/**
+ * Insert `album` at `rating` into `ranked` by finding its correct position
+ * directly, rather than appending and re-sorting (the same bug class fixed in
+ * `reRate`). A directly-typed rating has no drop-position intent to preserve,
+ * so ties resolve by placing the new entry immediately after any existing
+ * entries at the same rating -- e.g. typing "10" when rank #1 is already the
+ * 10.00 ceiling lands the new album at index 1, not scrambled elsewhere in
+ * the list and not fighting the incumbent for index 0.
+ */
+export function insertAtRating(ranked: RankedAlbum[], album: Album, rating: number): RankedAlbum[] {
+  const rated: RankedAlbum = { ...album, rating };
+  const insertAt = ranked.findIndex((a) => a.rating < rating);
+  const index = insertAt === -1 ? ranked.length : insertAt;
+  return [...ranked.slice(0, index), rated, ...ranked.slice(index)];
+}
+
 async function main(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>('#app');
   if (!app) {
@@ -722,8 +738,7 @@ async function main(): Promise<void> {
     // comparison actually happened, so there's no winner/loser pair to log.
     onDirectRate: (rating) => {
       if (!candidate) return;
-      const rated: RankedAlbum = { ...candidate, rating };
-      state = { ranked: [...state.ranked, rated].sort((a, b) => b.rating - a.rating), pending: null };
+      state = { ranked: insertAtRating(state.ranked, candidate, rating), pending: null };
       persistRankingState();
       reselectCandidate();
       rankList.render();
