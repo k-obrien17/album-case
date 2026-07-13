@@ -5,6 +5,11 @@
  *
  * Usage:
  *   node --env-file=web/.env.local web/scripts/import-album-canon.mjs
+ *
+ * Env vars:
+ *   CANON_CSV      Path to the source CSV (default: ~/Desktop/album-canon-8-to-10-rated-and-interspersed.csv)
+ *   RATING_FLOOR   Optional minimum rating enforced on top of the unconditional 0-10 range check (default: 0)
+ *   CONFIRM_CANON_IMPORT=yes  Required to actually write to production; otherwise this is a dry run.
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -15,6 +20,11 @@ const CSV_PATH = process.env.CANON_CSV || `${process.env.HOME}/Desktop/album-can
 const MB_BASE = 'https://musicbrainz.org/ws/2';
 const USER_AGENT = 'AlbumCase/0.1 (keith@totalemphasis.com)';
 const DELAY_MS = 1000;
+
+// The canon import was 8-to-10 by construction, so it ran with a hard 8.0
+// floor. Ratings now run 0-10 app-wide, so the floor is opt-in: default 0.
+// The type/NaN/range check below is NOT optional -- that's the real invariant.
+const RATING_FLOOR = Number(process.env.RATING_FLOOR ?? 0);
 
 // Matches web/src/owner.ts's OWNER_ID.
 const OWNER_ID = 'c0ffee00-0000-4000-8000-000000000001';
@@ -183,27 +193,42 @@ const ratingSorted = [...updatedOrNew, ...untouched]
 
 console.log(`Replace list: ${updatedOrNew.length} from the file (updated or new), ${untouched.length} untouched existing, ${ratingSorted.length} total.`);
 
-// Hard floor: nothing in this library may be rated below 8. The canon file is
-// 8-to-10 by construction, and every currently-ranked album is covered by it,
-// so this should never trip -- but an `untouched` album carrying an old
-// sub-8 backfill rating (or a different source file later) would silently
-// violate the rule, so fail loudly rather than write it. This check runs on
-// `ratingSorted`, BEFORE the lock tie-repair pass below: the repair pass must
-// only ever operate on data already proven valid, never on unvalidated rows
-// (repairLockTies only reorders albums within tied-rating groups -- it never
-// adds, drops, or changes an album's rating -- so checking before or after
-// the repair pass inspects the exact same set of albums either way).
-const belowFloor = ratingSorted.filter((a) => typeof a.rating !== 'number' || Number.isNaN(a.rating) || a.rating < 8);
-if (belowFloor.length > 0) {
-  console.error(`\nABORT: ${belowFloor.length} album(s) rated below 8.0 or not a valid number:`);
-  for (const a of belowFloor.slice(0, 10)) {
+// Unconditional invariant: every rating in the resulting library must be a
+// real number in 0-10. RATING_FLOOR (default 0) can additionally raise the
+// minimum -- e.g. RATING_FLOOR=8 restores the old canon-import behavior for a
+// source file that's 8-to-10 by construction -- but the type/NaN/range check
+// itself is never optional. This check runs on `ratingSorted`, BEFORE the
+// lock tie-repair pass below: the repair pass must only ever operate on data
+// already proven valid, never on unvalidated rows (repairLockTies only
+// reorders albums within tied-rating groups -- it never adds, drops, or
+// changes an album's rating -- so checking before or after the repair pass
+// inspects the exact same set of albums either way).
+const invalid = ratingSorted.filter(
+  (a) =>
+    typeof a.rating !== 'number' ||
+    !Number.isFinite(a.rating) ||
+    a.rating < 0 ||
+    a.rating > 10 ||
+    a.rating < RATING_FLOOR
+);
+if (invalid.length > 0) {
+  console.error(
+    `\nABORT: ${invalid.length} album(s) have an invalid rating (must be a number in 0-10${
+      RATING_FLOOR > 0 ? `, and >= the RATING_FLOOR of ${RATING_FLOOR}` : ''
+    }):`
+  );
+  for (const a of invalid.slice(0, 10)) {
     console.error(`  - ${a.title} (${a.primary_artist_name}) = ${a.rating}`);
   }
-  if (belowFloor.length > 10) console.error(`  ...and ${belowFloor.length - 10} more.`);
-  console.error('Nothing was written. Fix the source data or the replace-list logic first.');
+  if (invalid.length > 10) console.error(`  ...and ${invalid.length - 10} more.`);
+  console.error('Nothing was written. Fix the source data first.');
   process.exit(1);
 }
-console.log(`Rating floor check passed: all ${ratingSorted.length} albums are rated 8.0 or above.`);
+console.log(
+  `Rating check passed: all ${ratingSorted.length} albums are valid 0-10 ratings${
+    RATING_FLOOR > 0 ? ` and >= ${RATING_FLOOR}` : ''
+  }.`
+);
 
 // --- Lock-order tiebreak repair pass. Ratings alone fully determine order
 //     whenever two albums differ; when the CSV rates two albums IDENTICALLY,
