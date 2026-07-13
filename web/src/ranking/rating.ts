@@ -6,7 +6,7 @@ import type { RankedAlbum } from './types';
  * the album being placed (remove it first if re-rating an existing one).
  *
  * Interpolates the midpoint between the ratings immediately above and below
- * the target index; clamps to the 1-10 range at either end of the list.
+ * the target index; clamps to the 0-10 range at either end of the list.
  * 2 decimal places, matching the site-export formula's precision (see
  * docs/superpowers/specs/2026-07-11-album-score-export-design.md for why:
  * avoids ties across a realistic album count).
@@ -18,7 +18,7 @@ import type { RankedAlbum } from './types';
 export function ratingForDropIndex(ranked: RankedAlbum[], index: number): number {
   // Out-of-range indices return extreme ratings directly
   if (index < 0) return 10;
-  if (index > ranked.length) return 1;
+  if (index > ranked.length) return 0;
 
   const clamped = Math.max(0, Math.min(index, ranked.length));
   const above = ranked[clamped - 1]?.rating;
@@ -26,7 +26,7 @@ export function ratingForDropIndex(ranked: RankedAlbum[], index: number): number
 
   if (above == null && below == null) return 10;
   if (above == null) return Math.min(10, round2(below! + 0.5));
-  if (below == null) return Math.max(1, round2(above - 0.5));
+  if (below == null) return Math.max(0, round2(above - 0.5));
   return round2((above + below) / 2);
 }
 

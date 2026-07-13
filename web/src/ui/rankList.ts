@@ -42,11 +42,16 @@ export type RankListOptions = {
    *  when present, is scoped to a different, incompatible purpose). Omit to
    *  render the "Overall" figure as plain non-interactive text. */
   onSetOverallRank?: (from: number, to: number) => void;
-  /** Rate the current candidate directly (1-10) instead of dragging or
+  /** Rate the current candidate directly (0-10) instead of dragging or
    *  comparing it into place. An additional entry path, not a replacement --
    *  drag-to-place and assisted this-or-that keep working regardless. Omit
    *  to hide the direct-entry input entirely. */
   onDirectRate?: (rating: number) => void;
+  /** Set the rating of the ranked album currently at global index `from`
+   *  directly (0-10), re-sorting it to wherever that rating lands it. Same
+   *  global-index contract as `onSetOverallRank`. Omit to render the row's
+   *  rating as plain non-interactive text. */
+  onSetRating?: (from: number, rating: number) => void;
   /** Set the candidate aside into a saved list. */
   onSetAside: (album: Album, which: ListName) => void;
   /** Defer the candidate for this session without saving it anywhere. */
@@ -139,6 +144,12 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
   // mbid of the row whose "Overall" rank is being typed, if any. Only one
   // row can be in edit mode at a time.
   let editingOverallMbid: string | null = null;
+  // mbid of the row whose rating is being typed, if any. Independent of
+  // editingOverallMbid -- the two controls edit the same underlying value
+  // via different inputs, but only one control (of either kind) should
+  // realistically be open at once; nothing here enforces that beyond the
+  // fact that opening one re-renders and doesn't touch the other's state.
+  let editingRatingMbid: string | null = null;
 
   function positionGhost(x: number, y: number): void {
     if (!drag) return;
@@ -329,9 +340,7 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
       meta.append(arranged);
     }
 
-    const ratingEl = document.createElement('span');
-    ratingEl.className = 'rank-rating';
-    ratingEl.textContent = album.rating.toFixed(2);
+    const ratingEl = buildRatingControl(album);
 
     const overallControl = buildOverallControl(album, subRanks.get(album.mbid));
     if (overallControl) {
@@ -477,6 +486,92 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     return btn;
   }
 
+  /** The row's rating, tappable to edit directly (0-10). Mirrors
+   *  buildOverallControl's tap-to-edit pattern exactly: static text ->
+   *  numeric input -> validate -> callback -> revert to text. */
+  function buildRatingControl(album: RankedAlbum): HTMLElement {
+    if (editingRatingMbid === album.mbid) {
+      const form = document.createElement('form');
+      form.className = 'candidate-place rank-rating-edit';
+      form.noValidate = true;
+      let submittingRating = false;
+
+      const input = document.createElement('input');
+      input.className = 'candidate-place-input';
+      input.type = 'number';
+      input.inputMode = 'decimal';
+      input.min = '0';
+      input.max = '10';
+      input.step = '0.01';
+      input.value = album.rating.toFixed(2);
+      input.setAttribute('aria-label', `Rating for ${album.title}`);
+
+      const btn = document.createElement('button');
+      btn.type = 'submit';
+      btn.className = 'candidate-place-button';
+      btn.textContent = 'Set';
+      btn.addEventListener('pointerdown', () => {
+        submittingRating = true;
+      });
+
+      form.addEventListener('submit', (ev) => {
+        ev.preventDefault();
+        submittingRating = false;
+        const rating = Number(input.value);
+        if (!Number.isFinite(rating) || rating < 0 || rating > 10) {
+          showStatus('Enter 0-10.');
+          return;
+        }
+        editingRatingMbid = null;
+        const globalRanked = opts.getGlobalRanked?.() ?? opts.getRanked();
+        const from = globalRanked.findIndex((a) => a.mbid === album.mbid);
+        if (from === -1) return;
+        opts.onSetRating?.(from, Math.round(rating * 100) / 100);
+      });
+
+      // Cancel on blur, unless focus just moved from the input to this same
+      // form's own submit button (a deferred check lets that focus change
+      // land first).
+      input.addEventListener('blur', () => {
+        window.setTimeout(() => {
+          if (!form.isConnected) return;
+          if (
+            editingRatingMbid === album.mbid &&
+            !submittingRating &&
+            !form.contains(document.activeElement)
+          ) {
+            editingRatingMbid = null;
+            render();
+          }
+        }, 100);
+      });
+
+      form.append(input, btn);
+      return form;
+    }
+
+    if (!opts.onSetRating) {
+      const span = document.createElement('span');
+      span.className = 'rank-rating';
+      span.textContent = album.rating.toFixed(2);
+      return span;
+    }
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'rank-rating';
+    btn.textContent = album.rating.toFixed(2);
+    btn.setAttribute('aria-label', `Edit rating for ${album.title}`);
+    btn.addEventListener('click', () => {
+      editingRatingMbid = album.mbid;
+      render();
+      const input = container.querySelector<HTMLInputElement>('.rank-rating-edit .candidate-place-input');
+      input?.focus();
+      input?.select();
+    });
+    return btn;
+  }
+
   function actionButton(text: string, onClick: () => void): HTMLButtonElement {
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -519,7 +614,7 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     return form;
   }
 
-  /** "Or rate it directly:" -- types a rating (1-10) instead of dragging or
+  /** "Or rate it directly:" -- types a rating (0-10) instead of dragging or
    *  comparing. Returns null when `onDirectRate` is omitted (hides the
    *  control entirely), matching the optional-prop pattern used elsewhere
    *  in this file (e.g. onSetOverallRank, onDiscoverArtist). */
@@ -541,10 +636,10 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     input.className = 'candidate-place-input';
     input.type = 'number';
     input.inputMode = 'decimal';
-    input.min = '1';
+    input.min = '0';
     input.max = '10';
     input.step = '0.01';
-    input.placeholder = '1-10';
+    input.placeholder = '0-10';
     input.setAttribute('aria-label', `Direct rating for ${album.title}`);
 
     const btn = document.createElement('button');
@@ -555,8 +650,8 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     form.addEventListener('submit', (ev) => {
       ev.preventDefault();
       const rating = Number(input.value);
-      if (!Number.isFinite(rating) || rating < 1 || rating > 10) {
-        showStatus('Enter 1-10.');
+      if (!Number.isFinite(rating) || rating < 0 || rating > 10) {
+        showStatus('Enter 0-10.');
         return;
       }
       opts.onDirectRate?.(Math.round(rating * 100) / 100);

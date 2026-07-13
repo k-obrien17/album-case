@@ -615,6 +615,17 @@ async function main(): Promise<void> {
         persistRankingState();
         renderArtistLockView();
       },
+      // Same tradeoff as the main ranked list's onSetRating: a typed rating
+      // targets a value, not a slot, so it isn't run through
+      // nearestValidDropIndex the way onSetOverallRank is.
+      onSetRating: (from, rating) => {
+        const album = state.ranked[from];
+        if (!album) return;
+        const without = state.ranked.filter((a) => a.mbid !== album.mbid);
+        state = { ranked: insertAtRating(without, album, rating), pending: null };
+        persistRankingState();
+        renderArtistLockView();
+      },
       onPlace: (album, index) => {
         state = { ranked: reRate(state.ranked, album, index), pending: null };
         lists = removeFromList(lists, album.mbid, 'wantToListen');
@@ -731,6 +742,20 @@ async function main(): Promise<void> {
       const clamped = nearestValidDropIndex(state.ranked, artistLocks, from, to);
       const album = state.ranked[from];
       state = { ranked: reRate(state.ranked, album, clamped), pending: null };
+      persistRankingState();
+      rankList.render();
+    },
+    // A typed rating targets a value, not a slot, so there's no index to run
+    // through nearestValidDropIndex the way onSetOverallRank does -- same
+    // tradeoff onDirectRate below already accepts for a freshly-placed
+    // candidate. Remove-then-reinsert via insertAtRating (not append-then-
+    // sort) so a rating tie can't strand the album behind an equal-rated
+    // incumbent -- see insertAtRating's doc comment.
+    onSetRating: (from, rating) => {
+      const album = state.ranked[from];
+      if (!album) return;
+      const without = state.ranked.filter((a) => a.mbid !== album.mbid);
+      state = { ranked: insertAtRating(without, album, rating), pending: null };
       persistRankingState();
       rankList.render();
     },

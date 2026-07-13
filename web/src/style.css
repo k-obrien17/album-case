@@ -413,24 +413,32 @@ body {
 }
 
 .rank-rating {
+  display: block;
   margin: 2px 0 0;
+  padding: 0;
+  border: none;
+  background: none;
   color: var(--color-muted);
   font-family: var(--font-mono);
   font-size: 0.8rem;
+  text-align: left;
 }
 
-button.rank-overall {
+button.rank-overall,
+button.rank-rating {
   text-decoration: underline;
   text-underline-offset: 2px;
   cursor: pointer;
   min-height: 44px;
 }
 
-button.rank-overall:hover {
+button.rank-overall:hover,
+button.rank-rating:hover {
   color: var(--color-fg);
 }
 
-.rank-overall-edit {
+.rank-overall-edit,
+.rank-rating-edit {
   margin-top: 4px;
 }
 

@@ -21,6 +21,9 @@ export type ArtistLockViewOptions = {
    *  rendering -- distinct from `onReorder`, which exists for the
    *  within-artist drag path and its filtered-to-global index translation. */
   onSetOverallRank?: (from: number, to: number) => void;
+  /** Set the rating of the ranked album at global index `from` directly.
+   *  Same global-index contract as `onSetOverallRank`. */
+  onSetRating?: (from: number, rating: number) => void;
   onPlace: (album: Album, globalIndex: number) => void;
   onLock: (lock: ArtistLock) => void;
   onUnlock: (artistMbid: string) => void;
@@ -191,6 +194,9 @@ export function mountArtistLockView(
       },
       onSetOverallRank: (from, to) => {
         opts.onSetOverallRank?.(from, to);
+      },
+      onSetRating: (from, rating) => {
+        opts.onSetRating?.(from, rating);
       },
       onRemoveRanked: opts.onRemoveRanked,
       onSetAside: () => {},

@@ -35,13 +35,13 @@ describe('ratingForDropIndex', () => {
   });
 
   it('clamps at the floor when dropped at the very bottom', () => {
-    const ranked = [rankedAlbum('a', 5), rankedAlbum('b', 1.2)];
-    expect(ratingForDropIndex(ranked, 2)).toBe(1);
+    const ranked = [rankedAlbum('a', 5), rankedAlbum('b', 0.2)];
+    expect(ratingForDropIndex(ranked, 2)).toBe(0);
   });
 
-  it('does not go below 1 when dropped at the bottom of an already-low list', () => {
-    const ranked = [rankedAlbum('a', 1.1)];
-    expect(ratingForDropIndex(ranked, 1)).toBe(1);
+  it('does not go below 0 when dropped at the bottom of an already-low list', () => {
+    const ranked = [rankedAlbum('a', 0.1)];
+    expect(ratingForDropIndex(ranked, 1)).toBe(0);
   });
 
   it('returns 10 for the first album in an empty list', () => {
@@ -50,7 +50,7 @@ describe('ratingForDropIndex', () => {
 
   it('clamps an out-of-range index into range before interpolating', () => {
     const ranked = [rankedAlbum('a', 9), rankedAlbum('b', 7)];
-    expect(ratingForDropIndex(ranked, 99)).toBe(1);
+    expect(ratingForDropIndex(ranked, 99)).toBe(0);
     expect(ratingForDropIndex(ranked, -5)).toBe(10);
   });
 });

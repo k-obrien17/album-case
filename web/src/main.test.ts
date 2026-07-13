@@ -183,6 +183,50 @@ describe('insertAtRating (splice at the computed index, not sort-after-append)',
   });
 });
 
+describe('onSetRating (remove-then-reinsert via insertAtRating, 0-10 range)', () => {
+  // Mirrors main.ts's onSetRating handler exactly: filter the album out of
+  // the ranked list, then re-insert it at its new rating via insertAtRating
+  // -- never append-then-sort (see insertAtRating's own describe block above
+  // for why that breaks on ties).
+  function setRating(ranked: RankedAlbum[], mbid: string, rating: number): RankedAlbum[] {
+    const album = ranked.find((a) => a.mbid === mbid);
+    if (!album) return ranked;
+    const without = ranked.filter((a) => a.mbid !== mbid);
+    return insertAtRating(without, album, rating);
+  }
+
+  const ranked: RankedAlbum[] = [
+    rankedAlbum('A', 9),
+    rankedAlbum('B', 7),
+    rankedAlbum('C', 5),
+    rankedAlbum('D', 3),
+  ];
+
+  it('moves an album up the list when its rating is raised above a neighbor', () => {
+    const result = setRating(ranked, 'D', 8);
+    expect(result.map((a) => a.mbid)).toEqual(['A', 'D', 'B', 'C']);
+    expect(result[1].rating).toBe(8);
+  });
+
+  it('moves an album down the list when its rating is lowered below a neighbor', () => {
+    const result = setRating(ranked, 'A', 4);
+    expect(result.map((a) => a.mbid)).toEqual(['B', 'C', 'A', 'D']);
+    expect(result[2].rating).toBe(4);
+  });
+
+  it('accepts the 0 floor, landing the album at the bottom of the list', () => {
+    const result = setRating(ranked, 'A', 0);
+    expect(result.map((a) => a.mbid)).toEqual(['B', 'C', 'D', 'A']);
+    expect(result[3].rating).toBe(0);
+  });
+
+  it('accepts the 10 ceiling, landing the album at the top of the list', () => {
+    const result = setRating(ranked, 'D', 10);
+    expect(result.map((a) => a.mbid)).toEqual(['D', 'A', 'B', 'C']);
+    expect(result[0].rating).toBe(10);
+  });
+});
+
 describe('restoreFromCode', () => {
   it('rejects an invalid code without loading or adopting a session', async () => {
     const setSession = vi.fn();
