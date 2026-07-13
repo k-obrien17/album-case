@@ -42,6 +42,11 @@ export type RankListOptions = {
    *  when present, is scoped to a different, incompatible purpose). Omit to
    *  render the "Overall" figure as plain non-interactive text. */
   onSetOverallRank?: (from: number, to: number) => void;
+  /** Rate the current candidate directly (1-10) instead of dragging or
+   *  comparing it into place. An additional entry path, not a replacement --
+   *  drag-to-place and assisted this-or-that keep working regardless. Omit
+   *  to hide the direct-entry input entirely. */
+  onDirectRate?: (rating: number) => void;
   /** Set the candidate aside into a saved list. */
   onSetAside: (album: Album, which: ListName) => void;
   /** Defer the candidate for this session without saving it anywhere. */
@@ -514,6 +519,54 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     return form;
   }
 
+  /** "Or rate it directly:" -- types a rating (1-10) instead of dragging or
+   *  comparing. Returns null when `onDirectRate` is omitted (hides the
+   *  control entirely), matching the optional-prop pattern used elsewhere
+   *  in this file (e.g. onSetOverallRank, onDiscoverArtist). */
+  function buildDirectRate(album: Album): HTMLElement | null {
+    if (!opts.onDirectRate) return null;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'candidate-direct-rate';
+
+    const label = document.createElement('p');
+    label.className = 'candidate-direct-rate-label';
+    label.textContent = 'Or rate it directly:';
+
+    const form = document.createElement('form');
+    form.className = 'candidate-place';
+    form.noValidate = true;
+
+    const input = document.createElement('input');
+    input.className = 'candidate-place-input';
+    input.type = 'number';
+    input.inputMode = 'decimal';
+    input.min = '1';
+    input.max = '10';
+    input.step = '0.01';
+    input.placeholder = '1-10';
+    input.setAttribute('aria-label', `Direct rating for ${album.title}`);
+
+    const btn = document.createElement('button');
+    btn.type = 'submit';
+    btn.className = 'candidate-place-button';
+    btn.textContent = 'Rate';
+
+    form.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      const rating = Number(input.value);
+      if (!Number.isFinite(rating) || rating < 1 || rating > 10) {
+        showStatus('Enter 1-10.');
+        return;
+      }
+      opts.onDirectRate?.(Math.round(rating * 100) / 100);
+    });
+
+    form.append(input, btn);
+    wrap.append(label, form);
+    return wrap;
+  }
+
   /** The set-aside + skip row, shared by the drag card and the assisted card. */
   function buildActions(album: Album): HTMLElement {
     const actions = document.createElement('div');
@@ -551,7 +604,14 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     label.className = 'candidate-label';
     label.textContent = 'Next album: drag into your list';
 
-    card.append(label, buildDragBody(album), buildNumberPlace(), buildActions(album));
+    const directRate = buildDirectRate(album);
+    card.append(
+      label,
+      buildDragBody(album),
+      buildNumberPlace(),
+      ...(directRate ? [directRate] : []),
+      buildActions(album)
+    );
     return card;
   }
 
@@ -611,7 +671,16 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     hint.className = 'assist-hint';
     hint.textContent = 'or drag to place';
 
-    card.append(label, choose, buildDragBody(album), hint, buildNumberPlace(), buildActions(album));
+    const directRate = buildDirectRate(album);
+    card.append(
+      label,
+      choose,
+      buildDragBody(album),
+      hint,
+      buildNumberPlace(),
+      ...(directRate ? [directRate] : []),
+      buildActions(album)
+    );
     return card;
   }
 

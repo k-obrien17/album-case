@@ -718,6 +718,17 @@ async function main(): Promise<void> {
       persistRankingState();
       rankList.render();
     },
+    // Unlike onPlace, this does not enqueue any pairwise atoms -- no
+    // comparison actually happened, so there's no winner/loser pair to log.
+    onDirectRate: (rating) => {
+      if (!candidate) return;
+      const rated: RankedAlbum = { ...candidate, rating };
+      state = { ranked: [...state.ranked, rated].sort((a, b) => b.rating - a.rating), pending: null };
+      persistRankingState();
+      reselectCandidate();
+      rankList.render();
+      renderNav();
+    },
     onSetAside: (album, which) => {
       // Record to the saved list first (so it is excluded), then drop it from
       // ranking state (setAsideAlbum also clears any stale placement), then
