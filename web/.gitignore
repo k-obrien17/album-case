@@ -27,3 +27,7 @@ dist-ssr
 # temp local data restore helper (personal ratings — never commit)
 public/import-ranking.html
 .env*
+
+# canon import scratch artifacts (personal ranking data — never commit)
+scripts/canon-import-report.json
+scripts/backups/
