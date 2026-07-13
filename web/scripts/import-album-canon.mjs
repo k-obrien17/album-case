@@ -311,3 +311,54 @@ if (conflictingLocks.length > 0) {
 } else {
   console.log(`\nNo artist lock conflicts detected across ${artistLocks.length} lock(s).`);
 }
+
+// --- The actual write. Gated behind an explicit env var so this can never
+//     fire by accident: everything above this line is read-only (matching,
+//     backup, floor check, lock repair/conflict report). Without the env var
+//     set, the script stops here having written nothing to production. ---
+if (process.env.CONFIRM_CANON_IMPORT !== 'yes') {
+  console.log('\nDry run complete. Set CONFIRM_CANON_IMPORT=yes to actually write this to production.');
+  client.close();
+  process.exit(0);
+}
+
+const writeKey = process.env.ALBUM_CASE_WRITE_KEY;
+if (!writeKey) {
+  console.error('Missing ALBUM_CASE_WRITE_KEY.');
+  process.exit(1);
+}
+
+const res = await fetch('https://album-case.vercel.app/api/ranking', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', 'x-album-case-write-key': writeKey },
+  body: JSON.stringify({
+    session_id: OWNER_ID,
+    ranked: newRanked,
+    lists,
+    artist_locks: artistLocks,
+    base_updated_at: baseUpdatedAt,
+  }),
+});
+
+if (!res.ok) {
+  // base_updated_at pins this write to the snapshot read at the START of the
+  // script, before ~2.5 minutes of MusicBrainz matching, on purpose: if
+  // Keith edited his ranking in the app during that window, the API's
+  // optimistic-concurrency check (web/api/ranking.ts) rejects the write with
+  // 409 { error: 'snapshot_conflict' } rather than silently clobbering his
+  // change. That's the correct outcome, not a bug -- so give a specific,
+  // actionable message for that case instead of a generic failure dump.
+  if (res.status === 409) {
+    console.error(
+      '\nImport write rejected: the ranking changed in production since this script started ' +
+        '(optimistic-concurrency conflict on base_updated_at). Nothing was overwritten. ' +
+        'Re-run the script from scratch to pick up the latest snapshot and try again.',
+    );
+  } else {
+    console.error(`\nImport write failed: ${res.status} ${await res.text()}`);
+  }
+  process.exit(1);
+}
+
+console.log(`\nImport complete. ${newRanked.length} albums now in the ranked list.`);
+client.close();
