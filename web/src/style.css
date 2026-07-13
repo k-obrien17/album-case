@@ -347,7 +347,7 @@ body {
 }
 
 /* Shown in place of the ranked list when a search query matches nothing
-   locally. Task 4 hangs a "search MusicBrainz" action off this class. */
+   locally. Hangs a "search MusicBrainz" action off this class. */
 .rank-search-empty {
   display: flex;
   flex-direction: column;

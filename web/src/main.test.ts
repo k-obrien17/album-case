@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  addSearchedAlbum,
   hydrateAlbums,
   insertAtRating,
   reRate,
@@ -8,7 +9,7 @@ import {
   serverSnapshotIsRicher,
   setRating,
 } from './main';
-import { removeFromList, type SavedLists } from './lists';
+import type { SavedLists } from './lists';
 import type { Album, RankedAlbum, RankingState } from './ranking/types';
 
 function album(mbid: string): Album {
@@ -222,17 +223,18 @@ describe('setRating (remove-then-reinsert via insertAtRating, 0-10 range)', () =
   });
 });
 
-describe('onRateSearchResult handler shape (insertAtRating + removeFromList)', () => {
-  // Exercises the exact sequence main.ts's onRateSearchResult performs --
-  // insert the searched album into the ranked list at the typed rating via
-  // the REAL exported insertAtRating (not a local copy), then strip it from
-  // all three saved lists via the REAL exported removeFromList. A searched
-  // album can already be sitting in a saved list (e.g. a prior "Want to
-  // listen"); api/ranking.ts rejects any snapshot where an album is both
-  // ranked and in a saved list (400 ranked_album_in_saved_list), so skipping
-  // this step would only surface as a confusing failure on the NEXT save,
-  // far from the actual mistake -- this exact bug already blocked the canon
-  // import once.
+describe('addSearchedAlbum (the exact function onRateSearchResult calls)', () => {
+  // Exercises the REAL exported addSearchedAlbum from main.ts -- insert the
+  // searched album into the ranked list at the typed rating, then strip it
+  // from all three saved lists. A searched album can already be sitting in a
+  // saved list (e.g. a prior "Want to listen"); api/ranking.ts rejects any
+  // snapshot where an album is both ranked and in a saved list (400
+  // ranked_album_in_saved_list), so skipping this step would only surface as
+  // a confusing failure on the NEXT save, far from the actual mistake --
+  // this exact bug already blocked the canon import once. Calling the real,
+  // exported function (rather than re-running the sequence inline in the
+  // test body) is what makes this test actually fail if the removal logic
+  // is ever deleted from the real implementation.
   it('inserts the album at the correct rating and removes it from every saved list it was sitting in', () => {
     const ranked: RankedAlbum[] = [
       rankedAlbum('A', 9),
@@ -240,23 +242,20 @@ describe('onRateSearchResult handler shape (insertAtRating + removeFromList)', (
       rankedAlbum('C', 5),
     ];
     const found = album('E');
-    let lists: SavedLists = {
+    const lists: SavedLists = {
       wantToListen: [found],
       notHeard: [album('x')],
       dontCare: [found],
     };
 
-    const newRanked = insertAtRating(ranked, found, 8);
-    lists = removeFromList(lists, found.mbid, 'wantToListen');
-    lists = removeFromList(lists, found.mbid, 'notHeard');
-    lists = removeFromList(lists, found.mbid, 'dontCare');
+    const result = addSearchedAlbum(ranked, lists, found, 8);
 
-    expect(newRanked.map((a) => a.mbid)).toEqual(['A', 'E', 'B', 'C']);
-    expect(newRanked[1].rating).toBe(8);
-    expect(lists.wantToListen).toEqual([]);
-    expect(lists.dontCare).toEqual([]);
+    expect(result.ranked.map((a) => a.mbid)).toEqual(['A', 'E', 'B', 'C']);
+    expect(result.ranked[1].rating).toBe(8);
+    expect(result.lists.wantToListen).toEqual([]);
+    expect(result.lists.dontCare).toEqual([]);
     // A list the album was never in is left untouched.
-    expect(lists.notHeard).toEqual([album('x')]);
+    expect(result.lists.notHeard).toEqual([album('x')]);
   });
 });
 

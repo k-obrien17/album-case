@@ -353,7 +353,13 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
 
     const num = document.createElement('span');
     num.className = 'rank-num';
-    num.textContent = String(index + 1);
+    // While filtered (searching), `index` is only this row's position in the
+    // FILTERED array -- rendering that as the big rank number would show a
+    // globally #201 album as "1". Prefer the true global overall rank
+    // whenever it's known (subRanks is always computed from the global list;
+    // see render()'s `computeSubRanks(opts.getGlobalRanked?.() ?? ranked)`),
+    // falling back to the filtered index only when no subRank is available.
+    num.textContent = String(subRanks.get(album.mbid)?.overallRank ?? index + 1);
 
     const meta = document.createElement('div');
     meta.className = 'rank-meta';
@@ -992,8 +998,8 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
   function render(): void {
     // Capture focus/caret state BEFORE clearing the container. render()
     // rebuilds the DOM from scratch, so the search input is destroyed and
-    // recreated on every call (Task 4 wires onSearchQueryChange to trigger a
-    // re-render on every keystroke). Naively tracking focus via the input's
+    // recreated on every call (onSearchQueryChange triggers a re-render on
+    // every keystroke). Naively tracking focus via the input's
     // own focus/blur listeners doesn't work: removing a focused element from
     // the DOM (the `container.textContent = ''` below) fires a synchronous
     // blur first, which would clear that state before it's ever read. Reading
@@ -1085,8 +1091,8 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
 
     // Restore focus + caret to the search input, which render() just
     // recreated from scratch. Without this, a keystroke-triggered re-render
-    // (Task 4 wires onSearchQueryChange to trigger one) drops focus after a
-    // single character and the box becomes unusable.
+    // (onSearchQueryChange triggers one) drops focus after a single
+    // character and the box becomes unusable.
     if (searchWasFocused) {
       const input = container.querySelector<HTMLInputElement>('.rank-search-input');
       if (input) {

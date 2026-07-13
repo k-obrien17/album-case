@@ -25,6 +25,10 @@ const DELAY_MS = 1000;
 // floor. Ratings now run 0-10 app-wide, so the floor is opt-in: default 0.
 // The type/NaN/range check below is NOT optional -- that's the real invariant.
 const RATING_FLOOR = Number(process.env.RATING_FLOOR ?? 0);
+if (!Number.isFinite(RATING_FLOOR) || RATING_FLOOR < 0 || RATING_FLOOR > 10) {
+  console.error(`Invalid RATING_FLOOR: ${process.env.RATING_FLOOR}. Must be a number in 0-10.`);
+  process.exit(1);
+}
 
 // Matches web/src/owner.ts's OWNER_ID.
 const OWNER_ID = 'c0ffee00-0000-4000-8000-000000000001';

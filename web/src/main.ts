@@ -195,10 +195,37 @@ export function reRate(ranked: RankedAlbum[], album: Album, targetIndex: number)
  * the list and not fighting the incumbent for index 0.
  */
 export function insertAtRating(ranked: RankedAlbum[], album: Album, rating: number): RankedAlbum[] {
+  // Guard against a duplicate mbid: a duplicate would fail the API's
+  // parseRankedAlbumList validation (400 invalid_snapshot), surfacing only
+  // as a sync failure in the banner. Mirrors what reRate already does.
+  const without = ranked.filter((a) => a.mbid !== album.mbid);
   const rated: RankedAlbum = { ...album, rating };
-  const insertAt = ranked.findIndex((a) => a.rating < rating);
-  const index = insertAt === -1 ? ranked.length : insertAt;
-  return [...ranked.slice(0, index), rated, ...ranked.slice(index)];
+  const insertAt = without.findIndex((a) => a.rating < rating);
+  const index = insertAt === -1 ? without.length : insertAt;
+  return [...without.slice(0, index), rated, ...without.slice(index)];
+}
+
+/**
+ * Add a searched (MusicBrainz-fallback) album to the ranked list at `rating`,
+ * and strip it out of every saved list it might already be sitting in (e.g.
+ * a prior "Want to listen"). HARD REQUIREMENT: api/ranking.ts rejects any
+ * snapshot where an album is both ranked and in a saved list (400
+ * ranked_album_in_saved_list) -- this exact bug class already blocked the
+ * canon import once. Pure and exported so the regression is actually
+ * guarded by a test that exercises this function directly, not a re-run of
+ * the same sequence in the test body.
+ */
+export function addSearchedAlbum(
+  ranked: RankedAlbum[],
+  lists: SavedLists,
+  album: Album,
+  rating: number
+): { ranked: RankedAlbum[]; lists: SavedLists } {
+  const newRanked = insertAtRating(ranked, album, rating);
+  let newLists = removeFromList(lists, album.mbid, 'wantToListen');
+  newLists = removeFromList(newLists, album.mbid, 'notHeard');
+  newLists = removeFromList(newLists, album.mbid, 'dontCare');
+  return { ranked: newRanked, lists: newLists };
 }
 
 /**
@@ -358,11 +385,12 @@ async function main(): Promise<void> {
   // nothing local matches. Kept in main.ts, not rankList.ts -- rankList is a
   // pure render layer over whatever state it's handed.
   let searchQuery = '';
-  let searchResults:
+  type SearchResultsState =
     | { status: 'idle' }
     | { status: 'loading' }
     | { status: 'error' }
-    | { status: 'done'; albums: Album[] } = { status: 'idle' };
+    | { status: 'done'; albums: Album[] };
+  let searchResults: SearchResultsState = { status: 'idle' };
 
   const shell = document.createElement('div');
   shell.className = 'app-shell';
@@ -590,30 +618,31 @@ async function main(): Promise<void> {
     },
     onSearchMusicBrainz: (query) => {
       void (async () => {
+        // Guard against a stale response landing after the user kept typing:
+        // capture the query this fetch is FOR, and discard the result if the
+        // live search box has since moved on to a different query.
+        const forQuery = query.trim();
         searchResults = { status: 'loading' };
         rankList.render();
+        let next: SearchResultsState;
         try {
           const res = await fetch(`/api/search-album?q=${encodeURIComponent(query)}`);
           if (!res.ok) throw new Error(String(res.status));
           const body = (await res.json()) as { albums: Album[] };
-          searchResults = { status: 'done', albums: body.albums ?? [] };
+          next = { status: 'done', albums: body.albums ?? [] };
         } catch {
-          searchResults = { status: 'error' };
+          next = { status: 'error' };
         }
+        if (searchQuery.trim() !== forQuery) return; // stale response, discard
+        searchResults = next;
         rankList.render();
       })();
     },
     getSearchResults: () => searchResults,
     onRateSearchResult: (album, rating) => {
-      state = { ranked: insertAtRating(state.ranked, album, rating), pending: null };
-
-      // HARD REQUIREMENT: api/ranking.ts rejects any snapshot where an album is
-      // both ranked and in a saved list (400 ranked_album_in_saved_list). A
-      // searched album may already be sitting in one -- e.g. previously set
-      // aside as "want to listen" and now being rated from search.
-      lists = removeFromList(lists, album.mbid, 'wantToListen');
-      lists = removeFromList(lists, album.mbid, 'notHeard');
-      lists = removeFromList(lists, album.mbid, 'dontCare');
+      const added = addSearchedAlbum(state.ranked, lists, album, rating);
+      state = { ranked: added.ranked, pending: null };
+      lists = added.lists;
 
       searchQuery = '';
       searchResults = { status: 'idle' };
