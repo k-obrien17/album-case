@@ -5,9 +5,13 @@
  * mirroring media-library/scripts/export-collect-watching.mjs. kro renders
  * it at build time; there is no runtime coupling to this database.
  *
- * Score is NOT stored anywhere in Album Case -- it's derived here, once,
- * from rank position. See docs/superpowers/specs/2026-07-11-album-score-export-design.md
- * for why (Album Case's ranking is transitive-by-construction, not scored).
+ * Publishes each album's REAL stored `rating` (1-10, 2dp), which is now the
+ * primary organizing value of the ranked list. This script used to derive a
+ * score from rank position instead -- correct back when ratings didn't exist
+ * (see docs/superpowers/specs/2026-07-11-album-score-export-design.md), but
+ * wrong now: it invented numbers that drifted from the real ones (e.g. it
+ * published 9.98 for an album actually rated 9.99). Publish the data, don't
+ * re-derive it.
  *
  * Usage:
  *   node --env-file=web/.env.local web/scripts/export-collect-albums.mjs
@@ -20,11 +24,6 @@ import { createClient } from '@libsql/client';
 const OWNER_ID = 'c0ffee00-0000-4000-8000-000000000001';
 
 const TOP_N = Number(process.env.TOP_N || 10);
-
-function score(rank, total) {
-  const raw = 1 + (9 * (total - rank)) / (total - 1);
-  return Math.round(raw * 100) / 100;
-}
 
 function db() {
   const url = process.env.TURSO_DATABASE_URL;
@@ -68,11 +67,21 @@ if (!existsSync(dirname(OUT))) {
   process.exit(1);
 }
 
-const top = ranked.slice(0, TOP_N).map((album, index) => ({
+// Fail loudly rather than publish a wrong number: every album in the ranked
+// list must carry a real rating (the list is rating-sorted by construction).
+const unrated = ranked.slice(0, TOP_N).filter((a) => typeof a.rating !== 'number' || Number.isNaN(a.rating));
+if (unrated.length > 0) {
+  console.error(`ABORT: ${unrated.length} of the top ${TOP_N} albums have no valid rating:`);
+  for (const a of unrated) console.error(`  - ${a.title} (${a.primary_artist_name}) = ${a.rating}`);
+  console.error('Nothing was written. Run the rating backfill first.');
+  process.exit(1);
+}
+
+const top = ranked.slice(0, TOP_N).map((album) => ({
   title: album.title,
   artist: album.primary_artist_name,
   year: album.release_year,
-  score: score(index + 1, ranked.length),
+  score: album.rating,
   type: 'album',
   mb_url: `https://musicbrainz.org/release-group/${album.mbid}`,
 }));
