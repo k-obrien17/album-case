@@ -163,6 +163,10 @@ const untouched = currentRanked.filter((a) => !fileMbids.has(a.mbid));
 // depend on stable-sort plus input order (175 of 375 adjacent pairs in the
 // real data are rating ties). `untouched` albums carry no CSV ranking, so
 // they sort after tied CSV-sourced albums via the `?? Infinity` fallback.
+// This CSV-Ranking tiebreak only holds for non-lock albums: for any pair
+// tied on rating that also belongs to the same artist lock, the
+// repairLockTies pass below overrides this order to match the lock's
+// specified relative order instead.
 const ratingSorted = [...updatedOrNew, ...untouched]
   .sort((a, b) => b.rating - a.rating || (a.ranking ?? Infinity) - (b.ranking ?? Infinity))
   // `ranking` is a sort-only field, not part of the Album schema -- strip it
@@ -176,6 +180,30 @@ const ratingSorted = [...updatedOrNew, ...untouched]
     cover_url,
     rating,
   }));
+
+console.log(`Replace list: ${updatedOrNew.length} from the file (updated or new), ${untouched.length} untouched existing, ${ratingSorted.length} total.`);
+
+// Hard floor: nothing in this library may be rated below 8. The canon file is
+// 8-to-10 by construction, and every currently-ranked album is covered by it,
+// so this should never trip -- but an `untouched` album carrying an old
+// sub-8 backfill rating (or a different source file later) would silently
+// violate the rule, so fail loudly rather than write it. This check runs on
+// `ratingSorted`, BEFORE the lock tie-repair pass below: the repair pass must
+// only ever operate on data already proven valid, never on unvalidated rows
+// (repairLockTies only reorders albums within tied-rating groups -- it never
+// adds, drops, or changes an album's rating -- so checking before or after
+// the repair pass inspects the exact same set of albums either way).
+const belowFloor = ratingSorted.filter((a) => typeof a.rating !== 'number' || Number.isNaN(a.rating) || a.rating < 8);
+if (belowFloor.length > 0) {
+  console.error(`\nABORT: ${belowFloor.length} album(s) rated below 8.0 or not a valid number:`);
+  for (const a of belowFloor.slice(0, 10)) {
+    console.error(`  - ${a.title} (${a.primary_artist_name}) = ${a.rating}`);
+  }
+  if (belowFloor.length > 10) console.error(`  ...and ${belowFloor.length - 10} more.`);
+  console.error('Nothing was written. Fix the source data or the replace-list logic first.');
+  process.exit(1);
+}
+console.log(`Rating floor check passed: all ${ratingSorted.length} albums are rated 8.0 or above.`);
 
 // --- Lock-order tiebreak repair pass. Ratings alone fully determine order
 //     whenever two albums differ; when the CSV rates two albums IDENTICALLY,
@@ -202,8 +230,14 @@ const ratingSorted = [...updatedOrNew, ...untouched]
 //     they appear in the lock's specified relative order (order[0] = most
 //     preferred = lowest/earliest index). Indices outside a tie group, and
 //     all non-lock albums, are never touched.
+//
+//     This pass never runs silently: every album whose index actually moved
+//     is reported below, naming the album, its rating, and the lock that
+//     caused the move, so a clean run (no repairs needed) is visibly distinct
+//     from a run that quietly absorbed a lock/rating conflict.
 function repairLockTies(ranked, locks) {
   const result = [...ranked];
+  const changes = [];
   for (const lock of locks) {
     const lockIndices = [];
     for (let i = 0; i < result.length; i++) {
@@ -221,33 +255,27 @@ function repairLockTies(ranked, locks) {
         .map((i) => result[i])
         .sort((a, b) => lock.order.indexOf(a.mbid) - lock.order.indexOf(b.mbid));
       indices.forEach((i, j) => {
+        if (result[i].mbid !== albumsInLockOrder[j].mbid) {
+          changes.push({ album: albumsInLockOrder[j], lockArtistMbid: lock.artistMbid });
+        }
         result[i] = albumsInLockOrder[j];
       });
     }
   }
+
+  if (changes.length > 0) {
+    console.log(`\nLock tie repair: reordered ${changes.length} album(s) within tied ratings to honor artist locks:`);
+    for (const { album, lockArtistMbid } of changes) {
+      console.log(`  - ${album.title} (${album.rating}) [lock ${lockArtistMbid}]`);
+    }
+  } else {
+    console.log('\nNo lock tie repairs needed.');
+  }
+
   return result;
 }
 
 const newRanked = repairLockTies(ratingSorted, artistLocks);
-
-console.log(`Replace list: ${updatedOrNew.length} from the file (updated or new), ${untouched.length} untouched existing, ${newRanked.length} total.`);
-
-// Hard floor: nothing in this library may be rated below 8. The canon file is
-// 8-to-10 by construction, and every currently-ranked album is covered by it,
-// so this should never trip -- but an `untouched` album carrying an old
-// sub-8 backfill rating (or a different source file later) would silently
-// violate the rule, so fail loudly rather than write it.
-const belowFloor = newRanked.filter((a) => typeof a.rating !== 'number' || Number.isNaN(a.rating) || a.rating < 8);
-if (belowFloor.length > 0) {
-  console.error(`\nABORT: ${belowFloor.length} album(s) rated below 8.0 or not a valid number:`);
-  for (const a of belowFloor.slice(0, 10)) {
-    console.error(`  - ${a.title} (${a.primary_artist_name}) = ${a.rating}`);
-  }
-  if (belowFloor.length > 10) console.error(`  ...and ${belowFloor.length - 10} more.`);
-  console.error('Nothing was written. Fix the source data or the replace-list logic first.');
-  process.exit(1);
-}
-console.log(`Rating floor check passed: all ${newRanked.length} albums are rated 8.0 or above.`);
 
 // --- Artist-lock conflict detection. Runs AFTER the tie-repair pass above,
 //     so any tie-only lock violations are already resolved by the time this
