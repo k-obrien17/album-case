@@ -195,3 +195,33 @@ if (belowFloor.length > 0) {
   process.exit(1);
 }
 console.log(`Rating floor check passed: all ${newRanked.length} albums are rated 8.0 or above.`);
+
+// --- Artist-lock conflict detection. Locks are NEVER modified or dropped by
+//     this script -- only reported. Mirrors the relative-order semantics of
+//     web/src/ranking/locks.ts's isValidOrder (locked albums no longer
+//     present in the new list are simply skipped, not treated as violations),
+//     reimplemented standalone since this script can't import a .ts file
+//     (same duplication convention as isLpReleaseGroup).
+function isValidOrder(ranked, locks) {
+  const indexByMbid = new Map(ranked.map((a, i) => [a.mbid, i]));
+  return locks.every((lock) => {
+    const present = lock.order.filter((mbid) => indexByMbid.has(mbid));
+    const sorted = [...present].sort((a, b) => indexByMbid.get(a) - indexByMbid.get(b));
+    return JSON.stringify(present) === JSON.stringify(sorted);
+  });
+}
+
+const currentByMbid = new Map(currentRanked.map((a) => [a.mbid, a]));
+const conflictingLocks = artistLocks.filter((lock) => !isValidOrder(newRanked, [lock]));
+if (conflictingLocks.length > 0) {
+  console.log(`\n${conflictingLocks.length} of ${artistLocks.length} artist lock(s) would be contradicted by this import:`);
+  for (const lock of conflictingLocks) {
+    const titles = lock.order
+      .map((mbid) => newRanked.find((a) => a.mbid === mbid)?.title ?? currentByMbid.get(mbid)?.title ?? mbid)
+      .join(' -> ');
+    console.log(`  - artist ${lock.artistMbid}: locked order: ${titles}`);
+  }
+  console.log('These locks are NOT being modified. Review after the import completes.');
+} else {
+  console.log(`\nNo artist lock conflicts detected across ${artistLocks.length} lock(s).`);
+}
