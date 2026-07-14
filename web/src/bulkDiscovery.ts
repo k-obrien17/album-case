@@ -177,6 +177,7 @@ export async function runSimilarExpansion(
   const newQueue: string[] = [];
   const succeeded: string[] = [];
   let foundCount = 0;
+  let emptyCount = 0;
   let errorCount = 0;
 
   for (let i = 0; i < targets.length; i++) {
@@ -191,6 +192,8 @@ export async function runSimilarExpansion(
       return { priorityQueue, summary: 'Unlock writes to fill in more albums.' };
     } else if (result.status === 'error') {
       errorCount++;
+    } else if (result.status === 'empty') {
+      emptyCount++;
     } else if (result.status === 'found') {
       const poolIds = new Set(pool.map((a) => a.mbid));
       const newToPool = result.albums.filter((a) => !poolIds.has(a.mbid));
@@ -204,6 +207,7 @@ export async function runSimilarExpansion(
 
   let summary = `Added ${foundCount} albums from ${succeeded.length} similar artists`;
   summary += succeeded.length > 0 ? `: ${succeeded.join(', ')}.` : '.';
+  if (emptyCount > 0) summary += ` ${emptyCount} had no albums to add.`;
   if (errorCount > 0) summary += ` ${errorCount} failed.`;
 
   return { priorityQueue: [...newQueue, ...priorityQueue], summary };

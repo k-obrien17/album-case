@@ -381,4 +381,30 @@ describe('runSimilarExpansion', () => {
 
     expect(result.summary).toBe('Added 1 albums from 1 similar artists: Slowdive. 1 failed.');
   });
+
+  it('reports empty-catalog similar artists separately from failures', async () => {
+    const fetchSimilar = vi.fn(async (): Promise<SimilarArtist[] | null> => [
+      { mbid: 'artist-pixies', name: 'Pixies', score: 90 },
+      { mbid: 'artist-slowdive', name: 'Slowdive', score: 80 },
+    ]);
+    const discover = vi.fn(async (artistName: string): Promise<DiscoverArtistResult> => {
+      if (artistName === 'Pixies') return { status: 'empty' };
+      return {
+        status: 'found',
+        albums: [
+          album({ mbid: 'new-slowdive-album', primary_artist_name: 'Slowdive', primary_artist_mbid: 'artist-slowdive' }),
+        ],
+      };
+    });
+
+    const result = await runSimilarExpansion(
+      rankedFor([radiohead]),
+      [],
+      [],
+      [],
+      { fetchSimilar, discover, delayMs: 0 }
+    );
+
+    expect(result.summary).toBe('Added 1 albums from 1 similar artists: Slowdive. 1 had no albums to add.');
+  });
 });
