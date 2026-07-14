@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Album } from './ranking/types';
 import type { DiscoverArtistResult } from './discovery';
-import { topRankedArtists, runBulkDiscovery } from './bulkDiscovery';
+import { topRankedArtists, runBulkDiscovery, rankSimilarArtists, type SimilarArtist } from './bulkDiscovery';
 
 function album(overrides: Partial<Album> & { mbid: string }): Album {
   return {
@@ -188,5 +188,55 @@ describe('runBulkDiscovery', () => {
 
     expect(pool).toHaveLength(1);
     expect(result.summary).toBe('Added 0 new albums from 1 artists.');
+  });
+});
+
+describe('rankSimilarArtists', () => {
+  const sa = (mbid: string, name: string, score: number): SimilarArtist => ({ mbid, name, score });
+
+  it('normalizes each seed list before summing, so one seed\'s larger raw scale cannot dominate', () => {
+    // Seed A scores in the thousands, seed B in single digits. "shared" is
+    // mid-strength in both: normalized 600/1000 + 6/10 = 1.2, strictly above
+    // "loud" (1000/1000 = 1.0) despite loud's huge raw score.
+    const seedA = [sa('loud', 'Loud', 1000), sa('shared', 'Shared', 600)];
+    const seedB = [sa('shared', 'Shared', 6), sa('quiet', 'Quiet', 10)];
+    const out = rankSimilarArtists([seedA, seedB], new Set(), [], 3);
+    expect(out[0]).toEqual({ mbid: 'shared', name: 'Shared' });
+  });
+
+  it('an artist similar to several seeds outranks one similar to a single seed', () => {
+    // multi: 60/100 + 60/100 = 1.2 -- strictly above the per-list maxes
+    // (topA/topB at 1.0 each) and solo (80/100 = 0.8). No ties anywhere.
+    const seedA = [sa('topA', 'TopA', 100), sa('multi', 'Multi', 60), sa('solo', 'Solo', 80)];
+    const seedB = [sa('topB', 'TopB', 100), sa('multi', 'Multi', 60)];
+    const out = rankSimilarArtists([seedA, seedB], new Set(), [], 4);
+    expect(out[0].mbid).toBe('multi');
+    expect(out.findIndex((a) => a.mbid === 'multi')).toBeLessThan(out.findIndex((a) => a.mbid === 'solo'));
+  });
+
+  it('excludes artists already represented in the library (by mbid)', () => {
+    const seed = [sa('have', 'Have', 100), sa('new', 'New', 50)];
+    const out = rankSimilarArtists([seed], new Set(['have']), [], 5);
+    expect(out.map((a) => a.mbid)).toEqual(['new']);
+  });
+
+  it('excludes blocked artists by name, case-insensitively', () => {
+    const seed = [sa('x', 'Coldplay', 100), sa('y', 'Pixies', 90)];
+    const out = rankSimilarArtists([seed], new Set(), ['coldplay'], 5);
+    expect(out.map((a) => a.name)).toEqual(['Pixies']);
+  });
+
+  it('caps at n', () => {
+    const seed = [sa('a', 'A', 5), sa('b', 'B', 4), sa('c', 'C', 3)];
+    expect(rankSimilarArtists([seed], new Set(), [], 2)).toHaveLength(2);
+  });
+
+  it('returns empty for no seed lists', () => {
+    expect(rankSimilarArtists([], new Set(), [], 5)).toEqual([]);
+  });
+
+  it('ignores empty seed lists without dividing by zero', () => {
+    const seed = [sa('a', 'A', 10)];
+    expect(rankSimilarArtists([seed, []], new Set(), [], 5).map((a) => a.mbid)).toEqual(['a']);
   });
 });
