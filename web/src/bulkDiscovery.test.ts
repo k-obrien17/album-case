@@ -92,6 +92,8 @@ describe('runBulkDiscovery', () => {
     expect(result).toEqual({
       priorityQueue: ['existing-mbid'],
       summary: 'Unlock writes to fill in more albums.',
+      found: 0,
+      locked: true,
     });
     expect(discover).toHaveBeenCalledTimes(1);
   });
@@ -152,7 +154,12 @@ describe('runBulkDiscovery', () => {
 
     const result = await runBulkDiscovery([], [], ['old-mbid'], { discover, delayMs: 0 });
 
-    expect(result).toEqual({ priorityQueue: ['old-mbid'], summary: 'Rank some albums first.' });
+    expect(result).toEqual({
+      priorityQueue: ['old-mbid'],
+      summary: 'Rank some albums first.',
+      found: 0,
+      locked: false,
+    });
     expect(discover).not.toHaveBeenCalled();
   });
 

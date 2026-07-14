@@ -38,10 +38,10 @@ export async function runBulkDiscovery(
   pool: Album[],
   priorityQueue: string[],
   deps: BulkDiscoverDeps
-): Promise<{ priorityQueue: string[]; summary: string }> {
+): Promise<{ priorityQueue: string[]; summary: string; found: number; locked: boolean }> {
   const artists = topRankedArtists(ranked, TOP_ARTIST_DISCOVERY_COUNT);
   if (artists.length === 0) {
-    return { priorityQueue, summary: 'Rank some albums first.' };
+    return { priorityQueue, summary: 'Rank some albums first.', found: 0, locked: false };
   }
 
   const delayMs = deps.delayMs ?? 300;
@@ -60,7 +60,7 @@ export async function runBulkDiscovery(
     const result = await deps.discover(artist.name, artist.mbid, knownMbids);
 
     if (result.status === 'locked') {
-      return { priorityQueue, summary: 'Unlock writes to fill in more albums.' };
+      return { priorityQueue, summary: 'Unlock writes to fill in more albums.', found: 0, locked: true };
     } else if (result.status === 'error') {
       errorCount++;
     } else if (result.status === 'empty') {
@@ -81,7 +81,7 @@ export async function runBulkDiscovery(
     summary += ` ${emptyCount} already fully discovered, ${errorCount} failed.`;
   }
 
-  return { priorityQueue: [...newQueue, ...priorityQueue], summary };
+  return { priorityQueue: [...newQueue, ...priorityQueue], summary, found: foundCount, locked: false };
 }
 
 export const SIMILAR_ARTISTS_PER_RUN = 5;
