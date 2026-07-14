@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { isLpReleaseGroup, mergeDiscovered, type ReleaseGroup, type DiscoveredAlbum } from './_lp';
+import {
+  isLpReleaseGroup,
+  isAlbumOrEpReleaseGroup,
+  mergeDiscovered,
+  type ReleaseGroup,
+  type DiscoveredAlbum,
+} from './_lp';
 
 function group(overrides: Partial<ReleaseGroup> = {}): ReleaseGroup {
   return { id: 'x', title: 'Title', 'primary-type': 'Album', ...overrides };
@@ -20,6 +26,36 @@ describe('isLpReleaseGroup', () => {
 
   it('rejects a release-group with a missing primary type', () => {
     expect(isLpReleaseGroup(group({ 'primary-type': undefined }))).toBe(false);
+  });
+});
+
+describe('isAlbumOrEpReleaseGroup', () => {
+  it('accepts a plain Album release-group with no secondary types', () => {
+    expect(isAlbumOrEpReleaseGroup(group())).toBe(true);
+  });
+
+  it('accepts a plain EP release-group with no secondary types', () => {
+    expect(isAlbumOrEpReleaseGroup(group({ 'primary-type': 'EP' }))).toBe(true);
+  });
+
+  it('rejects an EP with a secondary type (e.g. Live)', () => {
+    expect(
+      isAlbumOrEpReleaseGroup(group({ 'primary-type': 'EP', 'secondary-types': ['Live'] }))
+    ).toBe(false);
+  });
+
+  it('rejects an Album with a secondary type (e.g. Compilation)', () => {
+    expect(
+      isAlbumOrEpReleaseGroup(group({ 'secondary-types': ['Compilation'] }))
+    ).toBe(false);
+  });
+
+  it('rejects a non-Album, non-EP primary type (e.g. Single)', () => {
+    expect(isAlbumOrEpReleaseGroup(group({ 'primary-type': 'Single' }))).toBe(false);
+  });
+
+  it('rejects a release-group with a missing primary type', () => {
+    expect(isAlbumOrEpReleaseGroup(group({ 'primary-type': undefined }))).toBe(false);
   });
 });
 
