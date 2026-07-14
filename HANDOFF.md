@@ -1,43 +1,39 @@
 # Handoff
 
 ## Current task
-Similar-artist expansion for "Fill in more albums" — **built, reviewed, merged, pushed, and deployed to production.** Nothing in flight; the repo is fully shipped and in sync with origin.
+EP support in free-text search — **built, reviewed, merged to local `main`. Not yet pushed/deployed.**
 
 ## Status
-Everything from the last two sessions is live at https://album-case.vercel.app:
+`/api/search-album` now returns clean EPs (e.g. Pixies' "Come On Pilgrim") alongside clean albums, previously excluded entirely. Scope was deliberately narrow per Keith's calls during brainstorming: search only (artist-MBID bulk discovery via `discover-artist.ts` stays LP-only, untouched), clean EPs only (an EP still needs zero secondary-types — a "Live EP" or "Remix EP" stays excluded), no visual distinction once added (an EP renders and stores exactly like an album, no schema/type changes anywhere).
 
-- **Search** (local filter + MusicBrainz fallback with rate-to-add), deployed earlier today.
-- **Similar-artist expansion** (this session): "Fill in more albums" is now two-tier. Tier 1 (unchanged) browses the top-10 ranked artists' remaining catalogs; when it finds 0 and writes aren't locked, Tier 2 fetches similar artists per seed from ListenBrainz Labs (via a new read-only proxy `GET /api/similar-artists?artist_mbid=`), normalizes+aggregates scores across seeds, excludes artists already represented in ranked/pool or blocked by name, and discovers the top 5 new artists' studio LPs into the candidate queue — naming them in the summary. Repeated presses dig 5 artists deeper (previous run's artists are now in the pool, so exclusion advances).
-- 243 tests pass, tsc/build clean. Route verified live (50 similar artists for Radiohead). Production data healthy: **401 ranked albums** (Keith actively adding via search — up from 376 post-canon), OK Computer still #1 at 10.
-- The stalled-save issue from yesterday is resolved (it was the rotated write key; Keith re-unlocked via the `#key=` fragment link — his adds are landing on the server again).
+Full subagent-driven-development cycle: brainstormed → spec written (`docs/superpowers/specs/2026-07-14-ep-search-support-design.md`) → plan written (`docs/superpowers/plans/2026-07-14-ep-search-support.md`) → 2 tasks implemented by fresh Haiku subagents in an isolated worktree → each task reviewed clean by a Sonnet task reviewer → final whole-branch review by Opus (verdict: ready to merge, only two optional cosmetic notes) → merged locally, worktree and branch cleaned up. 250/250 tests pass on merged `main`.
 
 ## Next concrete step
-**Keith verifies the one path no test could reach:** press "Fill in more albums" on his unlocked device. Expected: Tier 1 progress → "Finding similar artists (1/10)…" → "Discovering [artist]…" → summary naming ~5 new artists whose albums joined the candidate queue. (With writes locked, Tier 1 short-circuits client-side before any network call, so the full unlocked Tier-2 flow was verified only via unit tests with injected deps plus a live curl of the route — the wiring was reviewed character-by-character against the route's response shape, but the first real press is the true end-to-end test.) If anything misbehaves, `web/src/main.ts`'s `handleBulkDiscover` is the wiring and `web/src/bulkDiscovery.ts`'s `runSimilarExpansion` is the logic.
-
-## Open questions
-- The `/collect/albums` page for **keithrobrien.com** remains built, merged locally, and **deliberately unpushed/undeployed** per Keith's "not until I say so" (that repo is 5 commits ahead of origin). Its `albums.json` was generated from the 376-album state — **regenerate before ever deploying it** (`node --env-file=web/.env.local web/scripts/export-collect-albums.mjs` from album-case) since the list is now 401 and growing.
+**Push to origin and let Vercel deploy**, then have Keith search "Come On Pilgrim" (or any known EP) in the live app to confirm it surfaces. Local `main` is 6 commits ahead of `origin/main` — nothing has been pushed this session, so production still runs the pre-EP behavior.
 
 ## Don't forget
-- **Similarity data skews popular** (session-based collaborative filtering: Coldplay scores high for Radiohead). Blocking an artist from the candidate card removes them permanently; that's the intended pressure valve. A Low-severity note from review: the Tier-2 name-block check uses exact lowercase match while the rest of the app uses `artistKeys()` fuzzy normalization — worst case is one wasted discovery call, never a blocked artist surfacing (downstream `blockedArtistMbids` filtering catches it).
-- The ListenBrainz algorithm string is a constant in `web/api/similar-artists.ts` — if LB ever retires it, the route 502s and the button reports "Couldn't reach ListenBrainz." That's the first thing to check if Tier 2 starts failing months from now.
-- **Artist locks remain PAUSED** (enforced nowhere, 14 locks preserved in the snapshot, re-enable recipe in `web/src/ranking/locks.ts`'s header). **`Number('') === 0`** — any new rating input must reject empty strings explicitly. **Never append-then-sort** when inserting by rating — use `insertAtRating`. **Never set `CONFIRM_CANON_IMPORT` casually** — it replaces the entire live ranking (the script is a safe dry run without it).
-- Bulk-add via CSV works and takes any 0-10 ratings now (`RATING_FLOOR` env var restores a floor if wanted). RESTORE-POINT backup from before the canon import: `web/scripts/backups/RESTORE-POINT-pre-canon-import.json` (gitignored, local-only, 244 albums — restore must omit `base_updated_at`).
-- Stale worktree from an old session still exists: `.claude/worktrees/overall-rank-edit`. Untouched for days; ask Keith whether to discard it.
-- `keithrobrien`'s `app/te-tokens.css` has a pre-existing uncommitted edit — not ours, leave it.
+- Two Minor, non-blocking notes from the final review, left as-is per the reviewer's own recommendation ("no change required to merge"):
+  - `isAlbumOrEpReleaseGroup` (`web/api/_lp.ts:19`) duplicates `isLpReleaseGroup`'s secondary-types rule rather than sharing it. Deliberate per the spec (sibling predicates, not a parameterized shared function) — but if the LP rule ever changes, the EP rule won't follow automatically. Only worth revisiting if the two rules need to diverge or converge later.
+  - The predicate's test suite doesn't separately assert `Compilation`/`Broadcast` as *primary* types return false (only `Single` is tested as a non-Album/non-EP case) — immaterial since the predicate is a simple `===` check, `Single` already proves the branch.
+- Everything else from the prior handoff (similarity-scores-skew-popular, artist locks paused, `Number('') === 0` gotcha, never append-then-sort, `CONFIRM_CANON_IMPORT` danger, RESTORE-POINT backup location, `keithrobrien`'s pre-existing `te-tokens.css` edit) still stands — nothing in this session touched those areas.
 
 ## Files touched this session
-- `web/src/bulkDiscovery.ts` + `.test.ts` — `rankSimilarArtists` (per-seed normalization, cross-seed aggregation, exclusions), `runSimilarExpansion` (Tier 2 orchestrator, all four discover statuses handled), `runBulkDiscovery` now returns `found`/`locked`.
-- `web/api/similar-artists.ts` + `.test.ts` — new read-only ListenBrainz Labs proxy (UUID validation, 8s timeout, day-long edge cache on success only).
-- `web/src/main.ts` — `handleBulkDiscover` chains the tiers (`!locked && found === 0` triggers Tier 2).
-- `docs/superpowers/specs/2026-07-13-similar-artist-expansion-design.md`, `docs/superpowers/plans/2026-07-13-similar-artist-expansion.md` — spec + plan.
+- `web/api/_lp.ts` — added `isAlbumOrEpReleaseGroup` predicate (sibling to unchanged `isLpReleaseGroup`).
+- `web/api/_lp.test.ts` — 6 new test cases for the predicate.
+- `web/api/search-album.ts` — swapped the filter from `isLpReleaseGroup` to `isAlbumOrEpReleaseGroup`.
+- `web/api/search-album.test.ts` — new test proving a clean EP is admitted and a Live-secondary EP is still excluded.
+- `docs/superpowers/specs/2026-07-14-ep-search-support-design.md`, `docs/superpowers/plans/2026-07-14-ep-search-support.md` — spec + plan.
 - `HANDOFF.md` — this file, full rewrite.
 
 ## Git state
-- **album-case**: branch `main`, last commit `753f6d6 feat(discovery): expand to similar artists when own catalogs are exhausted`. Uncommitted: no (before this handoff commit). Stashed: no. **In sync with origin/main, deployed.**
-- **keithrobrien**: branch `main`, 5 commits ahead of origin, unpushed by design. One pre-existing uncommitted file (`app/te-tokens.css`), not ours.
+- Branch: `main`
+- Last commit: `dc93e2f Merge branch 'worktree-ep-search-support'`
+- Uncommitted changes: no (before this handoff commit)
+- Stashed: no
+- **6 commits ahead of `origin/main`, not pushed.**
 
 ## Reason for handoff
 session paused
 
 ## Updated
-2026-07-14T11:59:11Z
+2026-07-14T16:57:00Z
