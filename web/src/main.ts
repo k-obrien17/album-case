@@ -37,7 +37,8 @@ import {
 } from './priority';
 import { loadRankingSnapshotDetailed, saveRankingSnapshot } from './rankingSync';
 import { discoverArtistDetailed, loadDiscoveredAlbums } from './discovery';
-import { runBulkDiscovery, TOP_ARTIST_DISCOVERY_COUNT } from './bulkDiscovery';
+import { runBulkDiscovery, runSimilarExpansion, TOP_ARTIST_DISCOVERY_COUNT } from './bulkDiscovery';
+import type { SimilarArtist } from './bulkDiscovery';
 import { clearWriteKey, extractKeyFromFragment, hasWriteKey, setWriteKey } from './writeKey';
 import { clearPendingSync, hasPendingSync, markPendingSync } from './syncStatus';
 import {
@@ -590,15 +591,47 @@ async function main(): Promise<void> {
     bulkDiscoveryInFlight = true;
     renderNav();
     try {
-      const result = await runBulkDiscovery(state.ranked, pool, priorityQueue, {
-        discover: (name, mbid, known) => discoverArtistDetailed(session.session_id, name, mbid, known),
-        onProgress: (msg) => rankList.showStatus(msg),
-      });
+      const deps = {
+        discover: (name: string, mbid: string, known: string[]) =>
+          discoverArtistDetailed(session.session_id, name, mbid, known),
+        onProgress: (msg: string) => rankList.showStatus(msg),
+      };
+      const result = await runBulkDiscovery(state.ranked, pool, priorityQueue, deps);
       priorityQueue = result.priorityQueue;
       savePriorityQueue(priorityQueue);
+      let summary = result.summary;
+
+      // Tier 2: the top artists' own catalogs are exhausted -- expand to
+      // similar artists via ListenBrainz. Not on locked writes (every call
+      // would fail identically) and not when Tier 1 actually found albums.
+      if (!result.locked && result.found === 0) {
+        const expansion = await runSimilarExpansion(
+          state.ranked,
+          pool,
+          priorityQueue,
+          blockedArtists,
+          {
+            ...deps,
+            fetchSimilar: async (artistMbid) => {
+              try {
+                const res = await fetch(`/api/similar-artists?artist_mbid=${artistMbid}`);
+                if (!res.ok) return null;
+                const body = (await res.json()) as { artists: SimilarArtist[] };
+                return body.artists ?? [];
+              } catch {
+                return null;
+              }
+            },
+          }
+        );
+        priorityQueue = expansion.priorityQueue;
+        savePriorityQueue(priorityQueue);
+        summary = expansion.summary;
+      }
+
       reselectCandidate();
       rankList.render();
-      rankList.showStatus(result.summary);
+      rankList.showStatus(summary);
     } finally {
       bulkDiscoveryInFlight = false;
       renderNav();
