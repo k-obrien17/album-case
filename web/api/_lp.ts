@@ -12,6 +12,13 @@ export function isLpReleaseGroup(group: ReleaseGroup): boolean {
   return group['primary-type'] === 'Album' && (group['secondary-types']?.length ?? 0) === 0;
 }
 
+// Same secondary-types rule as isLpReleaseGroup, widened to also admit EPs
+// (e.g. Pixies' "Come On Pilgrim") for free-text search results only.
+export function isAlbumOrEpReleaseGroup(group: ReleaseGroup): boolean {
+  const type = group['primary-type'];
+  return (type === 'Album' || type === 'EP') && (group['secondary-types']?.length ?? 0) === 0;
+}
+
 export type DiscoveredAlbum = {
   mbid: string;
   title: string;

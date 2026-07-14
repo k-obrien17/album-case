@@ -94,4 +94,50 @@ describe('/api/search-album GET', () => {
       ],
     });
   });
+
+  it('includes a clean EP alongside albums, and still excludes an EP with a secondary type', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          'release-groups': [
+            {
+              id: 'rg-ep-clean',
+              title: 'Come On Pilgrim',
+              'first-release-date': '1987-01-01',
+              'primary-type': 'EP',
+              'secondary-types': [],
+              'artist-credit': [{ name: 'Pixies', artist: { id: 'artist-pixies' } }],
+            },
+            {
+              id: 'rg-ep-live',
+              title: 'Live EP',
+              'first-release-date': '1988-01-01',
+              'primary-type': 'EP',
+              'secondary-types': ['Live'],
+              'artist-credit': [{ name: 'Pixies', artist: { id: 'artist-pixies' } }],
+            },
+          ],
+        }),
+      })
+    );
+    const res = makeRes();
+
+    await handler(getReq({ q: 'Pixies' }) as never, res as never);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({
+      albums: [
+        {
+          mbid: 'rg-ep-clean',
+          title: 'Come On Pilgrim',
+          primary_artist_name: 'Pixies',
+          primary_artist_mbid: 'artist-pixies',
+          release_year: 1987,
+          cover_url: 'https://coverartarchive.org/release-group/rg-ep-clean/front-500',
+        },
+      ],
+    });
+  });
 });

@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { isLpReleaseGroup, type ReleaseGroup, type DiscoveredAlbum } from './_lp.js';
+import { isAlbumOrEpReleaseGroup, type ReleaseGroup, type DiscoveredAlbum } from './_lp.js';
 
 const USER_AGENT = 'AlbumCase/0.1 (keith@totalemphasis.com)';
 const MB_BASE = 'https://musicbrainz.org/ws/2';
@@ -77,7 +77,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
     const data = (await mb.json()) as { 'release-groups'?: SearchReleaseGroup[] };
     const albums = (data['release-groups'] ?? [])
-      .filter(isLpReleaseGroup)
+      .filter(isAlbumOrEpReleaseGroup)
       .slice(0, MAX_RESULTS)
       .map(toAlbum);
 
