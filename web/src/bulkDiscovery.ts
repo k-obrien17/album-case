@@ -126,3 +126,85 @@ export function rankSimilarArtists(
     .slice(0, n)
     .map(([mbid, { name }]) => ({ mbid, name }));
 }
+
+export type SimilarExpansionDeps = {
+  fetchSimilar: (artistMbid: string) => Promise<SimilarArtist[] | null>; // null = that seed's fetch failed
+  discover: BulkDiscoverDeps['discover'];
+  onProgress?: (message: string) => void;
+  delayMs?: number;
+};
+
+export async function runSimilarExpansion(
+  ranked: Album[],
+  pool: Album[],
+  priorityQueue: string[],
+  blockedNames: string[],
+  deps: SimilarExpansionDeps
+): Promise<{ priorityQueue: string[]; summary: string }> {
+  const seeds = topRankedArtists(ranked, TOP_ARTIST_DISCOVERY_COUNT);
+  if (seeds.length === 0) {
+    return { priorityQueue, summary: 'Rank some albums first.' };
+  }
+
+  const delayMs = deps.delayMs ?? 300;
+
+  // Phase 1: similar-artist lists per seed (via our edge-cached proxy).
+  const seedLists: SimilarArtist[][] = [];
+  let seedFailures = 0;
+  for (let i = 0; i < seeds.length; i++) {
+    deps.onProgress?.(`Finding similar artists (${i + 1}/${seeds.length})…`);
+    const list = await deps.fetchSimilar(seeds[i].mbid);
+    if (list === null) seedFailures++;
+    else seedLists.push(list);
+    if (i < seeds.length - 1) await delay(delayMs);
+  }
+  if (seedFailures === seeds.length) {
+    return { priorityQueue, summary: 'Couldn\'t reach ListenBrainz — try again.' };
+  }
+
+  // Artists already represented anywhere in the library are not "new".
+  const represented = new Set<string>();
+  for (const a of [...ranked, ...pool]) {
+    if (a.primary_artist_mbid) represented.add(a.primary_artist_mbid);
+  }
+
+  const targets = rankSimilarArtists(seedLists, represented, blockedNames, SIMILAR_ARTISTS_PER_RUN);
+  if (targets.length === 0) {
+    return { priorityQueue, summary: 'No new similar artists found.' };
+  }
+
+  // Phase 2: pull each new artist's studio LPs -- same shape as runBulkDiscovery.
+  const newQueue: string[] = [];
+  const succeeded: string[] = [];
+  let foundCount = 0;
+  let errorCount = 0;
+
+  for (let i = 0; i < targets.length; i++) {
+    const artist = targets[i];
+    deps.onProgress?.(`Discovering ${artist.name} (${i + 1}/${targets.length})…`);
+    const knownMbids = pool
+      .filter((a) => a.primary_artist_mbid === artist.mbid)
+      .map((a) => a.mbid);
+    const result = await deps.discover(artist.name, artist.mbid, knownMbids);
+
+    if (result.status === 'locked') {
+      return { priorityQueue, summary: 'Unlock writes to fill in more albums.' };
+    } else if (result.status === 'error') {
+      errorCount++;
+    } else if (result.status === 'found') {
+      const poolIds = new Set(pool.map((a) => a.mbid));
+      const newToPool = result.albums.filter((a) => !poolIds.has(a.mbid));
+      pool.push(...newToPool);
+      newQueue.push(...result.albums.map((a) => a.mbid));
+      foundCount += newToPool.length;
+      if (newToPool.length > 0) succeeded.push(artist.name);
+    }
+    if (i < targets.length - 1) await delay(delayMs);
+  }
+
+  let summary = `Added ${foundCount} albums from ${succeeded.length} similar artists`;
+  summary += succeeded.length > 0 ? `: ${succeeded.join(', ')}.` : '.';
+  if (errorCount > 0) summary += ` ${errorCount} failed.`;
+
+  return { priorityQueue: [...newQueue, ...priorityQueue], summary };
+}

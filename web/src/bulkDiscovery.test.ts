@@ -1,7 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Album } from './ranking/types';
 import type { DiscoverArtistResult } from './discovery';
-import { topRankedArtists, runBulkDiscovery, rankSimilarArtists, type SimilarArtist } from './bulkDiscovery';
+import {
+  topRankedArtists,
+  runBulkDiscovery,
+  rankSimilarArtists,
+  runSimilarExpansion,
+  type SimilarArtist,
+} from './bulkDiscovery';
 
 function album(overrides: Partial<Album> & { mbid: string }): Album {
   return {
@@ -12,6 +18,15 @@ function album(overrides: Partial<Album> & { mbid: string }): Album {
     cover_url: `https://example.test/${overrides.mbid}.jpg`,
     ...overrides,
   };
+}
+
+const radiohead = { mbid: 'artist-radiohead', name: 'Radiohead' };
+const bjork = { mbid: 'artist-bjork', name: 'Björk' };
+
+function rankedFor(artists: { mbid: string; name: string }[]): Album[] {
+  return artists.map((a, i) =>
+    album({ mbid: `ranked-${i}`, primary_artist_name: a.name, primary_artist_mbid: a.mbid })
+  );
 }
 
 describe('topRankedArtists', () => {
@@ -70,15 +85,6 @@ describe('topRankedArtists', () => {
 });
 
 describe('runBulkDiscovery', () => {
-  const radiohead = { mbid: 'artist-radiohead', name: 'Radiohead' };
-  const bjork = { mbid: 'artist-bjork', name: 'Björk' };
-
-  function rankedFor(artists: { mbid: string; name: string }[]): Album[] {
-    return artists.map((a, i) =>
-      album({ mbid: `ranked-${i}`, primary_artist_name: a.name, primary_artist_mbid: a.mbid })
-    );
-  }
-
   it('short-circuits with an unlock message when the first call is locked', async () => {
     const discover = vi.fn(async (): Promise<DiscoverArtistResult> => ({ status: 'locked' }));
 
@@ -245,5 +251,134 @@ describe('rankSimilarArtists', () => {
   it('ignores empty seed lists without dividing by zero', () => {
     const seed = [sa('a', 'A', 10)];
     expect(rankSimilarArtists([seed, []], new Set(), [], 5).map((a) => a.mbid)).toEqual(['a']);
+  });
+});
+
+describe('runSimilarExpansion', () => {
+  it("reports a ListenBrainz failure when every seed's similar-artist fetch fails", async () => {
+    const fetchSimilar = vi.fn(async (): Promise<SimilarArtist[] | null> => null);
+    const discover = vi.fn(async (): Promise<DiscoverArtistResult> => ({ status: 'empty' }));
+
+    const result = await runSimilarExpansion(
+      rankedFor([radiohead, bjork]),
+      [],
+      ['existing-mbid'],
+      [],
+      { fetchSimilar, discover, delayMs: 0 }
+    );
+
+    expect(result).toEqual({
+      priorityQueue: ['existing-mbid'],
+      summary: "Couldn't reach ListenBrainz — try again.",
+    });
+    expect(discover).not.toHaveBeenCalled();
+  });
+
+  it('excludes similar artists already represented in ranked/pool before discovering', async () => {
+    const fetchSimilar = vi.fn(async (): Promise<SimilarArtist[] | null> => [
+      { mbid: 'artist-radiohead', name: 'Radiohead', score: 100 },
+      { mbid: 'artist-new', name: 'Pixies', score: 90 },
+    ]);
+    const discover = vi.fn(async (): Promise<DiscoverArtistResult> => ({
+      status: 'found',
+      albums: [album({ mbid: 'new-pixies-album', primary_artist_name: 'Pixies', primary_artist_mbid: 'artist-new' })],
+    }));
+
+    await runSimilarExpansion(rankedFor([radiohead]), [], [], [], { fetchSimilar, discover, delayMs: 0 });
+
+    expect(discover).toHaveBeenCalledTimes(1);
+    expect(discover).toHaveBeenCalledWith('Pixies', 'artist-new', []);
+  });
+
+  it('short-circuits with an unlock message when a discovery call is locked', async () => {
+    const fetchSimilar = vi.fn(async (): Promise<SimilarArtist[] | null> => [
+      { mbid: 'artist-pixies', name: 'Pixies', score: 90 },
+    ]);
+    const discover = vi.fn(async (): Promise<DiscoverArtistResult> => ({ status: 'locked' }));
+
+    const result = await runSimilarExpansion(
+      rankedFor([radiohead]),
+      [],
+      ['old-mbid'],
+      [],
+      { fetchSimilar, discover, delayMs: 0 }
+    );
+
+    expect(result).toEqual({
+      priorityQueue: ['old-mbid'],
+      summary: 'Unlock writes to fill in more albums.',
+    });
+  });
+
+  it('discovers each new similar artist and names them in the summary', async () => {
+    const fetchSimilar = vi.fn(async (): Promise<SimilarArtist[] | null> => [
+      { mbid: 'artist-pixies', name: 'Pixies', score: 90 },
+      { mbid: 'artist-slowdive', name: 'Slowdive', score: 80 },
+    ]);
+    const discover = vi.fn(async (artistName: string): Promise<DiscoverArtistResult> => ({
+      status: 'found',
+      albums: [
+        album({
+          mbid: `new-${artistName}`,
+          primary_artist_name: artistName,
+          primary_artist_mbid: artistName === 'Pixies' ? 'artist-pixies' : 'artist-slowdive',
+        }),
+      ],
+    }));
+
+    const result = await runSimilarExpansion(
+      rankedFor([radiohead]),
+      [],
+      ['old-mbid'],
+      [],
+      { fetchSimilar, discover, delayMs: 0 }
+    );
+
+    expect(result.priorityQueue).toEqual(['new-Pixies', 'new-Slowdive', 'old-mbid']);
+    expect(result.summary).toBe('Added 2 albums from 2 similar artists: Pixies, Slowdive.');
+  });
+
+  it('reports no new similar artists when every candidate is already represented or blocked', async () => {
+    const fetchSimilar = vi.fn(async (): Promise<SimilarArtist[] | null> => [
+      { mbid: 'artist-radiohead', name: 'Radiohead', score: 100 },
+    ]);
+    const discover = vi.fn(async (): Promise<DiscoverArtistResult> => ({ status: 'empty' }));
+
+    const result = await runSimilarExpansion(
+      rankedFor([radiohead]),
+      [],
+      [],
+      [],
+      { fetchSimilar, discover, delayMs: 0 }
+    );
+
+    expect(result.summary).toBe('No new similar artists found.');
+    expect(discover).not.toHaveBeenCalled();
+  });
+
+  it('tolerates a per-artist discovery failure and reports both outcomes honestly', async () => {
+    const fetchSimilar = vi.fn(async (): Promise<SimilarArtist[] | null> => [
+      { mbid: 'artist-pixies', name: 'Pixies', score: 90 },
+      { mbid: 'artist-slowdive', name: 'Slowdive', score: 80 },
+    ]);
+    const discover = vi.fn(async (artistName: string): Promise<DiscoverArtistResult> => {
+      if (artistName === 'Pixies') return { status: 'error' };
+      return {
+        status: 'found',
+        albums: [
+          album({ mbid: 'new-slowdive-album', primary_artist_name: 'Slowdive', primary_artist_mbid: 'artist-slowdive' }),
+        ],
+      };
+    });
+
+    const result = await runSimilarExpansion(
+      rankedFor([radiohead]),
+      [],
+      [],
+      [],
+      { fetchSimilar, discover, delayMs: 0 }
+    );
+
+    expect(result.summary).toBe('Added 1 albums from 1 similar artists: Slowdive. 1 failed.');
   });
 });
