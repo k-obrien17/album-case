@@ -355,6 +355,24 @@ body {
   gap: 8px;
 }
 
+/* Shown below local matches when filtered, so an artist who already has an
+   album ranked can still reach the MusicBrainz fallback to find their
+   others. Same layout as .rank-search-empty. */
+.rank-search-more {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.rank-search-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+}
+
 .rank-search-status {
   margin: 0;
   color: var(--color-muted);

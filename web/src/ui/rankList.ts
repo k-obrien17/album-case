@@ -98,9 +98,11 @@ export type RankListOptions = {
   getSearchQuery?: () => string;
   /** Fired on every keystroke of the search input. */
   onSearchQueryChange?: (query: string) => void;
-  /** Fired when the user taps "Search MusicBrainz" from the no-local-matches
-   *  empty state. Omit to hide the MusicBrainz fallback entirely (plain
-   *  "no matches" text only). */
+  /** Fired when the user taps "Search MusicBrainz" -- from the no-local-
+   *  matches empty state, or from the "search for more" prompt shown below
+   *  local matches (so an artist with one album already ranked can still be
+   *  searched for their others). Omit to hide the MusicBrainz fallback
+   *  entirely (plain "no matches" text only, and no prompt below matches). */
   onSearchMusicBrainz?: (query: string) => void;
   /** The current MusicBrainz result state for the empty state to render.
    *  Omit (or return 'idle') to show only the initial "Search MusicBrainz"
@@ -931,19 +933,18 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     return li;
   }
 
-  /** The no-local-matches empty state: a plain message, plus (when
-   *  `onSearchMusicBrainz` is wired) the MusicBrainz fallback -- an idle
-   *  "search" prompt, a loading state, an error + retry, or the results
-   *  list itself. `query` is already trimmed by the caller. */
-  function buildSearchEmptyState(query: string): HTMLLIElement {
-    const empty = document.createElement('li');
-    empty.className = 'rank-empty rank-search-empty';
+  /** The MusicBrainz fallback itself -- an idle "search" prompt, a loading
+   *  state, an error + retry, or the results list. Shared by the
+   *  no-local-matches empty state AND the "search for more by this artist"
+   *  prompt shown below local matches, so a searched artist who already has
+   *  an album ranked still has a path to discover their other albums.
+   *  Returns null when `onSearchMusicBrainz` is omitted (MusicBrainz search
+   *  disabled entirely). `query` is already trimmed by the caller. */
+  function buildMusicBrainzFallback(query: string): HTMLElement | null {
+    if (!opts.onSearchMusicBrainz) return null;
 
-    const message = document.createElement('p');
-    message.textContent = `No albums in your list match "${query}".`;
-    empty.append(message);
-
-    if (!opts.onSearchMusicBrainz) return empty;
+    const wrap = document.createElement('div');
+    wrap.className = 'rank-search-fallback';
 
     const searchBtn = (label: string): HTMLButtonElement => {
       const btn = document.createElement('button');
@@ -957,24 +958,24 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     const results: SearchResultsState = opts.getSearchResults?.() ?? { status: 'idle' };
 
     if (results.status === 'idle') {
-      empty.append(searchBtn(`Search MusicBrainz for "${query}"`));
-      return empty;
+      wrap.append(searchBtn(`Search MusicBrainz for "${query}"`));
+      return wrap;
     }
 
     if (results.status === 'loading') {
       const loading = document.createElement('p');
       loading.className = 'rank-search-status';
       loading.textContent = 'Searching MusicBrainz…';
-      empty.append(loading);
-      return empty;
+      wrap.append(loading);
+      return wrap;
     }
 
     if (results.status === 'error') {
       const err = document.createElement('p');
       err.className = 'rank-search-status';
       err.textContent = "Couldn't reach MusicBrainz. Try again.";
-      empty.append(err, searchBtn(`Search MusicBrainz for "${query}"`));
-      return empty;
+      wrap.append(err, searchBtn(`Search MusicBrainz for "${query}"`));
+      return wrap;
     }
 
     // status === 'done'
@@ -982,8 +983,8 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
       const none = document.createElement('p');
       none.className = 'rank-search-status';
       none.textContent = 'No albums found.';
-      empty.append(none);
-      return empty;
+      wrap.append(none);
+      return wrap;
     }
 
     const resultsList = document.createElement('ul');
@@ -991,8 +992,42 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     for (const album of results.albums) {
       resultsList.append(buildSearchResultRow(album));
     }
-    empty.append(resultsList);
+    wrap.append(resultsList);
+    return wrap;
+  }
+
+  /** The no-local-matches empty state: a plain message, plus the
+   *  MusicBrainz fallback. `query` is already trimmed by the caller. */
+  function buildSearchEmptyState(query: string): HTMLLIElement {
+    const empty = document.createElement('li');
+    empty.className = 'rank-empty rank-search-empty';
+
+    const message = document.createElement('p');
+    message.textContent = `No albums in your list match "${query}".`;
+    empty.append(message);
+
+    const fallback = buildMusicBrainzFallback(query);
+    if (fallback) empty.append(fallback);
     return empty;
+  }
+
+  /** Shown below local matches when filtered: lets the player search
+   *  MusicBrainz for more albums by/matching `query` even though the local
+   *  filter already found something -- otherwise an artist with one album
+   *  already ranked has no way to reach the MusicBrainz fallback, since a
+   *  local match always exists once any of their albums is ranked. Returns
+   *  null when MusicBrainz search is disabled. */
+  function buildSearchMoreRow(query: string): HTMLLIElement | null {
+    const fallback = buildMusicBrainzFallback(query);
+    if (!fallback) return null;
+
+    const li = document.createElement('li');
+    li.className = 'rank-empty rank-search-more';
+
+    const message = document.createElement('p');
+    message.textContent = `Search MusicBrainz for more albums matching "${query}".`;
+    li.append(message, fallback);
+    return li;
   }
 
   function render(): void {
@@ -1057,6 +1092,10 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
       ranked.forEach((album, i) =>
         listEl.append(buildRow(album, i, subRanks, lockedArtists, filtered))
       );
+      if (filtered) {
+        const moreRow = buildSearchMoreRow(query.trim());
+        if (moreRow) listEl.append(moreRow);
+      }
     }
     listCol.append(listEl);
 
