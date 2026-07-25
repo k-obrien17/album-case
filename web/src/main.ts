@@ -699,8 +699,8 @@ async function main(): Promise<void> {
         persistRankingState();
         renderArtistBatchView();
       },
-      onPlace: (album, index) => {
-        state = { ranked: reRate(state.ranked, album, index), pending: null };
+      onRate: (album, rating) => {
+        state = { ranked: insertAtRating(state.ranked, album, rating), pending: null };
         lists = removeFromList(lists, album.mbid, 'wantToListen');
         lists = removeFromList(lists, album.mbid, 'notHeard');
         lists = removeFromList(lists, album.mbid, 'dontCare');

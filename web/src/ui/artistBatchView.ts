@@ -22,7 +22,10 @@ export type ArtistBatchViewOptions = {
   /** Set the rating of the ranked album at global index `from` directly.
    *  Same global-index contract as `onSetOverallRank`. */
   onSetRating?: (from: number, rating: number) => void;
-  onPlace: (album: Album, globalIndex: number) => void;
+  /** Rate a not-yet-ranked album directly (0-10, two decimal places) --
+   *  inserts it wherever that rating lands it, same as the main candidate
+   *  card's "Or rate it directly" control. */
+  onRate: (album: Album, rating: number) => void;
   onDiscover: () => Promise<ArtistDiscoverViewResult>;
   onClose: () => void;
 };
@@ -60,7 +63,7 @@ export function mountArtistBatchView(
   let discovering = false;
   let discoverMessage: string | null = null;
 
-  function buildUnrankedRow(album: Album, maxRank: number): HTMLLIElement {
+  function buildUnrankedRow(album: Album): HTMLLIElement {
     const li = document.createElement('li');
     li.className = 'lock-unranked-row';
 
@@ -74,25 +77,32 @@ export function mountArtistBatchView(
     sub.textContent = subtitle(album);
     meta.append(title, sub);
 
+    // Same 0-10, two-decimal direct-rating control as the main candidate
+    // card's "Or rate it directly" -- rate it and it lands wherever that
+    // rating sorts it, no need to know its exact position among 490+ albums.
     const form = document.createElement('form');
     form.className = 'candidate-place';
+    form.noValidate = true;
     const input = document.createElement('input');
     input.className = 'candidate-place-input';
     input.type = 'number';
-    input.inputMode = 'numeric';
-    input.min = '1';
-    input.max = String(maxRank);
-    input.placeholder = '#';
-    input.setAttribute('aria-label', `Rank position for ${album.title}`);
+    input.inputMode = 'decimal';
+    input.min = '0';
+    input.max = '10';
+    input.step = '0.01';
+    input.placeholder = '0-10';
+    input.setAttribute('aria-label', `Rating for ${album.title}`);
     const btn = document.createElement('button');
     btn.type = 'submit';
     btn.className = 'candidate-place-button';
-    btn.textContent = 'Place';
+    btn.textContent = 'Rate';
     form.addEventListener('submit', (ev) => {
       ev.preventDefault();
-      const rank = Number(input.value);
-      if (!Number.isInteger(rank) || rank < 1) return;
-      opts.onPlace(album, Math.min(rank, maxRank) - 1);
+      const raw = input.value.trim();
+      if (raw === '') return;
+      const rating = Number(raw);
+      if (!Number.isFinite(rating) || rating < 0 || rating > 10) return;
+      opts.onRate(album, Math.round(rating * 100) / 100);
     });
     form.append(input, btn);
 
@@ -188,8 +198,7 @@ export function mountArtistBatchView(
 
       const unrankedList = document.createElement('ol');
       unrankedList.className = 'lock-unranked-list';
-      const maxRank = opts.getRanked().length + 1;
-      unranked.forEach((album) => unrankedList.append(buildUnrankedRow(album, maxRank)));
+      unranked.forEach((album) => unrankedList.append(buildUnrankedRow(album)));
       wrap.append(unrankedList);
     }
 
