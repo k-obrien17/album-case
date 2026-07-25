@@ -1,39 +1,38 @@
 # Handoff
 
 ## Current task
-EP support in free-text search — **built, reviewed, merged to local `main`. Not yet pushed/deployed.**
+Spotify "Best of YYYY" playlist export + year audit (tangential to Album Case; all tooling lives outside this repo in `~/Desktop/Claude/spotify-export/`).
 
 ## Status
-`/api/search-album` now returns clean EPs (e.g. Pixies' "Come On Pilgrim") alongside clean albums, previously excluded entirely. Scope was deliberately narrow per Keith's calls during brainstorming: search only (artist-MBID bulk discovery via `discover-artist.ts` stays LP-only, untouched), clean EPs only (an EP still needs zero secondary-types — a "Live EP" or "Remix EP" stays excluded), no visual distinction once added (an EP renders and stores exactly like an album, no schema/type changes anywhere).
-
-Full subagent-driven-development cycle: brainstormed → spec written (`docs/superpowers/specs/2026-07-14-ep-search-support-design.md`) → plan written (`docs/superpowers/plans/2026-07-14-ep-search-support.md`) → 2 tasks implemented by fresh Haiku subagents in an isolated worktree → each task reviewed clean by a Sonnet task reviewer → final whole-branch review by Opus (verdict: ready to merge, only two optional cosmetic notes) → merged locally, worktree and branch cleaned up. 250/250 tests pass on merged `main`.
+Album Case itself untouched this session; EP-search work from the prior session is pushed and live (`main` even with `origin/main`). The Spotify side: all 153 owned playlists export to CSV via OAuth (`export-playlists.mjs`, post-March-2026 `/playlists/{id}/items` API), and the 47 canonical year lists were audited (`analyze-years.mjs` + MusicBrainz verification). Keith fixed 14 misfiled songs and 12 of 13 cross-year duplicates in Spotify; re-export confirmed. Rules settled: song belongs to its original studio album's year; one artist per year playlist. Full findings in `~/Desktop/Claude/spotify-export/report/AUDIT-SUMMARY.md`.
 
 ## Next concrete step
-**Push to origin and let Vercel deploy**, then have Keith search "Come On Pilgrim" (or any known EP) in the live app to confirm it surfaces. Local `main` is 6 commits ahead of `origin/main` — nothing has been pushed this session, so production still runs the pre-EP behavior.
+Two Spotify edits remain: cut "Primitive Painters" (Felt) from the 1984 playlist (keep 1985), and decide Kylie "Can't Get You Out of My Head" 2002 → 2001. Then a quick re-export + `node analyze-years.mjs "exports/Best of"` confirms a clean pass.
+
+## Open questions
+- Kylie: strict album rule says 2001 (Fever, Oct 2001); Keith may keep 2002 as a US-release judgment call.
+- "Creep" sits in 1992 while "Anyone Can Play Guitar" is in 1993 (both Pablo Honey, 1993); left deliberately since strict application would break one-artist-per-year.
 
 ## Don't forget
-- Two Minor, non-blocking notes from the final review, left as-is per the reviewer's own recommendation ("no change required to merge"):
-  - `isAlbumOrEpReleaseGroup` (`web/api/_lp.ts:19`) duplicates `isLpReleaseGroup`'s secondary-types rule rather than sharing it. Deliberate per the spec (sibling predicates, not a parameterized shared function) — but if the LP rule ever changes, the EP rule won't follow automatically. Only worth revisiting if the two rules need to diverge or converge later.
-  - The predicate's test suite doesn't separately assert `Compilation`/`Broadcast` as *primary* types return false (only `Single` is tested as a non-Album/non-EP case) — immaterial since the predicate is a simple `===` check, `Single` already proves the branch.
-- Everything else from the prior handoff (similarity-scores-skew-popular, artist locks paused, `Number('') === 0` gotcha, never append-then-sort, `CONFIRM_CANON_IMPORT` danger, RESTORE-POINT backup location, `keithrobrien`'s pre-existing `te-tokens.css` edit) still stands — nothing in this session touched those areas.
+- "KOB Best of 2021 Longer" is ~90% 2022 music — likely mislabeled or filled through 2022; compare against "KOB Best of 2022 Longer" someday.
+- 2021 short list still needs 2 more picks beyond Snail Mail "Valentine" and Tyler "LUMBERJACK" (four songs left it, only its own Longer list was mined).
+- 33 followed-but-not-owned playlists can't be exported (2026 Spotify policy: contents only for owner-created playlists).
+- Spotify client secret lives in `~/Desktop/Claude/spotify-export/.env` — never commit or echo it.
+- Playlist CSVs carry Spotify track IDs; possible future cross-reference into Album Case rankings.
+- Standing gotchas from earlier sessions still apply: similarity-scores-skew-popular, artist locks paused, `Number('') === 0` gotcha, never append-then-sort, `CONFIRM_CANON_IMPORT` danger, RESTORE-POINT backup location, `keithrobrien`'s pre-existing `te-tokens.css` edit.
 
 ## Files touched this session
-- `web/api/_lp.ts` — added `isAlbumOrEpReleaseGroup` predicate (sibling to unchanged `isLpReleaseGroup`).
-- `web/api/_lp.test.ts` — 6 new test cases for the predicate.
-- `web/api/search-album.ts` — swapped the filter from `isLpReleaseGroup` to `isAlbumOrEpReleaseGroup`.
-- `web/api/search-album.test.ts` — new test proving a clean EP is admitted and a Live-secondary EP is still excluded.
-- `docs/superpowers/specs/2026-07-14-ep-search-support-design.md`, `docs/superpowers/plans/2026-07-14-ep-search-support.md` — spec + plan.
-- `HANDOFF.md` — this file, full rewrite.
+- None in this repo. Outside: `~/Desktop/Claude/spotify-export/` (export-playlists.mjs, analyze-years.mjs, mb-verify.mjs, report/AUDIT-SUMMARY.md).
 
 ## Git state
 - Branch: `main`
-- Last commit: `dc93e2f Merge branch 'worktree-ep-search-support'`
-- Uncommitted changes: no (before this handoff commit)
+- Last commit: `d7f61b8 fix(rank-list): surface MusicBrainz search when artist already has a ranked album`
+- Uncommitted changes: no (only pre-existing untracked `web/scripts/export-all.mjs`)
 - Stashed: no
-- **6 commits ahead of `origin/main`, not pushed.**
+- Even with `origin/main`.
 
 ## Reason for handoff
 session paused
 
 ## Updated
-2026-07-14T16:57:00Z
+2026-07-25T03:39:42Z
