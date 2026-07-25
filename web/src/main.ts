@@ -24,6 +24,8 @@ import {
   type SavedLists,
 } from './lists';
 import { mountRankList } from './ui/rankList';
+import { mountArtistBatchView } from './ui/artistBatchView';
+import { artistAlbumsFor } from './artistLockAlbums';
 import { renderSavedList } from './ui/savedList';
 import { enqueueAtom, flushAtomQueue } from './atoms';
 import {
@@ -57,7 +59,7 @@ import {
   saveCandidateArtistCooldown,
 } from './candidateCooldown';
 
-type ViewMode = 'ranked' | ListName | 'blockedArtists';
+type ViewMode = 'ranked' | ListName | 'blockedArtists' | 'artistBatch';
 
 type RestoreSnapshot = { state: RankingState; lists: SavedLists };
 
@@ -638,6 +640,113 @@ async function main(): Promise<void> {
     }
   }
 
+  let batchArtistMbid: string | null = null;
+  let artistBatchController: ReturnType<typeof mountArtistBatchView> | null = null;
+
+  function findAlbumByArtist(artistMbid: string): Album | null {
+    return (
+      state.ranked.find((a) => a.primary_artist_mbid === artistMbid) ??
+      [...lists.wantToListen, ...lists.notHeard, ...lists.dontCare].find(
+        (a) => a.primary_artist_mbid === artistMbid
+      ) ??
+      pool.find((a) => a.primary_artist_mbid === artistMbid) ??
+      null
+    );
+  }
+
+  function renderArtistBatchView(): void {
+    if (!batchArtistMbid) {
+      showView('ranked');
+      return;
+    }
+    const artistMbid = batchArtistMbid;
+    const artistAlbum = findAlbumByArtist(artistMbid);
+    if (!artistAlbum) {
+      batchArtistMbid = null;
+      showView('ranked');
+      return;
+    }
+
+    artistBatchController?.teardown();
+    stage.textContent = '';
+    artistBatchController = mountArtistBatchView(stage, {
+      album: artistAlbum,
+      getRanked: () => state.ranked,
+      getLists: () => lists,
+      getPool: () => pool,
+      onReorder: (from, to) => {
+        const album = state.ranked[from];
+        state = { ranked: reRate(state.ranked, album, to), pending: null };
+        persistRankingState();
+        renderArtistBatchView();
+      },
+      onRemoveRanked: (album) => {
+        lists = addToList(lists, album, 'dontCare');
+        state = setAsideAlbum(state, album.mbid);
+        persistLists();
+        persistRankingState();
+        renderArtistBatchView();
+        renderNav();
+      },
+      onSetOverallRank: (from, to) => {
+        const album = state.ranked[from];
+        state = { ranked: reRate(state.ranked, album, to), pending: null };
+        persistRankingState();
+        renderArtistBatchView();
+      },
+      onSetRating: (from, rating) => {
+        state = { ranked: setRating(state.ranked, from, rating), pending: null };
+        persistRankingState();
+        renderArtistBatchView();
+      },
+      onPlace: (album, index) => {
+        state = { ranked: reRate(state.ranked, album, index), pending: null };
+        lists = removeFromList(lists, album.mbid, 'wantToListen');
+        lists = removeFromList(lists, album.mbid, 'notHeard');
+        lists = removeFromList(lists, album.mbid, 'dontCare');
+        persistRankingState();
+        persistLists();
+        renderArtistBatchView();
+      },
+      onDiscover: async () => {
+        const knownMbids = pool
+          .filter((a) => a.primary_artist_mbid === artistMbid)
+          .map((a) => a.mbid);
+        const result = await discoverArtistDetailed(
+          session.session_id,
+          artistAlbum.primary_artist_name,
+          artistMbid,
+          knownMbids
+        );
+        if (result.status !== 'found') return result;
+
+        let count = 0;
+        const poolIds = new Set(pool.map((a) => a.mbid));
+        for (const found of result.albums) {
+          if (!poolIds.has(found.mbid)) {
+            pool.push(found);
+            poolIds.add(found.mbid);
+            count += 1;
+          }
+        }
+        return { status: 'found', count };
+      },
+      onClose: () => {
+        batchArtistMbid = null;
+        showView('ranked');
+      },
+    });
+  }
+
+  function handleOpenArtistBatch(album: Album): void {
+    if (!album.primary_artist_mbid) {
+      rankList.showStatus(`Refresh Album Case to view ${album.primary_artist_name}'s albums.`);
+      return;
+    }
+    batchArtistMbid = album.primary_artist_mbid;
+    showView('artistBatch');
+  }
+
   reselectCandidate();
 
   const rankList = mountRankList(stage, {
@@ -787,6 +896,14 @@ async function main(): Promise<void> {
     onDiscoverArtist: (album) => {
       void handleDiscoverArtist(album);
     },
+    onOpenArtistBatch: (album) => {
+      handleOpenArtistBatch(album);
+    },
+    getArtistAlbumCount: (album) => {
+      if (!album.primary_artist_mbid) return 0;
+      const grouped = artistAlbumsFor(album.primary_artist_mbid, state.ranked, lists, pool);
+      return grouped.ranked.length + grouped.unranked.length;
+    },
   });
 
   function markAsHeard(album: Album, which: ListName): void {
@@ -850,12 +967,17 @@ async function main(): Promise<void> {
     if (view === 'ranked' && next !== 'ranked') {
       rankList.teardown();
     }
+    if (view === 'artistBatch' && next !== 'artistBatch') {
+      artistBatchController?.teardown();
+    }
     view = next;
 
     if (view === 'ranked') {
       rankList.render();
     } else if (view === 'blockedArtists') {
       renderBlockedArtists();
+    } else if (view === 'artistBatch') {
+      renderArtistBatchView();
     } else {
       renderCurrentSavedList(view);
     }

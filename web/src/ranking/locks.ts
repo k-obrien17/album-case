@@ -7,20 +7,27 @@ import { moveItem } from './order';
  * unchanged on every save (see `main.ts` and `rankingSync.ts`). What is
  * PAUSED is enforcement and editing: nothing in `main.ts` currently calls
  * `nearestValidDropIndex`/`wouldViolateLock`/`isValidOrder` to constrain a
- * drag or a typed rank/rating, and the artist-lock UI entry point
- * (`onOpenArtistLock`, the "Arranged" badge, `renderArtistLockView`) has been
- * removed from `main.ts`'s wiring. `ui/artistLockView.ts` still exists and
- * still works against this module -- it is just not mounted by anything.
+ * drag or a typed rank/rating.
  *
- * To re-enable: in `main.ts`, re-import `upsertLock`, `removeLock`,
- * `nearestValidDropIndex` from this module and `mountArtistLockView` from
- * `./ui/artistLockView`; re-add the `'artistLock'` ViewMode branch,
- * `lockedArtistMbid`/`artistLockController` state, `findAlbumByArtist`,
- * `renderArtistLockView`, `handleOpenArtistLock`, and `persistArtistLocks`;
- * re-wire `onOpenArtistLock`, `getLockedArtistMbids`, and `getNearestValidDrop`
- * into the main list's `mountRankList` call; and re-clamp both
- * `onSetOverallRank` handlers through `nearestValidDropIndex`. Check git
- * history around this comment's introduction for the exact prior wiring.
+ * As of 2026-07-25, the artist-scoped browsing view that used to live at
+ * `ui/artistLockView.ts` was extracted into `ui/artistBatchView.ts`
+ * (`mountArtistBatchView`, wired into `main.ts` via the candidate card's
+ * "View all N <Artist> albums" button) WITHOUT lock support: no Lock/Unlock
+ * button, no "Arranged" badge, no read-only-while-locked branch. That view
+ * no longer imports anything from this module. This module (`locks.ts`) is
+ * now referenced only by `web/scripts/import-album-canon.mjs`'s lock-tie-
+ * repair/conflict-report logic (read-only, never modifies a lock) -- nothing
+ * in the running app calls into it.
+ *
+ * To re-enable enforcement: in `main.ts`, import `upsertLock`, `removeLock`,
+ * `nearestValidDropIndex` from this module; add lock state
+ * (`artistLocks`/`persistArtistLocks` already exist) and a Lock/Unlock entry
+ * point (either back in `artistBatchView.ts`, or fresh); wire
+ * `getLockedArtistMbids`/`getNearestValidDrop` into `rankList.ts`'s
+ * `mountRankList` calls (that plumbing is still present there, just unused);
+ * and re-clamp both `onSetOverallRank` handlers through
+ * `nearestValidDropIndex`. Check git history around the 2026-07-13 pause
+ * commit for the exact prior wiring.
  */
 
 /** True if `ranked`'s relative order satisfies every lock. Locked albums no

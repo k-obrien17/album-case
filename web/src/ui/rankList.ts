@@ -78,6 +78,15 @@ export type RankListOptions = {
   onOpenArtistLock?: (album: Album) => void;
   /** Artist mbids with an active lock, for the lock icon's visual state. */
   getLockedArtistMbids?: () => string[];
+  /** Open the artist-batch view (all of this row's artist's albums, ranked
+   *  and unranked, in one stacked screen) for this candidate's artist. Omit
+   *  to hide the button entirely (used by the batch view's own inner list,
+   *  which has no batch-within-a-batch flow). */
+  onOpenArtistBatch?: (album: Album) => void;
+  /** Total known albums (ranked + unranked) by this candidate's artist, for
+   *  deciding whether the "View all N <Artist> albums" button is worth
+   *  showing. Only consulted when `onOpenArtistBatch` is also present. */
+  getArtistAlbumCount?: (album: Album) => number;
   /** For a row reorder starting at `from`, snap a proposed `to` to the
    *  nearest index that keeps every active lock intact. Omit when this
    *  instance's index space can never cross a lock (e.g. an artist-filtered
@@ -735,6 +744,16 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
       actionButton(`No more ${album.primary_artist_name}`, () => opts.onBlockArtist(album)),
       actionButton('Skip for now', () => opts.onSkip(album))
     );
+    if (opts.onOpenArtistBatch && opts.getArtistAlbumCount) {
+      const count = opts.getArtistAlbumCount(album);
+      if (count >= 2) {
+        actions.append(
+          actionButton(`View all ${count} ${album.primary_artist_name} albums`, () =>
+            opts.onOpenArtistBatch?.(album)
+          )
+        );
+      }
+    }
     return actions;
   }
 

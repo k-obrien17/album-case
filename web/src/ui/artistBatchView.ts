@@ -1,19 +1,17 @@
-import type { Album, ArtistLock, RankedAlbum } from '../ranking/types';
+import type { Album, RankedAlbum } from '../ranking/types';
 import type { SavedLists } from '../lists';
 import { artistAlbumsFor, mapFilteredReorderToGlobal } from '../artistLockAlbums';
-import { buildLock } from '../ranking/locks';
 import { mountRankList } from './rankList';
 
 export type ArtistDiscoverViewResult =
   | { status: 'found'; count: number }
   | { status: 'empty' | 'locked' | 'error' };
 
-export type ArtistLockViewOptions = {
+export type ArtistBatchViewOptions = {
   album: Album;
   getRanked: () => RankedAlbum[];
   getLists: () => SavedLists;
   getPool: () => Album[];
-  getArtistLocks: () => ArtistLock[];
   onReorder: (from: number, to: number) => void;
   onRemoveRanked?: (album: Album) => void;
   /** Move the album at global index `from` to post-removal global index
@@ -25,13 +23,11 @@ export type ArtistLockViewOptions = {
    *  Same global-index contract as `onSetOverallRank`. */
   onSetRating?: (from: number, rating: number) => void;
   onPlace: (album: Album, globalIndex: number) => void;
-  onLock: (lock: ArtistLock) => void;
-  onUnlock: (artistMbid: string) => void;
   onDiscover: () => Promise<ArtistDiscoverViewResult>;
   onClose: () => void;
 };
 
-export type ArtistLockViewController = {
+export type ArtistBatchViewController = {
   render: () => void;
   teardown: () => void;
 };
@@ -41,23 +37,32 @@ function subtitle(album: Album): string {
   return year ? `${album.primary_artist_name} · ${year}` : album.primary_artist_name;
 }
 
-export function mountArtistLockView(
+/**
+ * Stacked, single-artist view: this artist's ranked albums in their own
+ * mini-list (drag to reorder among just each other), plus every not-yet-
+ * ranked album by them below, each with a type-a-rank-and-Place control.
+ * Lets one artist's whole catalog be placed in one sitting instead of
+ * one-at-a-time through the normal candidate queue.
+ *
+ * This is the surviving half of what was `artistLockView.ts`: the lock/
+ * enforcement half (freezing an artist's relative order as a drag
+ * constraint) is paused (see `ranking/locks.ts`'s header comment) and is
+ * NOT reintroduced here. There is no locked/arranged state in this view --
+ * every ranked/unranked row is always editable.
+ */
+export function mountArtistBatchView(
   container: HTMLElement,
-  opts: ArtistLockViewOptions
-): ArtistLockViewController {
+  opts: ArtistBatchViewOptions
+): ArtistBatchViewController {
   const artistMbid = opts.album.primary_artist_mbid;
   const artistName = opts.album.primary_artist_name;
   let ranklistController: ReturnType<typeof mountRankList> | null = null;
   let discovering = false;
   let discoverMessage: string | null = null;
 
-  function isLocked(): boolean {
-    return !!artistMbid && opts.getArtistLocks().some((lock) => lock.artistMbid === artistMbid);
-  }
-
-  function buildUnrankedRow(album: Album, maxRank: number, locked: boolean): HTMLLIElement {
+  function buildUnrankedRow(album: Album, maxRank: number): HTMLLIElement {
     const li = document.createElement('li');
-    li.className = locked ? 'lock-unranked-row lock-unranked-row-arranged' : 'lock-unranked-row';
+    li.className = 'lock-unranked-row';
 
     const meta = document.createElement('div');
     meta.className = 'rank-meta';
@@ -68,12 +73,6 @@ export function mountArtistLockView(
     sub.className = 'rank-sub';
     sub.textContent = subtitle(album);
     meta.append(title, sub);
-    if (locked) {
-      const arranged = document.createElement('span');
-      arranged.className = 'rank-arranged';
-      arranged.textContent = 'Arranged';
-      meta.append(arranged);
-    }
 
     const form = document.createElement('form');
     form.className = 'candidate-place';
@@ -89,10 +88,6 @@ export function mountArtistLockView(
     btn.type = 'submit';
     btn.className = 'candidate-place-button';
     btn.textContent = 'Place';
-    if (locked) {
-      input.disabled = true;
-      btn.disabled = true;
-    }
     form.addEventListener('submit', (ev) => {
       ev.preventDefault();
       const rank = Number(input.value);
@@ -122,35 +117,21 @@ export function mountArtistLockView(
     backBtn.addEventListener('click', () => opts.onClose());
     const heading = document.createElement('h2');
     heading.className = 'lock-view-title';
-    heading.textContent = `${artistName}'s order`;
+    heading.textContent = `${artistName}'s albums`;
     header.append(backBtn, heading);
     wrap.append(header);
 
     if (!artistMbid) {
       const warning = document.createElement('p');
       warning.className = 'rank-status';
-      warning.textContent = 'Refresh Album Case to lock this artist\'s order.';
+      warning.textContent = `Refresh Album Case to view ${artistName}'s albums.`;
       wrap.append(warning);
       container.append(wrap);
       return;
     }
 
-    const locked = isLocked();
-
     const actions = document.createElement('div');
     actions.className = 'lock-view-actions';
-
-    const lockBtn = document.createElement('button');
-    lockBtn.type = 'button';
-    lockBtn.className = 'lock-view-toggle';
-    if (isLocked()) {
-      lockBtn.textContent = 'Unlock';
-      lockBtn.addEventListener('click', () => opts.onUnlock(artistMbid));
-    } else {
-      lockBtn.textContent = 'Lock in order';
-      lockBtn.addEventListener('click', () => opts.onLock(buildLock(artistMbid, opts.getRanked())));
-    }
-    actions.append(lockBtn);
 
     const discoverBtn = document.createElement('button');
     discoverBtn.type = 'button';
@@ -162,13 +143,6 @@ export function mountArtistLockView(
     });
     actions.append(discoverBtn);
     wrap.append(actions);
-
-    if (locked) {
-      const lockedNote = document.createElement('p');
-      lockedNote.className = 'rank-status';
-      lockedNote.textContent = 'Locked. Unlock to reorder or add albums.';
-      wrap.append(lockedNote);
-    }
 
     if (discovering || discoverMessage) {
       const status = document.createElement('p');
@@ -202,8 +176,6 @@ export function mountArtistLockView(
       onSetAside: () => {},
       onSkip: () => {},
       onBlockArtist: () => {},
-      getLockedArtistMbids: () => opts.getArtistLocks().map((lock) => lock.artistMbid),
-      getNearestValidDrop: locked ? (from: number) => from : undefined,
     });
     wrap.append(rankedCol);
 
@@ -217,7 +189,7 @@ export function mountArtistLockView(
       const unrankedList = document.createElement('ol');
       unrankedList.className = 'lock-unranked-list';
       const maxRank = opts.getRanked().length + 1;
-      unranked.forEach((album) => unrankedList.append(buildUnrankedRow(album, maxRank, locked)));
+      unranked.forEach((album) => unrankedList.append(buildUnrankedRow(album, maxRank)));
       wrap.append(unrankedList);
     }
 
