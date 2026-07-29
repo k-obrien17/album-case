@@ -286,6 +286,15 @@ body {
   color: var(--color-fg);
 }
 
+.candidate-mic-button {
+  flex: 0 0 auto;
+}
+
+.candidate-mic-active {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
 .candidate-done {
   margin: 0;
   color: var(--color-muted);

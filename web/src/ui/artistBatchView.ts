@@ -2,6 +2,12 @@ import type { Album, RankedAlbum } from '../ranking/types';
 import type { SavedLists } from '../lists';
 import { artistAlbumsFor, mapFilteredReorderToGlobal } from '../artistLockAlbums';
 import { mountRankList } from './rankList';
+import {
+  RecordingUnavailableError,
+  SidecarUnavailableError,
+  startRecording,
+} from '../audio/recordRatingClip';
+import { parseSpokenRating } from '../rating/parseSpokenRating';
 
 export type ArtistDiscoverViewResult =
   | { status: 'found'; count: number }
@@ -92,6 +98,54 @@ export function mountArtistBatchView(
     input.step = '0.01';
     input.placeholder = '0-10';
     input.setAttribute('aria-label', `Rating for ${album.title}`);
+
+    // Voice rating (local dev only -- needs `mimir stt-server` running on
+    // 127.0.0.1:8765, see ~/.claude/references/voice-speed-round-pattern.md).
+    // Fills the input rather than auto-submitting: a misheard number
+    // silently landing in the canonical Turso rating is a worse failure
+    // than one extra tap to confirm.
+    const micBtn = document.createElement('button');
+    micBtn.type = 'button';
+    micBtn.className = 'candidate-place-button candidate-mic-button';
+    micBtn.textContent = 'Mic';
+    micBtn.setAttribute('aria-label', `Speak a rating for ${album.title}`);
+    let stopActive: (() => void) | null = null;
+    micBtn.addEventListener('click', () => {
+      if (stopActive) {
+        stopActive();
+        return;
+      }
+      const { stop, result } = startRecording();
+      stopActive = stop;
+      micBtn.textContent = 'Stop';
+      micBtn.classList.add('candidate-mic-active');
+      result
+        .then((text) => {
+          if (!document.contains(input)) return; // row was rebuilt mid-recording
+          const rating = parseSpokenRating(text);
+          if (rating === null) {
+            input.placeholder = text ? `heard "${text}"` : 'nothing heard';
+            return;
+          }
+          input.value = String(rating);
+          input.focus();
+          input.select();
+        })
+        .catch((e: unknown) => {
+          if (!document.contains(input)) return;
+          const message =
+            e instanceof RecordingUnavailableError || e instanceof SidecarUnavailableError
+              ? e.message
+              : 'voice rating failed';
+          input.placeholder = message;
+        })
+        .finally(() => {
+          stopActive = null;
+          micBtn.textContent = 'Mic';
+          micBtn.classList.remove('candidate-mic-active');
+        });
+    });
+
     const btn = document.createElement('button');
     btn.type = 'submit';
     btn.className = 'candidate-place-button';
@@ -104,7 +158,7 @@ export function mountArtistBatchView(
       if (!Number.isFinite(rating) || rating < 0 || rating > 10) return;
       opts.onRate(album, Math.round(rating * 100) / 100);
     });
-    form.append(input, btn);
+    form.append(input, micBtn, btn);
 
     li.append(meta, form);
     return li;
