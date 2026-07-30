@@ -129,11 +129,14 @@ npm run build
 
 ## Ship standard
 
-`SHIP-STANDARD.md` is stale: it describes the app-with-accounts / Taste Test
-class (lanes, shareable ranked cards, account data export) that "Positioning"
-above explicitly says not to rebuild toward. Don't treat its must-pass list
-as current acceptance criteria until it's regenerated for the personal,
-single-owner class via `/ship-standard`.
+This project has a SHIP-STANDARD.md at the root. When planning a phase or any
+non-trivial change, read it and treat the relevant must-pass commitments as
+acceptance criteria. Build to the bar; don't wait for /ship-check to find the gap.
+
+Class is a custom "personal-app" lens set, not one of ship-standard's five
+presets — none assume a single-owner tool with no accounts/signup surface.
+Ongoing regression checks after this point should use `/regression-smoke`,
+not a full `/ship-check` (see that skill's own Don'ts).
 
 ## Reference
 
