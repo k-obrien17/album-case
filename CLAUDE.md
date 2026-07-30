@@ -22,8 +22,9 @@ This repo also contains a **legacy private calibration tool** (artist-tier rater
 
 ## Current state
 
-- The deployable app lives under `web/` and is a Vite + TypeScript app with
-  Vercel serverless functions and Turso/libSQL persistence.
+- The deployable app lives under `web/` and is a Vite 8 + TypeScript 6 app
+  with Vercel serverless functions (`@vercel/node` 3) and Turso/libSQL
+  persistence (`@libsql/client` 0.14).
 - The app uses one fixed owner id (`web/src/owner.ts`) across browsers/devices.
 - Ranking snapshots store full album records and use versioned writes to avoid
   stale tab/browser overwrites.
@@ -35,10 +36,11 @@ This repo also contains a **legacy private calibration tool** (artist-tier rater
 - **Legacy (stable, demoted):** the calibration game (`index.html` + `app.js` + `style.css` + generated `artists.js`) and the Python `scoring/` module with passing pytest tests.
 - **Open fork:** the v1 player mechanism has pivoted from two-card pairwise picks to drag-to-place ranking. Lanes/tiers/Elo are parked or out of scope (see `PROJECT.md`).
 
-## Two codebases in this repo
+## Codebases in this repo
 
-1. **The product (Album Case), being built** — the personal drag-to-place album ranking web app in `web/`, plus API-backed Turso persistence and MusicBrainz discovery. This is where new work happens.
-2. **The legacy calibration tool, at the repo root** — `index.html`, `app.js`, `style.css`, `artists.js`, `build-artists.py`, `scoring/`, `reference/`. Zero-dependency, runs from `file://`. Kept as seed pool + fixture. The old constraints below apply ONLY to it.
+1. **The product (Album Case), being built:** the personal drag-to-place album ranking web app in `web/`, plus API-backed Turso persistence and MusicBrainz discovery. This is where new work happens.
+2. **The legacy calibration tool, at the repo root:** `index.html`, `app.js`, `style.css`, `artists.js`, `build-artists.py`, `scoring/`, `reference/`. Zero-dependency, runs from `file://`. Kept as seed pool + fixture. The old constraints below apply ONLY to it.
+3. **The offline seed pipeline, at `pipeline/`:** stdlib-only Python that streams MusicBrainz/ListenBrainz bulk dumps into `data/tastetest.db`'s `entities` table (`ingest_musicbrainz.py`, `ingest_listenbrainz.py`, `materialize.py`, `covers.py`, wrapped by `build.py`). Produces the static seed the product bootstraps from; not run at request time. See `pipeline/README.md`.
 
 ## Architecture (the product)
 
@@ -50,6 +52,29 @@ This repo also contains a **legacy private calibration tool** (artist-tier rater
   product state is the owner ranking snapshot.
 - The static seed is a temporary bootstrap. Live discovery is allowed for this
   personal app and should use MusicBrainz artist MBIDs, not name search.
+
+## Schema (Turso/libSQL)
+
+Defined in `web/api/_schema.ts`:
+
+| Table | Key | Purpose |
+|---|---|---|
+| `atoms` | `id` (autoincrement) | Pairwise comparison/placement records (`entity_a`, `entity_b`, `winner`, `mechanism`, `session_id`) |
+| `sessions` | `session_id` | Session bookkeeping (`created_at`, `last_seen_at`) |
+| `ranking_snapshots` | `session_id` | Canonical owner ranking snapshot (`ranking_json`, `lists_json`, `artist_locks_json`, `updated_at`) |
+| `discovered_albums` | `session_id, mbid` | Full album records from live MusicBrainz discovery (see `discover-artist.ts`) |
+
+## File structure
+
+| Path | What |
+|---|---|
+| `web/src/main.ts` | App entry point and top-level state wiring |
+| `web/src/ranking/` | Pure ranking engines (insertion, order, locks, set-aside) — no DOM |
+| `web/src/ui/` | DOM rendering/interaction (`rankList.ts`, `artistBatchView.ts`, `savedList.ts`) |
+| `web/api/` | Vercel serverless routes (`ranking`, `discover-artist`, `search-album`, `similar-artists`, `atom`, write-key/allowlist guards) |
+| `web/api/_schema.ts` | Turso table definitions |
+| `pipeline/` | Offline seed-generation pipeline (see "Codebases in this repo") |
+| `scoring/` | Legacy calibration scoring module + pytest tests |
 
 ## Commands (legacy tool)
 
@@ -89,6 +114,13 @@ npm run build
   personal list. It is transitive-by-construction.
 - **Don't confuse the older public Taste Test aggregate roadmap with the
   current personal Album Case app.**
+- **Don't append a re-ranked/re-rated album and re-sort the list.** Splice at
+  the computed index directly (see `insertAtRating` in `web/src/main.ts`).
+  Append-then-sort broke on rating ties: a stable sort strands the new album
+  behind an equal-rated incumbent.
+- **Don't re-enable artist locks without reading `ranking/locks.ts` first.**
+  Lock enforcement is paused; every ranked/unranked row is currently always
+  editable (see `artistBatchView.ts`'s header comment).
 
 **Legacy tool only:**
 - **Don't hand-edit `artists.js`.** It is generated from `artists.json` by `build-artists.py`.
@@ -97,12 +129,18 @@ npm run build
 
 ## Ship standard
 
-`SHIP-STANDARD.md` is the bar (regenerated for the app-with-accounts class). When planning a phase or any non-trivial change, treat its relevant must-pass commitments as acceptance criteria.
+`SHIP-STANDARD.md` is stale: it describes the app-with-accounts / Taste Test
+class (lanes, shareable ranked cards, account data export) that "Positioning"
+above explicitly says not to rebuild toward. Don't treat its must-pass list
+as current acceptance criteria until it's regenerated for the personal,
+single-owner class via `/ship-standard`.
 
 ## Reference
 
 | Path | What |
 |---|---|
+| `SECURITY.md` | Write-key threat model, what must never be exposed |
+| `HANDOFF.md` | Session-to-session continuity bridge (Claude Code / Codex) |
 | `.planning/PROJECT.md` | Historical/partially updated product planning; verify against README/HANDOFF |
 | `.planning/ROADMAP.md` | Phase structure |
 | `DATA-SOURCES.md` | Data source matrix + the store-everything architecture rule |
