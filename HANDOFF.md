@@ -14,15 +14,15 @@ Run `/ship-standard` to regenerate `SHIP-STANDARD.md` for the personal, single-o
 - Kylie "Can't Get You Out of My Head": strict album rule says 2001 (Fever, Oct 2001); Keith may keep 2002 as a US-release judgment call. (Spotify tangent, see below.)
 
 ## Don't forget
-- Spotify "Best of YYYY" playlist tangent (lives entirely outside this repo, at `~/Desktop/Claude/spotify-export/`, not a git repo, so this is the only place it's tracked): two edits still open — cut "Primitive Painters" (Felt) from the 1984 playlist (keep 1985), and the Kylie year decision above. Then re-export + `node analyze-years.mjs "exports/Best of"` for a clean pass.
+- Spotify "Best of YYYY" playlist tangent (lives entirely outside this repo, at `~/Desktop/Claude/spotify-export/`, not a git repo, so this is the only place it's tracked): two edits still open: cut "Primitive Painters" (Felt) from the 1984 playlist (keep 1985), and the Kylie year decision above. Then re-export + `node analyze-years.mjs "exports/Best of"` for a clean pass.
 - "KOB Best of 2021 Longer" is ~90% 2022 music, likely mislabeled; compare against "KOB Best of 2022 Longer" someday.
 - 2021 short list still needs 2 more picks beyond Snail Mail "Valentine" and Tyler "LUMBERJACK".
 - 33 followed-but-not-owned Spotify playlists can't be exported (2026 policy: contents only for owner-created playlists).
 - Standing gotchas from earlier sessions still apply: similarity-scores-skew-popular, artist locks paused (`ranking/locks.ts`), `Number('') === 0` gotcha, never append-then-sort (now also in CLAUDE.md's Don't list), `CONFIRM_CANON_IMPORT` danger, RESTORE-POINT backup location, `keithrobrien`'s pre-existing `te-tokens.css` edit.
 
 ## Files touched this session
-- CLAUDE.md — 8 audit fixes (em-dashes, pipeline/ codebase, Schema, File structure, stack versions, 2 Don't entries, Reference rows, SHIP-STANDARD.md staleness flag)
-- web/scripts/export-all.mjs — fixed OUT_DIR to resolve from script location instead of `process.cwd()`; committed for the first time
+- CLAUDE.md: 8 audit fixes (em-dashes, pipeline/ codebase, Schema, File structure, stack versions, 2 Don't entries, Reference rows, SHIP-STANDARD.md staleness flag)
+- web/scripts/export-all.mjs: fixed OUT_DIR to resolve from script location instead of `process.cwd()`; committed for the first time
 
 ## Git state
 - Branch: main
