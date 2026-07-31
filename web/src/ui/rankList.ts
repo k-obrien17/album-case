@@ -9,6 +9,12 @@ import {
   assistIndex,
   type AssistPlacement,
 } from '../ranking/assist';
+import {
+  RecordingUnavailableError,
+  SidecarUnavailableError,
+  startRecording,
+} from '../audio/recordRatingClip';
+import { parseSpokenRating } from '../rating/parseSpokenRating';
 
 /**
  * Drag-to-place ranked list. Pointer-events based (works with touch AND
@@ -708,6 +714,54 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     input.placeholder = '0-10';
     input.setAttribute('aria-label', `Direct rating for ${album.title}`);
 
+    // Voice rating (local dev only -- needs `mimir stt-server` running on
+    // 127.0.0.1:8765, see ~/.claude/references/voice-speed-round-pattern.md).
+    // Fills the input rather than auto-submitting: a misheard number
+    // silently landing in the canonical Turso rating is a worse failure
+    // than one extra tap to confirm. Same pattern as artistBatchView.ts's
+    // per-row mic button.
+    const micBtn = document.createElement('button');
+    micBtn.type = 'button';
+    micBtn.className = 'candidate-place-button candidate-mic-button';
+    micBtn.textContent = 'Mic';
+    micBtn.setAttribute('aria-label', `Speak a rating for ${album.title}`);
+    let stopActive: (() => void) | null = null;
+    micBtn.addEventListener('click', () => {
+      if (stopActive) {
+        stopActive();
+        return;
+      }
+      const { stop, result } = startRecording();
+      stopActive = stop;
+      micBtn.textContent = 'Stop';
+      micBtn.classList.add('candidate-mic-active');
+      result
+        .then((text) => {
+          if (!document.contains(input)) return; // card was rebuilt mid-recording
+          const rating = parseSpokenRating(text);
+          if (rating === null) {
+            input.placeholder = text ? `heard "${text}"` : 'nothing heard';
+            return;
+          }
+          input.value = String(rating);
+          input.focus();
+          input.select();
+        })
+        .catch((e: unknown) => {
+          if (!document.contains(input)) return;
+          const message =
+            e instanceof RecordingUnavailableError || e instanceof SidecarUnavailableError
+              ? e.message
+              : 'voice rating failed';
+          input.placeholder = message;
+        })
+        .finally(() => {
+          stopActive = null;
+          micBtn.textContent = 'Mic';
+          micBtn.classList.remove('candidate-mic-active');
+        });
+    });
+
     const btn = document.createElement('button');
     btn.type = 'submit';
     btn.className = 'candidate-place-button';
@@ -728,7 +782,7 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
       opts.onDirectRate?.(Math.round(rating * 100) / 100);
     });
 
-    form.append(input, btn);
+    form.append(input, micBtn, btn);
     wrap.append(label, form);
     return wrap;
   }
