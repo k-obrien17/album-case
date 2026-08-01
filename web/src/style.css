@@ -300,6 +300,36 @@ body {
   color: var(--color-muted);
 }
 
+/* Voice speed round: hands-free candidate-by-candidate rating. */
+.speed-round {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.speed-round-status {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.speed-round-status--listening {
+  color: var(--color-accent);
+}
+
+.speed-round-status--unclear {
+  color: var(--color-muted);
+}
+
+.speed-round-status--error {
+  color: var(--color-error);
+}
+
+.speed-round-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 /* Assisted this-or-that placement (long lists): two large prefer buttons. */
 .assist-choose {
   display: flex;

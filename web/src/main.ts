@@ -25,6 +25,7 @@ import {
 } from './lists';
 import { mountRankList } from './ui/rankList';
 import { mountArtistBatchView } from './ui/artistBatchView';
+import { mountSpeedRound } from './ui/speedRound';
 import { artistAlbumsFor } from './artistLockAlbums';
 import { renderSavedList } from './ui/savedList';
 import { enqueueAtom, flushAtomQueue } from './atoms';
@@ -59,7 +60,7 @@ import {
   saveCandidateArtistCooldown,
 } from './candidateCooldown';
 
-type ViewMode = 'ranked' | ListName | 'blockedArtists' | 'artistBatch';
+type ViewMode = 'ranked' | ListName | 'blockedArtists' | 'artistBatch' | 'speedRound';
 
 type RestoreSnapshot = { state: RankingState; lists: SavedLists };
 
@@ -747,6 +748,31 @@ async function main(): Promise<void> {
     showView('artistBatch');
   }
 
+  let speedRoundController: ReturnType<typeof mountSpeedRound> | null = null;
+
+  // Same remount-on-every-change convention as renderArtistBatchView: one
+  // mount per candidate, so a fresh mic auto-arms as soon as the next
+  // candidate is in place -- no in-place candidate-change tracking needed.
+  function renderSpeedRound(): void {
+    speedRoundController?.teardown();
+    stage.textContent = '';
+    speedRoundController = mountSpeedRound(stage, {
+      getCandidate: () => candidate,
+      // No pairwise atom, same precedent as onDirectRate -- no comparison
+      // happened, just a direct rating.
+      onRate: (album, rating) => {
+        state = { ranked: insertAtRating(state.ranked, album, rating), pending: null };
+        persistRankingState();
+        reselectCandidate();
+        renderSpeedRound();
+        renderNav();
+      },
+      onClose: () => {
+        showView('ranked');
+      },
+    });
+  }
+
   reselectCandidate();
 
   const rankList = mountRankList(stage, {
@@ -970,6 +996,9 @@ async function main(): Promise<void> {
     if (view === 'artistBatch' && next !== 'artistBatch') {
       artistBatchController?.teardown();
     }
+    if (view === 'speedRound' && next !== 'speedRound') {
+      speedRoundController?.teardown();
+    }
     view = next;
 
     if (view === 'ranked') {
@@ -978,6 +1007,8 @@ async function main(): Promise<void> {
       renderBlockedArtists();
     } else if (view === 'artistBatch') {
       renderArtistBatchView();
+    } else if (view === 'speedRound') {
+      renderSpeedRound();
     } else {
       renderCurrentSavedList(view);
     }
@@ -1002,6 +1033,7 @@ async function main(): Promise<void> {
       { mode: 'notHeard', label: `Haven't heard (${lists.notHeard.length})` },
       { mode: 'dontCare', label: `Don't care (${lists.dontCare.length})` },
       { mode: 'blockedArtists', label: `Blocked artists (${blockedArtists.length})` },
+      { mode: 'speedRound', label: 'Voice speed round' },
     ];
 
     for (const { mode, label } of items) {
