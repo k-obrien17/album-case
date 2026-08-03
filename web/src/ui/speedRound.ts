@@ -1,9 +1,5 @@
 import type { Album } from '../ranking/types';
-import {
-  RecordingUnavailableError,
-  SidecarUnavailableError,
-  startRecording,
-} from '../audio/recordRatingClip';
+import { RecordingUnavailableError, startRecording } from '../audio/speechToRating';
 import { decideSpeedRoundStep } from '../rating/decideSpeedRoundStep';
 
 export type SpeedRoundOptions = {
@@ -76,10 +72,7 @@ export function mountSpeedRound(
       .catch((e: unknown) => {
         if (!active) return;
         stopActive = null;
-        const message =
-          e instanceof RecordingUnavailableError || e instanceof SidecarUnavailableError
-            ? e.message
-            : 'voice rating failed';
+        const message = e instanceof RecordingUnavailableError ? e.message : 'voice rating failed';
         phase = { kind: 'error', message };
         render();
       });
@@ -92,7 +85,7 @@ export function mountSpeedRound(
   }
 
   /** Shown when voice rating didn't produce a usable number: a silent
-   *  recording, unintelligible speech, or a real mic/sidecar failure all
+   *  recording, unintelligible speech, or a real mic/recognition failure all
    *  land here. Same manual-entry contract as buildDirectRate's fallback
    *  input (rankList.ts), plus a button to re-arm the mic for another try. */
   function buildFallback(album: Album): HTMLElement {

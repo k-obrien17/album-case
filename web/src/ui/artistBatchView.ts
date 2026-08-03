@@ -2,11 +2,7 @@ import type { Album, RankedAlbum } from '../ranking/types';
 import type { SavedLists } from '../lists';
 import { artistAlbumsFor, mapFilteredReorderToGlobal } from '../artistLockAlbums';
 import { mountRankList } from './rankList';
-import {
-  RecordingUnavailableError,
-  SidecarUnavailableError,
-  startRecording,
-} from '../audio/recordRatingClip';
+import { RecordingUnavailableError, startRecording } from '../audio/speechToRating';
 import { parseSpokenRating } from '../rating/parseSpokenRating';
 
 export type ArtistDiscoverViewResult =
@@ -99,11 +95,10 @@ export function mountArtistBatchView(
     input.placeholder = '0-10';
     input.setAttribute('aria-label', `Rating for ${album.title}`);
 
-    // Voice rating (local dev only -- needs `mimir stt-server` running on
-    // 127.0.0.1:8765, see ~/.claude/references/voice-speed-round-pattern.md).
-    // Fills the input rather than auto-submitting: a misheard number
-    // silently landing in the canonical Turso rating is a worse failure
-    // than one extra tap to confirm.
+    // Voice rating via the browser's built-in speech recognition (see
+    // speechToRating.ts). Fills the input rather than auto-submitting: a
+    // misheard number silently landing in the canonical Turso rating is a
+    // worse failure than one extra tap to confirm.
     const micBtn = document.createElement('button');
     micBtn.type = 'button';
     micBtn.className = 'candidate-place-button candidate-mic-button';
@@ -133,10 +128,7 @@ export function mountArtistBatchView(
         })
         .catch((e: unknown) => {
           if (!document.contains(input)) return;
-          const message =
-            e instanceof RecordingUnavailableError || e instanceof SidecarUnavailableError
-              ? e.message
-              : 'voice rating failed';
+          const message = e instanceof RecordingUnavailableError ? e.message : 'voice rating failed';
           input.placeholder = message;
         })
         .finally(() => {

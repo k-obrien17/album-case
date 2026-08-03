@@ -9,11 +9,7 @@ import {
   assistIndex,
   type AssistPlacement,
 } from '../ranking/assist';
-import {
-  RecordingUnavailableError,
-  SidecarUnavailableError,
-  startRecording,
-} from '../audio/recordRatingClip';
+import { RecordingUnavailableError, startRecording } from '../audio/speechToRating';
 import { parseSpokenRating } from '../rating/parseSpokenRating';
 
 /**
@@ -714,12 +710,11 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     input.placeholder = '0-10';
     input.setAttribute('aria-label', `Direct rating for ${album.title}`);
 
-    // Voice rating (local dev only -- needs `mimir stt-server` running on
-    // 127.0.0.1:8765, see ~/.claude/references/voice-speed-round-pattern.md).
-    // Fills the input rather than auto-submitting: a misheard number
-    // silently landing in the canonical Turso rating is a worse failure
-    // than one extra tap to confirm. Same pattern as artistBatchView.ts's
-    // per-row mic button.
+    // Voice rating via the browser's built-in speech recognition (see
+    // speechToRating.ts). Fills the input rather than auto-submitting: a
+    // misheard number silently landing in the canonical Turso rating is a
+    // worse failure than one extra tap to confirm. Same pattern as
+    // artistBatchView.ts's per-row mic button.
     const micBtn = document.createElement('button');
     micBtn.type = 'button';
     micBtn.className = 'candidate-place-button candidate-mic-button';
@@ -749,10 +744,7 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
         })
         .catch((e: unknown) => {
           if (!document.contains(input)) return;
-          const message =
-            e instanceof RecordingUnavailableError || e instanceof SidecarUnavailableError
-              ? e.message
-              : 'voice rating failed';
+          const message = e instanceof RecordingUnavailableError ? e.message : 'voice rating failed';
           input.placeholder = message;
         })
         .finally(() => {
