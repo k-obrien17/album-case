@@ -4,7 +4,7 @@
 
 **Goal:** Let the owner search for a band by name and land directly in the existing artist-batch ranking view with that band's full discography already loaded, without first needing to own one of their albums.
 
-**Architecture:** A new read-only MusicBrainz-proxying API route (`search-artist`) plus a thin client wrapper and a new mount/teardown view module, wired into a new `'artistSearch'` `ViewMode` in `main.ts`. Selecting a result reuses the existing `discoverArtistDetailed` call and the existing `artistBatchView` — no changes to either.
+**Architecture:** A new read-only MusicBrainz-proxying API route (`search-artist`) plus a thin client wrapper and a new mount/teardown view module, wired into a new `'artistSearch'` `ViewMode` in `main.ts`. Selecting a result reuses the existing `discoverArtistDetailed` call and the existing `artistBatchView`, with no changes to either.
 
 **Tech Stack:** Vite 8 + TypeScript 6, Vercel serverless functions (`@vercel/node`), Vitest.
 
@@ -13,21 +13,21 @@
 - Render with safe DOM construction (`createElement`/`textContent`), never `innerHTML`.
 - Mobile is the primary device: tap targets ≥ 44px, usable at 360px width, no horizontal scroll.
 - File size cap: 300 lines per file. All new files here are well under that.
-- New files use this project's established camelCase filename convention (`discovery.ts`, `artistBatchView.ts`, `speedRound.ts`), not the generic kebab-case default — match what's already in `web/src` and `web/src/ui`.
-- Don't use artist-name search where an MBID is already available for discovery — not violated here: the artist *search* is necessarily name-based (that's its purpose), but the actual discovery call after a result is picked always uses the MBID, exactly like the existing "discover more albums" flow.
+- New files use this project's established camelCase filename convention (`discovery.ts`, `artistBatchView.ts`, `speedRound.ts`), not the generic kebab-case default. Match what's already in `web/src` and `web/src/ui`.
+- Don't use artist-name search where an MBID is already available for discovery. Not violated here: the artist *search* is necessarily name-based (that's its purpose), but the actual discovery call after a result is picked always uses the MBID, exactly like the existing "discover more albums" flow.
 
 ---
 
 ## File Structure
 
-- Create `web/api/search-artist.ts` — serverless route proxying MusicBrainz artist search.
-- Create `web/api/search-artist.test.ts` — route tests.
-- Create `web/src/artistSearch.ts` — client fetch wrapper + response validation.
-- Create `web/src/artistSearch.test.ts` — wrapper tests.
-- Create `web/src/ui/artistSearchView.ts` — mount/teardown view module (input + results list).
-- Modify `web/src/ui/rankList.ts` — add `onOpenArtistSearch` option and the "+ Add a band" button.
-- Modify `web/src/style.css` — one small rule so the new button doesn't get squeezed by the search input on narrow screens.
-- Modify `web/src/main.ts` — new `ViewMode`, state, handlers, and view wiring.
+- Create `web/api/search-artist.ts`: serverless route proxying MusicBrainz artist search.
+- Create `web/api/search-artist.test.ts`: route tests.
+- Create `web/src/artistSearch.ts`: client fetch wrapper + response validation.
+- Create `web/src/artistSearch.test.ts`: wrapper tests.
+- Create `web/src/ui/artistSearchView.ts`: mount/teardown view module (input + results list).
+- Modify `web/src/ui/rankList.ts`: add `onOpenArtistSearch` option and the "+ Add a band" button.
+- Modify `web/src/style.css`: one small rule so the new button doesn't get squeezed by the search input on narrow screens.
+- Modify `web/src/main.ts`: new `ViewMode`, state, handlers, and view wiring.
 
 ---
 
@@ -169,7 +169,7 @@ describe('/api/search-artist GET', () => {
 - [ ] **Step 2: Run the tests to verify they fail**
 
 Run: `cd web && npx vitest run api/search-artist.test.ts`
-Expected: FAIL — `Cannot find module './search-artist'` (the handler doesn't exist yet).
+Expected: FAIL (`Cannot find module './search-artist'`, the handler doesn't exist yet).
 
 - [ ] **Step 3: Write the route**
 
@@ -403,7 +403,7 @@ describe('searchArtists', () => {
 - [ ] **Step 2: Run the tests to verify they fail**
 
 Run: `cd web && npx vitest run src/artistSearch.test.ts`
-Expected: FAIL — `Cannot find module './artistSearch'`.
+Expected: FAIL (`Cannot find module './artistSearch'`).
 
 - [ ] **Step 3: Write the wrapper**
 
@@ -499,7 +499,7 @@ git commit -m "feat: add artistSearch client wrapper"
 **Files:**
 - Create: `web/src/ui/artistSearchView.ts`
 
-No test file — matches the existing convention for this codebase's other view modules (`rankList.ts`, `artistBatchView.ts`, `speedRound.ts` have none); verified in Task 6.
+No test file: matches the existing convention for this codebase's other view modules (`rankList.ts`, `artistBatchView.ts`, `speedRound.ts` have none); verified in Task 6.
 
 **Interfaces:**
 - Consumes: `ArtistResult` from `web/src/artistSearch.ts` (Task 2).
@@ -535,7 +535,7 @@ No test file — matches the existing convention for this codebase's other view 
   ```
   `main.ts` (Task 5) mounts this once per view-open, calling `.render()` on state changes rather than remounting on every keystroke (remounting mid-keystroke would race a fresh instance against an in-flight `onSelectArtist` continuation from the old one, both writing to the same `container`).
 
-  On `'ok'`, the caller has already navigated away (`showView('artistBatch')`) by the time the promise resolves — this module's own `render()` never needs to show a "success" state, only the three failure statuses, which keep the view open so the owner can retry or pick another artist.
+  On `'ok'`, the caller has already navigated away (`showView('artistBatch')`) by the time the promise resolves. This module's own `render()` never needs to show a "success" state, only the three failure statuses, which keep the view open so the owner can retry or pick another artist.
 
 - [ ] **Step 1: Write the view module**
 
@@ -1264,4 +1264,4 @@ Open the dev URL. On the ranked list view, confirm:
 - With writes locked (default state, no write key set): select an artist → "Unlock writes to add a band." shown, view stays open, no crash.
 - Type fewer than 2 characters → no request fires, no results shown (check the Network tab for no `/api/search-artist` call).
 
-No code changes expected from this task unless a real defect surfaces — if one does, fix it, re-run the affected automated tests, and commit the fix separately before considering the plan complete.
+No code changes expected from this task unless a real defect surfaces. If one does, fix it, re-run the affected automated tests, and commit the fix separately before considering the plan complete.

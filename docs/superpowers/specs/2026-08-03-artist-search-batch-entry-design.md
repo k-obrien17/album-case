@@ -6,7 +6,7 @@ Batch-ranking a whole band's discography only works if you already have one
 of their albums surfaced. `handleOpenArtistBatch` (`web/src/main.ts`) requires
 an `Album` you already own (ranked, in a saved list, or already in `pool`)
 before the "View all N albums" action appears. There is no way to start from
-a band name you have in mind and go straight to ranking their catalog — you
+a band name you have in mind and go straight to ranking their catalog. You
 have to wait for one of their albums to show up as a candidate, or get lucky
 with the existing MusicBrainz album-title search surfacing one of their
 records by text match.
@@ -80,7 +80,7 @@ mountArtistSearchView(container, opts): { render(): void; teardown(): void }
 Renders: a text input (autofocus), and below it whichever of idle / loading /
 error+retry / results-list / no-matches applies. Each result row shows the
 artist name as the primary line and, when present, `disambiguation`
-alongside `type` and `country` as a subtitle — this is the only way to tell
+alongside `type` and `country` as a subtitle. This is the only way to tell
 same-named artists apart (e.g. multiple bands called "Genesis"), so it's not
 optional. The whole row is the click target ("Rank all of {name}'s albums").
 A visible cancel/back control calls `onClose`.
@@ -90,7 +90,7 @@ A visible cancel/back control calls `onClose`.
 Add `onOpenArtistSearch?: () => void` to `RankListOptions`. In
 `buildSearchBox()`, append an "+ Add a band" button next to the existing
 `.rank-search-input`, calling `opts.onOpenArtistSearch?.()`. This sits beside
-the current album search box, not inside it — the two searches stay visually
+the current album search box, not inside it. The two searches stay visually
 and functionally distinct.
 
 ## Orchestration in `main.ts`
@@ -101,13 +101,13 @@ and functionally distinct.
 - `handleOpenArtistSearch()`: reset query/results to idle, `showView('artistSearch')`.
 - `handleArtistSearchQueryChange(query)`: store the query; debounce ~400ms
   (min 2 characters) before calling `searchArtists`. Guard stale responses
-  the same way `onSearchMusicBrainz` already does today — capture the query
+  the same way `onSearchMusicBrainz` already does today: capture the query
   the fetch is *for*, discard the result if the live input has since moved
   on.
 - `handleSelectSearchedArtist(artist: ArtistResult)`:
   1. Show a loading status ("Loading {name}'s albums…").
-  2. Call `discoverArtistDetailed(session.session_id, artist.name, artist.mbid, [])`
-     — the existing discovery call, with an empty `knownMbids` since this is
+  2. Call `discoverArtistDetailed(session.session_id, artist.name, artist.mbid, [])`,
+     the existing discovery call, with an empty `knownMbids` since this is
      a brand-new artist to the pool.
   3. `'locked'` → status message "Unlock writes to add a band." (same wording
      convention as `handleDiscoverArtist`'s locked branch); stay on the
@@ -155,14 +155,14 @@ existing controls. No changes to what happens once you're in the batch view.
 
 ## Testing
 
-- `web/api/search-artist.test.ts` — mirrors `search-album.test.ts`: rejects
+- `web/api/search-artist.test.ts`: mirrors `search-album.test.ts`, rejects
   non-GET, rejects missing/too-long query, maps a MusicBrainz artist search
   response to `ArtistResult[]`, surfaces a MusicBrainz failure as an error
   status.
-- `web/src/artistSearch.test.ts` — mirrors `discovery.test.ts`: successful
+- `web/src/artistSearch.test.ts`: mirrors `discovery.test.ts`, successful
   response, network failure, non-OK response, malformed JSON, blank-query
   short-circuit.
 - No new pure-function unit tests for the select → discover → merge →
   open-batch orchestration in `main.ts` beyond what `handleDiscoverArtist`
-  already gets today (none currently) — parity with the existing bar, not a
+  already gets today (none currently). Parity with the existing bar, not a
   new coverage obligation invented for this feature.
