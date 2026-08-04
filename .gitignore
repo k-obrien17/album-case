@@ -13,3 +13,6 @@ data/*.db-*
 
 # session scratch (recovered personal ranking data — never commit)
 scratchpad/
+
+# git worktrees
+.worktrees/
