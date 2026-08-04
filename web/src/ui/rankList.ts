@@ -123,6 +123,11 @@ export type RankListOptions = {
    *  rating. No comparison happened, so unlike onPlace this never fires a
    *  pairwise atom -- same precedent as onDirectRate. */
   onRateSearchResult?: (album: Album, rating: number) => void;
+  /** Open the dedicated artist-name search ("Add a band"), a second entry
+   *  point alongside the album-title search above it -- lets the owner jump
+   *  straight into the artist-batch view for a band with no albums owned
+   *  yet. Omit to hide the button entirely. */
+  onOpenArtistSearch?: () => void;
 };
 
 /**
@@ -924,8 +929,17 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     input.addEventListener('input', () => {
       opts.onSearchQueryChange?.(input.value);
     });
-
     wrap.append(input);
+
+    if (opts.onOpenArtistSearch) {
+      const addBandBtn = document.createElement('button');
+      addBandBtn.type = 'button';
+      addBandBtn.className = 'candidate-action rank-search-add-band';
+      addBandBtn.textContent = '+ Add a band';
+      addBandBtn.addEventListener('click', () => opts.onOpenArtistSearch?.());
+      wrap.append(addBandBtn);
+    }
+
     return wrap;
   }
 

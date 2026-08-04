@@ -385,6 +385,12 @@ body {
   border-color: var(--color-accent);
 }
 
+/* Keeps the "+ Add a band" button at its natural width instead of being
+   squeezed by .rank-search's flex row when the search input grows. */
+.rank-search-add-band {
+  flex: 0 0 auto;
+}
+
 /* Shown in place of the ranked list when a search query matches nothing
    locally. Hangs a "search MusicBrainz" action off this class. */
 .rank-search-empty {
