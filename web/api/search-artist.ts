@@ -14,7 +14,7 @@ type MbArtist = {
   country?: string;
 };
 
-export type ArtistResult = {
+type ArtistResult = {
   mbid: string;
   name: string;
   disambiguation: string | null;

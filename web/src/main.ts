@@ -26,7 +26,11 @@ import {
 import { mountRankList } from './ui/rankList';
 import { mountArtistBatchView } from './ui/artistBatchView';
 import { mountSpeedRound } from './ui/speedRound';
-import { mountArtistSearchView, type ArtistSelectResult } from './ui/artistSearchView';
+import {
+  mountArtistSearchView,
+  type ArtistSelectResult,
+  type ArtistSearchResultsState,
+} from './ui/artistSearchView';
 import { artistAlbumsFor } from './artistLockAlbums';
 import { renderSavedList } from './ui/savedList';
 import { enqueueAtom, flushAtomQueue } from './atoms';
@@ -402,11 +406,6 @@ async function main(): Promise<void> {
   // from the one above, for jumping straight into the artist-batch view for
   // a band with none of its albums owned yet.
   let artistSearchQuery = '';
-  type ArtistSearchResultsState =
-    | { status: 'idle' }
-    | { status: 'loading' }
-    | { status: 'error' }
-    | { status: 'done'; artists: ArtistResult[] };
   let artistSearchResults: ArtistSearchResultsState = { status: 'idle' };
   let artistSearchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   const ARTIST_SEARCH_DEBOUNCE_MS = 400;
@@ -827,6 +826,11 @@ async function main(): Promise<void> {
         poolIds.add(album.mbid);
       }
     }
+
+    // Pool just grew: if every existing album was already placed (the exact
+    // scenario "Add a band" exists for), candidate was null -- same
+    // reselect-if-exhausted convention as markAsHeard/restoreArtist.
+    if (!candidate) reselectCandidate();
 
     batchArtistMbid = artist.mbid;
     showView('artistBatch');

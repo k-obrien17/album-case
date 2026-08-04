@@ -43,6 +43,7 @@ export function mountArtistSearchView(
 ): ArtistSearchViewController {
   let selectingMbid: string | null = null;
   let selectMessage: string | null = null;
+  let torn = false;
 
   async function handleSelect(artist: ArtistResult): Promise<void> {
     if (selectingMbid) return; // a selection is already in flight
@@ -51,6 +52,7 @@ export function mountArtistSearchView(
     render();
 
     const result = await opts.onSelectArtist(artist);
+    if (torn) return; // view left (e.g. "Back") while the select was in flight
     selectingMbid = null;
 
     if (result.status === 'locked') {
@@ -136,6 +138,8 @@ export function mountArtistSearchView(
   }
 
   function render(): void {
+    if (torn) return; // stray call after teardown -- nothing left to draw into
+
     // Same focus/caret preservation as rankList.ts's own search box: capture
     // BEFORE clearing the container, since removing a focused element fires
     // a synchronous blur that would otherwise clear this first.
@@ -193,7 +197,11 @@ export function mountArtistSearchView(
   }
 
   function teardown(): void {
-    // No timers or listeners owned outside the DOM tree render() clears.
+    // handleSelect's onSelectArtist await can outlive the mount if the owner
+    // navigates away (e.g. "Back") before it resolves; `torn` stops that
+    // stale continuation from writing selectMessage/render()-ing into a
+    // container another view now owns. Mirrors speedRound.ts's `active` flag.
+    torn = true;
   }
 
   render();
