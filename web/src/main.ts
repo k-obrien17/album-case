@@ -26,6 +26,7 @@ import {
 import { mountRankList } from './ui/rankList';
 import { mountArtistBatchView } from './ui/artistBatchView';
 import { mountSpeedRound } from './ui/speedRound';
+import { mountArtistSearchView, type ArtistSelectResult } from './ui/artistSearchView';
 import { artistAlbumsFor } from './artistLockAlbums';
 import { renderSavedList } from './ui/savedList';
 import { enqueueAtom, flushAtomQueue } from './atoms';
@@ -40,6 +41,7 @@ import {
 } from './priority';
 import { loadRankingSnapshotDetailed, saveRankingSnapshot } from './rankingSync';
 import { discoverArtistDetailed, loadDiscoveredAlbums } from './discovery';
+import { searchArtists, type ArtistResult } from './artistSearch';
 import { runBulkDiscovery, runSimilarExpansion, TOP_ARTIST_DISCOVERY_COUNT } from './bulkDiscovery';
 import type { SimilarArtist } from './bulkDiscovery';
 import { clearWriteKey, extractKeyFromFragment, hasWriteKey, setWriteKey } from './writeKey';
@@ -60,7 +62,7 @@ import {
   saveCandidateArtistCooldown,
 } from './candidateCooldown';
 
-type ViewMode = 'ranked' | ListName | 'blockedArtists' | 'artistBatch' | 'speedRound';
+type ViewMode = 'ranked' | ListName | 'blockedArtists' | 'artistBatch' | 'artistSearch' | 'speedRound';
 
 type RestoreSnapshot = { state: RankingState; lists: SavedLists };
 
@@ -396,6 +398,20 @@ async function main(): Promise<void> {
     | { status: 'done'; albums: Album[] };
   let searchResults: SearchResultsState = { status: 'idle' };
 
+  // Artist-name search ("Add a band"): a second, dedicated search separate
+  // from the one above, for jumping straight into the artist-batch view for
+  // a band with none of its albums owned yet.
+  let artistSearchQuery = '';
+  type ArtistSearchResultsState =
+    | { status: 'idle' }
+    | { status: 'loading' }
+    | { status: 'error' }
+    | { status: 'done'; artists: ArtistResult[] };
+  let artistSearchResults: ArtistSearchResultsState = { status: 'idle' };
+  let artistSearchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  const ARTIST_SEARCH_DEBOUNCE_MS = 400;
+  const ARTIST_SEARCH_MIN_LENGTH = 2;
+
   const shell = document.createElement('div');
   shell.className = 'app-shell';
 
@@ -643,6 +659,7 @@ async function main(): Promise<void> {
 
   let batchArtistMbid: string | null = null;
   let artistBatchController: ReturnType<typeof mountArtistBatchView> | null = null;
+  let artistSearchController: ReturnType<typeof mountArtistSearchView> | null = null;
 
   function findAlbumByArtist(artistMbid: string): Album | null {
     return (
@@ -746,6 +763,92 @@ async function main(): Promise<void> {
     }
     batchArtistMbid = album.primary_artist_mbid;
     showView('artistBatch');
+  }
+
+  function handleOpenArtistSearch(): void {
+    artistSearchQuery = '';
+    artistSearchResults = { status: 'idle' };
+    showView('artistSearch');
+  }
+
+  function handleArtistSearchQueryChange(query: string): void {
+    artistSearchQuery = query;
+
+    if (artistSearchDebounceTimer !== null) {
+      clearTimeout(artistSearchDebounceTimer);
+      artistSearchDebounceTimer = null;
+    }
+
+    const trimmed = query.trim();
+    if (trimmed.length < ARTIST_SEARCH_MIN_LENGTH) {
+      artistSearchResults = { status: 'idle' };
+      renderArtistSearchView();
+      return;
+    }
+
+    artistSearchDebounceTimer = setTimeout(() => {
+      artistSearchDebounceTimer = null;
+      void (async () => {
+        const forQuery = trimmed;
+        artistSearchResults = { status: 'loading' };
+        renderArtistSearchView();
+
+        const result = await searchArtists(forQuery);
+        // The owner may have left the view or kept typing while this was
+        // in flight -- discard a response that no longer applies.
+        if (view !== 'artistSearch' || artistSearchQuery.trim() !== forQuery) return;
+
+        artistSearchResults =
+          result.status === 'error'
+            ? { status: 'error' }
+            : { status: 'done', artists: result.status === 'found' ? result.artists : [] };
+        renderArtistSearchView();
+      })();
+    }, ARTIST_SEARCH_DEBOUNCE_MS);
+  }
+
+  async function handleSelectSearchedArtist(artist: ArtistResult): Promise<ArtistSelectResult> {
+    const result = await discoverArtistDetailed(session.session_id, artist.name, artist.mbid, []);
+
+    if (result.status === 'locked') return { status: 'locked' };
+    if (result.status === 'error') return { status: 'error' };
+    if (result.status === 'empty') return { status: 'empty' };
+
+    const found = result.albums;
+    const poolIds = new Set(pool.map((a) => a.mbid));
+    for (const album of found) {
+      if (!poolIds.has(album.mbid)) {
+        pool.push(album);
+        poolIds.add(album.mbid);
+      }
+    }
+
+    batchArtistMbid = artist.mbid;
+    showView('artistBatch');
+    return { status: 'ok' };
+  }
+
+  /** Mounted once per view-open, then re-rendered in place on state changes
+   *  -- NOT remounted on every keystroke like renderArtistBatchView /
+   *  renderSpeedRound. Remounting mid-keystroke would race a fresh instance
+   *  against an in-flight handleSelectSearchedArtist continuation from the
+   *  old one, both writing into `stage`. showView's leave-teardown resets
+   *  artistSearchController to null, so the next open mounts fresh. */
+  function renderArtistSearchView(): void {
+    if (!artistSearchController) {
+      stage.textContent = '';
+      artistSearchController = mountArtistSearchView(stage, {
+        getQuery: () => artistSearchQuery,
+        onQueryChange: handleArtistSearchQueryChange,
+        getResults: () => artistSearchResults,
+        onSelectArtist: handleSelectSearchedArtist,
+        onClose: () => {
+          showView('ranked');
+        },
+      });
+      return;
+    }
+    artistSearchController.render();
   }
 
   let speedRoundController: ReturnType<typeof mountSpeedRound> | null = null;
@@ -930,6 +1033,7 @@ async function main(): Promise<void> {
       const grouped = artistAlbumsFor(album.primary_artist_mbid, state.ranked, lists, pool);
       return grouped.ranked.length + grouped.unranked.length;
     },
+    onOpenArtistSearch: handleOpenArtistSearch,
   });
 
   function markAsHeard(album: Album, which: ListName): void {
@@ -996,6 +1100,14 @@ async function main(): Promise<void> {
     if (view === 'artistBatch' && next !== 'artistBatch') {
       artistBatchController?.teardown();
     }
+    if (view === 'artistSearch' && next !== 'artistSearch') {
+      artistSearchController?.teardown();
+      artistSearchController = null;
+      if (artistSearchDebounceTimer !== null) {
+        clearTimeout(artistSearchDebounceTimer);
+        artistSearchDebounceTimer = null;
+      }
+    }
     if (view === 'speedRound' && next !== 'speedRound') {
       speedRoundController?.teardown();
     }
@@ -1007,6 +1119,8 @@ async function main(): Promise<void> {
       renderBlockedArtists();
     } else if (view === 'artistBatch') {
       renderArtistBatchView();
+    } else if (view === 'artistSearch') {
+      renderArtistSearchView();
     } else if (view === 'speedRound') {
       renderSpeedRound();
     } else {
