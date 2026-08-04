@@ -810,6 +810,11 @@ async function main(): Promise<void> {
   async function handleSelectSearchedArtist(artist: ArtistResult): Promise<ArtistSelectResult> {
     const result = await discoverArtistDetailed(session.session_id, artist.name, artist.mbid, []);
 
+    // The owner may have left the view (e.g. tapped "Back") while this was
+    // in flight -- discard a response that no longer applies, same as the
+    // stale-response guard in handleArtistSearchQueryChange above.
+    if (view !== 'artistSearch') return { status: 'error' };
+
     if (result.status === 'locked') return { status: 'locked' };
     if (result.status === 'error') return { status: 'error' };
     if (result.status === 'empty') return { status: 'empty' };
