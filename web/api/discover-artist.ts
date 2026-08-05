@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@libsql/client';
 import { SCHEMA_STATEMENTS } from './_schema.js';
-import { isLpReleaseGroup, mergeDiscovered, browseArtistLps, type ReleaseGroup, type DiscoveredAlbum } from './_lp.js';
+import { mergeDiscovered, browseArtistLps, type DiscoveredAlbum } from './_lp.js';
 import { requireWriteKey } from './_writeKey.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
