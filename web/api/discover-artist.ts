@@ -1,12 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@libsql/client';
 import { SCHEMA_STATEMENTS } from './_schema.js';
-import { isLpReleaseGroup, mergeDiscovered, type ReleaseGroup, type DiscoveredAlbum } from './_lp.js';
+import { isLpReleaseGroup, mergeDiscovered, browseArtistLps, type ReleaseGroup, type DiscoveredAlbum } from './_lp.js';
 import { requireWriteKey } from './_writeKey.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const USER_AGENT = 'AlbumCase/0.1 (keith@totalemphasis.com)';
-const MB_BASE = 'https://musicbrainz.org/ws/2';
 
 type DiscoverBody = {
   session_id?: unknown;
@@ -16,10 +14,6 @@ type DiscoverBody = {
 };
 
 let schemaReady: Promise<void> | null = null;
-
-function coverUrlFor(mbid: string): string {
-  return `https://coverartarchive.org/release-group/${mbid}/front-500`;
-}
 
 function db(): ReturnType<typeof createClient> {
   const url = process.env.TURSO_DATABASE_URL;
@@ -87,33 +81,6 @@ function validatePost(body: DiscoverBody | null):
     artistMbid: body.artist_mbid,
     knownMbids: body.known_mbids,
   };
-}
-
-function releaseYear(group: ReleaseGroup): number | null {
-  const date = group['first-release-date'] ?? '';
-  const yearStr = date.split('-')[0];
-  const year = Number(yearStr);
-  return yearStr.length > 0 && Number.isInteger(year) ? year : null;
-}
-
-async function fetchArtistLps(
-  artistMbid: string,
-  artistName: string
-): Promise<DiscoveredAlbum[]> {
-  const params = new URLSearchParams({ artist: artistMbid, type: 'album', limit: '100', fmt: 'json' });
-  const res = await fetch(`${MB_BASE}/release-group?${params.toString()}`, {
-    headers: { 'User-Agent': USER_AGENT },
-  });
-  if (!res.ok) throw new Error(`musicbrainz_browse_${res.status}`);
-  const data = (await res.json()) as { 'release-groups'?: ReleaseGroup[] };
-  return (data['release-groups'] ?? []).filter(isLpReleaseGroup).map((group) => ({
-    mbid: group.id,
-    title: group.title,
-    primary_artist_name: artistName,
-    primary_artist_mbid: artistMbid,
-    release_year: releaseYear(group),
-    cover_url: coverUrlFor(group.id),
-  }));
 }
 
 function rowToAlbum(row: Record<string, unknown>): DiscoveredAlbum {
@@ -189,7 +156,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse): Promise<void
     validated.artistMbid
   );
 
-  const lps = await fetchArtistLps(validated.artistMbid, validated.artistName);
+  const lps = await browseArtistLps(validated.artistMbid, validated.artistName);
   const newlyDiscovered = lps.filter((album) => !known.has(album.mbid));
 
   if (newlyDiscovered.length > 0) {
