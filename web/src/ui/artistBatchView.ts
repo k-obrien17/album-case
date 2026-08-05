@@ -7,7 +7,7 @@ import { parseSpokenRating } from '../rating/parseSpokenRating';
 
 export type ArtistDiscoverViewResult =
   | { status: 'found'; count: number }
-  | { status: 'empty' | 'locked' | 'error' };
+  | { status: 'empty' | 'error' };
 
 export type ArtistBatchViewOptions = {
   album: Album;
@@ -268,8 +268,6 @@ export function mountArtistBatchView(
         result.count > 0
           ? `Found ${result.count} more ${artistName} album${result.count === 1 ? '' : 's'}.`
           : `No new ${artistName} albums found.`;
-    } else if (result.status === 'locked') {
-      discoverMessage = 'Unlock writes to discover more albums.';
     } else if (result.status === 'empty') {
       discoverMessage = `No more ${artistName} albums found.`;
     } else {

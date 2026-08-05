@@ -85,8 +85,8 @@ describe('topRankedArtists', () => {
 });
 
 describe('runBulkDiscovery', () => {
-  it('short-circuits with an unlock message when the first call is locked', async () => {
-    const discover = vi.fn(async (): Promise<DiscoverArtistResult> => ({ status: 'locked' }));
+  it('continues past a single error and reports the failure, instead of short-circuiting', async () => {
+    const discover = vi.fn(async (): Promise<DiscoverArtistResult> => ({ status: 'error' }));
 
     const result = await runBulkDiscovery(
       rankedFor([radiohead, bjork]),
@@ -95,13 +95,9 @@ describe('runBulkDiscovery', () => {
       { discover, delayMs: 0 }
     );
 
-    expect(result).toEqual({
-      priorityQueue: ['existing-mbid'],
-      summary: 'Unlock writes to fill in more albums.',
-      found: 0,
-      locked: true,
-    });
-    expect(discover).toHaveBeenCalledTimes(1);
+    expect(result.found).toBe(0);
+    expect(result.summary).toBe('Added 0 new albums from 2 artists. 0 already fully discovered, 2 failed.');
+    expect(discover).toHaveBeenCalledTimes(2);
   });
 
   it('continues the batch when one artist errors, and reports the failure count', async () => {
@@ -164,7 +160,6 @@ describe('runBulkDiscovery', () => {
       priorityQueue: ['old-mbid'],
       summary: 'Rank some albums first.',
       found: 0,
-      locked: false,
     });
     expect(discover).not.toHaveBeenCalled();
   });
@@ -290,11 +285,11 @@ describe('runSimilarExpansion', () => {
     expect(discover).toHaveBeenCalledWith('Pixies', 'artist-new', []);
   });
 
-  it('short-circuits with an unlock message when a discovery call is locked', async () => {
+  it('continues past a discover error instead of short-circuiting', async () => {
     const fetchSimilar = vi.fn(async (): Promise<SimilarArtist[] | null> => [
       { mbid: 'artist-pixies', name: 'Pixies', score: 90 },
     ]);
-    const discover = vi.fn(async (): Promise<DiscoverArtistResult> => ({ status: 'locked' }));
+    const discover = vi.fn(async (): Promise<DiscoverArtistResult> => ({ status: 'error' }));
 
     const result = await runSimilarExpansion(
       rankedFor([radiohead]),
@@ -304,10 +299,8 @@ describe('runSimilarExpansion', () => {
       { fetchSimilar, discover, delayMs: 0 }
     );
 
-    expect(result).toEqual({
-      priorityQueue: ['old-mbid'],
-      summary: 'Unlock writes to fill in more albums.',
-    });
+    expect(result.priorityQueue).toEqual(['old-mbid']);
+    expect(result.summary).toContain('1 failed');
   });
 
   it('discovers each new similar artist and names them in the summary', async () => {

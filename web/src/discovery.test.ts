@@ -49,7 +49,13 @@ describe('loadDiscoveredAlbums', () => {
     expect(result).toEqual([]);
   });
 
-  it('returns a locked status when no write key is stored', async () => {
+  it('browses instead of persisting when no write key is stored', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ albums: [album('a')] }),
+    } as unknown as Response);
+    vi.stubGlobal('fetch', fetchMock);
+
     const result = await discoverArtistDetailed(
       '11111111-1111-4111-8111-111111111111',
       'Radiohead',
@@ -57,7 +63,39 @@ describe('loadDiscoveredAlbums', () => {
       []
     );
 
-    expect(result).toEqual({ status: 'locked' });
+    expect(result).toEqual({ status: 'found', albums: [album('a')] });
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/browse-artist?artist_mbid=a74b1b7f-71a5-4011-9441-d0b5e4122711&artist_name=Radiohead'
+    );
+  });
+
+  it('returns an empty status when browsing finds nothing', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ albums: [] }) } as unknown as Response)
+    );
+
+    const result = await discoverArtistDetailed(
+      '11111111-1111-4111-8111-111111111111',
+      'Radiohead',
+      'a74b1b7f-71a5-4011-9441-d0b5e4122711',
+      []
+    );
+
+    expect(result).toEqual({ status: 'empty' });
+  });
+
+  it('returns an error status when the browse fetch fails', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
+
+    const result = await discoverArtistDetailed(
+      '11111111-1111-4111-8111-111111111111',
+      'Radiohead',
+      'a74b1b7f-71a5-4011-9441-d0b5e4122711',
+      []
+    );
+
+    expect(result).toEqual({ status: 'error' });
   });
 
   it('returns an empty status for a successful response with no albums', async () => {

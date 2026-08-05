@@ -578,10 +578,6 @@ async function main(): Promise<void> {
       artistMbid,
       knownMbids
     );
-    if (discoveredResult.status === 'locked') {
-      rankList.showStatus('Unlock writes to discover more albums.');
-      return;
-    }
     if (discoveredResult.status === 'error') {
       rankList.showStatus(`Could not discover more ${artistName} albums.`);
       return;
@@ -620,9 +616,9 @@ async function main(): Promise<void> {
       let summary = result.summary;
 
       // Tier 2: the top artists' own catalogs are exhausted -- expand to
-      // similar artists via ListenBrainz. Not on locked writes (every call
-      // would fail identically) and not when Tier 1 actually found albums.
-      if (!result.locked && result.found === 0) {
+      // similar artists via ListenBrainz. Not when Tier 1 actually found
+      // albums.
+      if (result.found === 0) {
         const expansion = await runSimilarExpansion(
           state.ranked,
           pool,
@@ -814,7 +810,6 @@ async function main(): Promise<void> {
     // stale-response guard in handleArtistSearchQueryChange above.
     if (view !== 'artistSearch') return { status: 'error' };
 
-    if (result.status === 'locked') return { status: 'locked' };
     if (result.status === 'error') return { status: 'error' };
     if (result.status === 'empty') return { status: 'empty' };
 
