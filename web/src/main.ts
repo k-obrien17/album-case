@@ -23,14 +23,10 @@ import {
   type ListName,
   type SavedLists,
 } from './lists';
-import { mountRankList } from './ui/rankList';
+import { mountRankList, type SearchResultsState } from './ui/rankList';
+import { searchArtists, type ArtistResult } from './artistSearch';
 import { mountArtistBatchView } from './ui/artistBatchView';
 import { mountSpeedRound } from './ui/speedRound';
-import {
-  mountArtistSearchView,
-  type ArtistSelectResult,
-  type ArtistSearchResultsState,
-} from './ui/artistSearchView';
 import { artistAlbumsFor } from './artistLockAlbums';
 import { renderSavedList } from './ui/savedList';
 import { enqueueAtom, flushAtomQueue } from './atoms';
@@ -45,7 +41,6 @@ import {
 } from './priority';
 import { loadRankingSnapshotDetailed, saveRankingSnapshot } from './rankingSync';
 import { discoverArtistDetailed, loadDiscoveredAlbums } from './discovery';
-import { searchArtists, type ArtistResult } from './artistSearch';
 import { runBulkDiscovery, runSimilarExpansion, TOP_ARTIST_DISCOVERY_COUNT } from './bulkDiscovery';
 import type { SimilarArtist } from './bulkDiscovery';
 import { clearWriteKey, extractKeyFromFragment, hasWriteKey, setWriteKey } from './writeKey';
@@ -66,7 +61,7 @@ import {
   saveCandidateArtistCooldown,
 } from './candidateCooldown';
 
-type ViewMode = 'ranked' | ListName | 'blockedArtists' | 'artistBatch' | 'artistSearch' | 'speedRound';
+type ViewMode = 'ranked' | ListName | 'blockedArtists' | 'artistBatch' | 'speedRound';
 
 type RestoreSnapshot = { state: RankingState; lists: SavedLists };
 
@@ -395,21 +390,12 @@ async function main(): Promise<void> {
   // nothing local matches. Kept in main.ts, not rankList.ts -- rankList is a
   // pure render layer over whatever state it's handed.
   let searchQuery = '';
-  type SearchResultsState =
-    | { status: 'idle' }
-    | { status: 'loading' }
-    | { status: 'error' }
-    | { status: 'done'; albums: Album[] };
   let searchResults: SearchResultsState = { status: 'idle' };
 
-  // Artist-name search ("Add a band"): a second, dedicated search separate
-  // from the one above, for jumping straight into the artist-batch view for
-  // a band with none of its albums owned yet.
-  let artistSearchQuery = '';
-  let artistSearchResults: ArtistSearchResultsState = { status: 'idle' };
-  let artistSearchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-  const ARTIST_SEARCH_DEBOUNCE_MS = 400;
-  const ARTIST_SEARCH_MIN_LENGTH = 2;
+  // Band-hit selection from the merged search box below: which artist (if
+  // any) is mid-fetch, and the one-shot message to show once it resolves.
+  let selectingArtistMbid: string | null = null;
+  let artistSelectMessage: string | null = null;
 
   const shell = document.createElement('div');
   shell.className = 'app-shell';
@@ -578,10 +564,6 @@ async function main(): Promise<void> {
       artistMbid,
       knownMbids
     );
-    if (discoveredResult.status === 'locked') {
-      rankList.showStatus('Unlock writes to discover more albums.');
-      return;
-    }
     if (discoveredResult.status === 'error') {
       rankList.showStatus(`Could not discover more ${artistName} albums.`);
       return;
@@ -620,9 +602,9 @@ async function main(): Promise<void> {
       let summary = result.summary;
 
       // Tier 2: the top artists' own catalogs are exhausted -- expand to
-      // similar artists via ListenBrainz. Not on locked writes (every call
-      // would fail identically) and not when Tier 1 actually found albums.
-      if (!result.locked && result.found === 0) {
+      // similar artists via ListenBrainz. Not when Tier 1 actually found
+      // albums.
+      if (result.found === 0) {
         const expansion = await runSimilarExpansion(
           state.ranked,
           pool,
@@ -658,7 +640,6 @@ async function main(): Promise<void> {
 
   let batchArtistMbid: string | null = null;
   let artistBatchController: ReturnType<typeof mountArtistBatchView> | null = null;
-  let artistSearchController: ReturnType<typeof mountArtistSearchView> | null = null;
 
   function findAlbumByArtist(artistMbid: string): Album | null {
     return (
@@ -764,59 +745,44 @@ async function main(): Promise<void> {
     showView('artistBatch');
   }
 
-  function handleOpenArtistSearch(): void {
-    artistSearchQuery = '';
-    artistSearchResults = { status: 'idle' };
-    showView('artistSearch');
-  }
+  async function handleSelectSearchedArtist(artist: ArtistResult): Promise<void> {
+    if (selectingArtistMbid) return; // a selection is already in flight
+    selectingArtistMbid = artist.mbid;
+    artistSelectMessage = null;
+    rankList.render();
 
-  function handleArtistSearchQueryChange(query: string): void {
-    artistSearchQuery = query;
+    // Guard against a stale response landing after the search box has moved
+    // on to a different query, same convention as onSearchMusicBrainz above:
+    // capture the query this selection is FOR before the await.
+    const forQuery = searchQuery.trim();
 
-    if (artistSearchDebounceTimer !== null) {
-      clearTimeout(artistSearchDebounceTimer);
-      artistSearchDebounceTimer = null;
-    }
+    const result = await discoverArtistDetailed(session.session_id, artist.name, artist.mbid, []);
+    // Reset unconditionally, before the view/query checks below. selectingArtistMbid
+    // is main.ts-scoped state that outlives this call, unlike the old
+    // artistSearchView.ts's per-view-instance `selectingMbid` (torn down with
+    // the view on navigation) -- if the reset were skipped here whenever the
+    // owner had left the ranked view, every future band selection would
+    // silently no-op forever (guarded by the `if (selectingArtistMbid) return`
+    // above), with no visible error and no reload-fixable state.
+    selectingArtistMbid = null;
 
-    const trimmed = query.trim();
-    if (trimmed.length < ARTIST_SEARCH_MIN_LENGTH) {
-      artistSearchResults = { status: 'idle' };
-      renderArtistSearchView();
+    // The owner may have navigated away from the ranked view (where the
+    // merged search box lives) while this was in flight, or kept typing and
+    // moved on to a different search entirely -- discard the remaining
+    // rendering/navigation side effects below (including any message write)
+    // in either case, but the state reset above must still happen regardless.
+    if (view !== 'ranked' || searchQuery.trim() !== forQuery) return;
+
+    if (result.status === 'error') {
+      artistSelectMessage = `Could not load ${artist.name}'s albums.`;
+      rankList.render();
       return;
     }
-
-    artistSearchDebounceTimer = setTimeout(() => {
-      artistSearchDebounceTimer = null;
-      void (async () => {
-        const forQuery = trimmed;
-        artistSearchResults = { status: 'loading' };
-        renderArtistSearchView();
-
-        const result = await searchArtists(forQuery);
-        // The owner may have left the view or kept typing while this was
-        // in flight -- discard a response that no longer applies.
-        if (view !== 'artistSearch' || artistSearchQuery.trim() !== forQuery) return;
-
-        artistSearchResults =
-          result.status === 'error'
-            ? { status: 'error' }
-            : { status: 'done', artists: result.status === 'found' ? result.artists : [] };
-        renderArtistSearchView();
-      })();
-    }, ARTIST_SEARCH_DEBOUNCE_MS);
-  }
-
-  async function handleSelectSearchedArtist(artist: ArtistResult): Promise<ArtistSelectResult> {
-    const result = await discoverArtistDetailed(session.session_id, artist.name, artist.mbid, []);
-
-    // The owner may have left the view (e.g. tapped "Back") while this was
-    // in flight -- discard a response that no longer applies, same as the
-    // stale-response guard in handleArtistSearchQueryChange above.
-    if (view !== 'artistSearch') return { status: 'error' };
-
-    if (result.status === 'locked') return { status: 'locked' };
-    if (result.status === 'error') return { status: 'error' };
-    if (result.status === 'empty') return { status: 'empty' };
+    if (result.status === 'empty') {
+      artistSelectMessage = `No albums found for ${artist.name}.`;
+      rankList.render();
+      return;
+    }
 
     const found = result.albums;
     const poolIds = new Set(pool.map((a) => a.mbid));
@@ -826,38 +792,15 @@ async function main(): Promise<void> {
         poolIds.add(album.mbid);
       }
     }
-
-    // Pool just grew: if every existing album was already placed (the exact
-    // scenario "Add a band" exists for), candidate was null -- same
-    // reselect-if-exhausted convention as markAsHeard/restoreArtist.
+    // Pool just grew: if every existing album was already placed, candidate
+    // was null -- same reselect-if-exhausted convention as markAsHeard /
+    // restoreArtist / the old artist-search flow this replaces.
     if (!candidate) reselectCandidate();
 
+    searchQuery = '';
+    searchResults = { status: 'idle' };
     batchArtistMbid = artist.mbid;
     showView('artistBatch');
-    return { status: 'ok' };
-  }
-
-  /** Mounted once per view-open, then re-rendered in place on state changes
-   *  -- NOT remounted on every keystroke like renderArtistBatchView /
-   *  renderSpeedRound. Remounting mid-keystroke would race a fresh instance
-   *  against an in-flight handleSelectSearchedArtist continuation from the
-   *  old one, both writing into `stage`. showView's leave-teardown resets
-   *  artistSearchController to null, so the next open mounts fresh. */
-  function renderArtistSearchView(): void {
-    if (!artistSearchController) {
-      stage.textContent = '';
-      artistSearchController = mountArtistSearchView(stage, {
-        getQuery: () => artistSearchQuery,
-        onQueryChange: handleArtistSearchQueryChange,
-        getResults: () => artistSearchResults,
-        onSelectArtist: handleSelectSearchedArtist,
-        onClose: () => {
-          showView('ranked');
-        },
-      });
-      return;
-    }
-    artistSearchController.render();
   }
 
   let speedRoundController: ReturnType<typeof mountSpeedRound> | null = null;
@@ -894,6 +837,7 @@ async function main(): Promise<void> {
     onSearchQueryChange: (query) => {
       searchQuery = query;
       searchResults = { status: 'idle' }; // a new query invalidates old results
+      artistSelectMessage = null; // and any leftover band-selection message
       rankList.render();
     },
     onSearchMusicBrainz: (query) => {
@@ -904,15 +848,30 @@ async function main(): Promise<void> {
         const forQuery = query.trim();
         searchResults = { status: 'loading' };
         rankList.render();
-        let next: SearchResultsState;
-        try {
-          const res = await fetch(`/api/search-album?q=${encodeURIComponent(query)}`);
-          if (!res.ok) throw new Error(String(res.status));
-          const body = (await res.json()) as { albums: Album[] };
-          next = { status: 'done', albums: body.albums ?? [] };
-        } catch {
-          next = { status: 'error' };
-        }
+
+        // Album and band results come from two independent MusicBrainz
+        // endpoints, fired together. Each is caught on its own so one
+        // failing doesn't blank out the other -- only report 'error' when
+        // BOTH fail.
+        const albumsPromise: Promise<Album[] | null> = (async () => {
+          try {
+            const res = await fetch(`/api/search-album?q=${encodeURIComponent(query)}`);
+            if (!res.ok) throw new Error(String(res.status));
+            const body = (await res.json()) as { albums: Album[] };
+            return body.albums ?? [];
+          } catch {
+            return null;
+          }
+        })();
+
+        const [albums, artistOutcome] = await Promise.all([albumsPromise, searchArtists(query)]);
+        const artists = artistOutcome.status === 'found' ? artistOutcome.artists : [];
+
+        const next: SearchResultsState =
+          albums === null && artistOutcome.status === 'error'
+            ? { status: 'error' }
+            : { status: 'done', albums: albums ?? [], artists };
+
         if (searchQuery.trim() !== forQuery) return; // stale response, discard
         searchResults = next;
         rankList.render();
@@ -932,6 +891,11 @@ async function main(): Promise<void> {
       rankList.render();
       renderNav();
     },
+    onSelectArtist: (artist) => {
+      void handleSelectSearchedArtist(artist);
+    },
+    getSelectingArtistMbid: () => selectingArtistMbid,
+    getArtistSelectMessage: () => artistSelectMessage,
     getCandidate: () => candidate,
     onPlace: (index) => {
       if (!candidate) return;
@@ -1042,7 +1006,6 @@ async function main(): Promise<void> {
       const grouped = artistAlbumsFor(album.primary_artist_mbid, state.ranked, lists, pool);
       return grouped.ranked.length + grouped.unranked.length;
     },
-    onOpenArtistSearch: handleOpenArtistSearch,
   });
 
   function markAsHeard(album: Album, which: ListName): void {
@@ -1109,14 +1072,6 @@ async function main(): Promise<void> {
     if (view === 'artistBatch' && next !== 'artistBatch') {
       artistBatchController?.teardown();
     }
-    if (view === 'artistSearch' && next !== 'artistSearch') {
-      artistSearchController?.teardown();
-      artistSearchController = null;
-      if (artistSearchDebounceTimer !== null) {
-        clearTimeout(artistSearchDebounceTimer);
-        artistSearchDebounceTimer = null;
-      }
-    }
     if (view === 'speedRound' && next !== 'speedRound') {
       speedRoundController?.teardown();
     }
@@ -1128,8 +1083,6 @@ async function main(): Promise<void> {
       renderBlockedArtists();
     } else if (view === 'artistBatch') {
       renderArtistBatchView();
-    } else if (view === 'artistSearch') {
-      renderArtistSearchView();
     } else if (view === 'speedRound') {
       renderSpeedRound();
     } else {

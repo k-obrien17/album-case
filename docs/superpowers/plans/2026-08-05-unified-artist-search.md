@@ -382,12 +382,19 @@ git commit -m "feat: add unauthenticated read-only /api/browse-artist route"
 - Modify: `web/src/discovery.ts`
 - Modify: `web/src/discovery.test.ts`
 - Modify: `web/src/ui/artistBatchView.ts:8-10` (type), `:271-272` (dead branch)
-- Modify: `web/src/main.ts:581-584` (dead branch in `handleDiscoverArtist`)
+- Modify: `web/src/main.ts:581-584` (dead branch in `handleDiscoverArtist`), `:813` (dead line in the pre-existing `handleSelectSearchedArtist` -- see Step 6.5), `:621` (Tier-2 gating -- see Step 7)
+- Modify: `web/src/bulkDiscovery.ts` (see Step 7)
+- Modify: `web/src/bulkDiscovery.test.ts` (see Step 7)
 
 **Interfaces:**
 - Produces: `DiscoverArtistResult = { status: 'found'; albums: Album[] } | { status: 'empty' } | { status: 'error' }` (the `'locked'` member is removed) from `web/src/discovery.ts`. Same exported function names (`discoverArtistDetailed`, `discoverArtist`, `loadDiscoveredAlbums`) and signatures as before.
 - Consumes: `GET /api/browse-artist` (Task 2).
-- Consumed by: `web/src/ui/artistBatchView.ts`'s `ArtistDiscoverViewResult` (now also drops `'locked'`), `web/src/main.ts`'s `handleDiscoverArtist` and (Task 5) `handleSelectSearchedArtist`.
+- Consumed by: `web/src/ui/artistBatchView.ts`'s `ArtistDiscoverViewResult` (now also drops `'locked'`), `web/src/main.ts`'s `handleDiscoverArtist` and (Task 5) `handleSelectSearchedArtist`, and `web/src/bulkDiscovery.ts`'s `runBulkDiscovery`/`runSimilarExpansion` (Step 7 -- a call site missed in the original grounding pass for this plan, found when Task 3 was first attempted and `npm run build` surfaced it).
+- Produces (Step 7): `runBulkDiscovery`'s return type drops its `locked: boolean` field -- it's now always `false`, since a locked `discover` call browses instead of failing identically every time.
+
+### Deviation found during Task 3's first attempt
+
+The original plan for this task covered `discovery.ts`, `discovery.test.ts`, `artistBatchView.ts`, and `main.ts`'s `handleDiscoverArtist` -- four call sites of `discoverArtistDetailed` that the grounding pass (see the plan's own commit history) found before writing this document. A fifth and sixth existed and were missed: `main.ts:813`, a line inside the *pre-existing* `handleSelectSearchedArtist` that Task 4 deletes wholesale but which still breaks compilation the moment `'locked'` leaves the type; and `web/src/bulkDiscovery.ts`, whose "discover more albums" bulk-action short-circuits on `result.status === 'locked'` and whose caller in `main.ts` (`handleBulkDiscover`, around line 621) gates Tier-2 similar-artist expansion on a `result.locked` field that only that module produces. Confirmed with Keith via AskUserQuestion before extending this task: apply the same locked-browse treatment consistently rather than leaving `bulkDiscovery.ts` with permanently-dead (but type-legal, since it's an `if` on a union member that still exists until this task runs) `'locked'` branches. Steps 6.5 and 7 below cover this.
 
 - [ ] **Step 1: Update the failing/changing test**
 
@@ -593,16 +600,104 @@ In `web/src/main.ts`, delete this block (currently lines 581-584):
 
 `handleDiscoverArtist` will now type-check straight through: `discoveredResult.status` can only be `'error' | 'empty' | 'found'` at that point, matching the updated `DiscoverArtistResult`.
 
-- [ ] **Step 7: Run the full test suite and build**
+- [ ] **Step 6.5: Delete the one dead line in the pre-existing `handleSelectSearchedArtist`**
+
+`web/src/main.ts` currently has an *older* `handleSelectSearchedArtist` function (the one Task 4 deletes wholesale, replaced by a differently-shaped one in Task 5). Leave the rest of that function exactly as-is -- Task 4 owns its removal -- but delete just this one line so the file compiles at this task's commit (currently line 813):
+
+```ts
+    if (result.status === 'locked') return { status: 'locked' };
+```
+
+This changes nothing observable: `ArtistSelectResult` (defined in the soon-to-be-deleted `artistSearchView.ts`) still has a `'locked'` member of its own -- unrelated to `DiscoverArtistResult` -- so the surrounding `return { status: 'error' | 'empty' }` lines and the function's return type are untouched. Only the now-uncompilable `result.status === 'locked'` check goes.
+
+- [ ] **Step 7: Apply the same locked-browse treatment to `bulkDiscovery.ts`**
+
+In `web/src/bulkDiscovery.ts`:
+- In `runBulkDiscovery`, delete the now-dead branch (currently lines 62-63):
+  ```ts
+    if (result.status === 'locked') {
+      return { priorityQueue, summary: 'Unlock writes to fill in more albums.', found: 0, locked: true };
+    } else if (result.status === 'error') {
+  ```
+  becomes:
+  ```ts
+    if (result.status === 'error') {
+  ```
+  (the `} else if (result.status === 'error') {` loses its `else`, becoming a plain `if`).
+- Drop the `locked: boolean` field from `runBulkDiscovery`'s return type (line 41) and from its two other return statements (lines 44, 84): `{ priorityQueue, summary: 'Rank some albums first.', found: 0 }` and `{ priorityQueue: [...newQueue, ...priorityQueue], summary, found: foundCount }`.
+- In `runSimilarExpansion`, delete the same dead branch (currently lines 191-192):
+  ```ts
+    if (result.status === 'locked') {
+      return { priorityQueue, summary: 'Unlock writes to fill in more albums.' };
+    } else if (result.status === 'error') {
+  ```
+  becomes:
+  ```ts
+    if (result.status === 'error') {
+  ```
+
+In `web/src/main.ts`'s `handleBulkDiscover`, simplify the Tier-2 gate (currently line 621):
+```ts
+      if (!result.locked && result.found === 0) {
+```
+becomes:
+```ts
+      if (result.found === 0) {
+```
+(the comment above it, "Not on locked writes (every call would fail identically)", no longer applies -- a locked call now browses instead of failing, so delete that clause from the comment, keeping the "not when Tier 1 actually found albums" reasoning.)
+
+In `web/src/bulkDiscovery.test.ts` (uses this file's existing `album()`, `rankedFor()`, `radiohead`, `bjork` fixtures already defined at the top of the file -- don't invent new ones):
+
+- Replace the `runBulkDiscovery` test `'short-circuits with an unlock message when the first call is locked'` (currently lines 88-104) with:
+  ```ts
+  it('continues past a single error and reports the failure, instead of short-circuiting', async () => {
+    const discover = vi.fn(async (): Promise<DiscoverArtistResult> => ({ status: 'error' }));
+
+    const result = await runBulkDiscovery(
+      rankedFor([radiohead, bjork]),
+      [],
+      ['existing-mbid'],
+      { discover, delayMs: 0 }
+    );
+
+    expect(result.found).toBe(0);
+    expect(result.summary).toBe('Added 0 new albums from 2 artists. 0 already fully discovered, 2 failed.');
+    expect(discover).toHaveBeenCalledTimes(2);
+  });
+  ```
+  (this is the direct replacement for the old locked-short-circuit test -- `discover` failing on every call no longer stops the loop early, it just accumulates failures like any other artist-level error already covered by the neighboring `'continues the batch when one artist errors...'` test.)
+- In the `'returns a "rank some albums first" message and makes no calls when nothing is ranked'` test (currently around line 160-169), remove `locked: false,` from the expected object (currently line 167), leaving `{ priorityQueue: ['old-mbid'], summary: 'Rank some albums first.', found: 0 }`.
+- Replace the `runSimilarExpansion` test `'short-circuits with an unlock message when a discovery call is locked'` (currently lines 293-311) with:
+  ```ts
+  it('continues past a discover error instead of short-circuiting', async () => {
+    const fetchSimilar = vi.fn(async (): Promise<SimilarArtist[] | null> => [
+      { mbid: 'artist-pixies', name: 'Pixies', score: 90 },
+    ]);
+    const discover = vi.fn(async (): Promise<DiscoverArtistResult> => ({ status: 'error' }));
+
+    const result = await runSimilarExpansion(
+      rankedFor([radiohead]),
+      [],
+      ['old-mbid'],
+      [],
+      { fetchSimilar, discover, delayMs: 0 }
+    );
+
+    expect(result.priorityQueue).toEqual(['old-mbid']);
+    expect(result.summary).toContain('1 failed');
+  });
+  ```
+
+- [ ] **Step 8: Run the full test suite and build**
 
 Run: `cd web && npm run test && npm run build`
-Expected: All tests PASS; `tsc` reports no type errors (this is the check that catches any remaining reference to the removed `'locked'` member).
+Expected: All tests PASS; `tsc` reports no type errors (this is the check that catches any remaining reference to the removed `'locked'` member, across all six files this task now touches).
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
 cd web
-git add src/discovery.ts src/discovery.test.ts src/ui/artistBatchView.ts src/main.ts
+git add src/discovery.ts src/discovery.test.ts src/ui/artistBatchView.ts src/main.ts src/bulkDiscovery.ts src/bulkDiscovery.test.ts
 git commit -m "feat: split artist discovery into locked-browse and unlocked-persist paths"
 ```
 
@@ -940,6 +1035,29 @@ Add to `web/src/style.css`, near the other `.rank-search-*` rules (e.g. right af
 }
 ```
 
+- [ ] **Step 5.5: Clear the stale band-select message on every new query**
+
+`onSearchQueryChange` (already in `main.ts`, unmodified by earlier tasks) resets `searchResults` to `{ status: 'idle' }` on every keystroke, but never touches `artistSelectMessage`. Since `buildMusicBrainzFallback` (Step 4, above) renders `getArtistSelectMessage()` unconditionally whenever the search reaches `status: 'done'`, a message left over from a *previous* band selection (e.g. "No albums found for X.") would otherwise still be showing, glued onto a completely unrelated later search's results. Change (currently):
+
+```ts
+    onSearchQueryChange: (query) => {
+      searchQuery = query;
+      searchResults = { status: 'idle' }; // a new query invalidates old results
+      rankList.render();
+    },
+```
+
+to:
+
+```ts
+    onSearchQueryChange: (query) => {
+      searchQuery = query;
+      searchResults = { status: 'idle' }; // a new query invalidates old results
+      artistSelectMessage = null; // and any leftover band-selection message
+      rankList.render();
+    },
+```
+
 - [ ] **Step 6: Update `main.ts`'s search state and import**
 
 Change the `mountRankList` import (currently `import { mountRankList } from './ui/rankList';`) to also pull in the type:
@@ -1052,12 +1170,20 @@ Add this function (in place of where Task 4 deleted the old `handleSelectSearche
     rankList.render();
 
     const result = await discoverArtistDetailed(session.session_id, artist.name, artist.mbid, []);
+    // Reset unconditionally, before the view check below. selectingArtistMbid
+    // is main.ts-scoped state that outlives this call, unlike the old
+    // artistSearchView.ts's per-view-instance `selectingMbid` (torn down with
+    // the view on navigation) -- if the reset were skipped here whenever the
+    // owner had left the ranked view, every future band selection would
+    // silently no-op forever (guarded by the `if (selectingArtistMbid) return`
+    // above), with no visible error and no reload-fixable state.
+    selectingArtistMbid = null;
 
     // The owner may have navigated away from the ranked view (where the
-    // merged search box lives) while this was in flight -- discard a
-    // response that no longer applies.
+    // merged search box lives) while this was in flight -- discard the
+    // remaining rendering/navigation side effects below, but the state reset
+    // above must still happen regardless.
     if (view !== 'ranked') return;
-    selectingArtistMbid = null;
 
     if (result.status === 'error') {
       artistSelectMessage = `Could not load ${artist.name}'s albums.`;

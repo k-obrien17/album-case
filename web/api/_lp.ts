@@ -28,6 +28,58 @@ export type DiscoveredAlbum = {
   cover_url: string;
 };
 
+export const USER_AGENT = 'AlbumCase/0.1 (keith@totalemphasis.com)';
+export const MB_BASE = 'https://musicbrainz.org/ws/2';
+const MB_TIMEOUT_MS = 8000;
+
+export function coverUrlFor(mbid: string): string {
+  return `https://coverartarchive.org/release-group/${mbid}/front-500`;
+}
+
+function releaseYear(group: ReleaseGroup): number | null {
+  const date = group['first-release-date'] ?? '';
+  const yearStr = date.split('-')[0];
+  const year = Number(yearStr);
+  return yearStr.length > 0 && Number.isInteger(year) ? year : null;
+}
+
+/** Fetches an artist's studio LPs directly from MusicBrainz -- no
+ *  persistence. Shared by discover-artist.ts's write-key-gated persist path
+ *  and browse-artist.ts's unauthenticated browse-only path, so both always
+ *  apply the same LP filter and the same upstream timeout. */
+export async function browseArtistLps(
+  artistMbid: string,
+  artistName: string
+): Promise<DiscoveredAlbum[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), MB_TIMEOUT_MS);
+
+  try {
+    const params = new URLSearchParams({ artist: artistMbid, type: 'album', limit: '100', fmt: 'json' });
+    const res = await fetch(`${MB_BASE}/release-group?${params.toString()}`, {
+      headers: { 'User-Agent': USER_AGENT },
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(`musicbrainz_browse_${res.status}`);
+    const data = (await res.json()) as { 'release-groups'?: ReleaseGroup[] };
+    return (data['release-groups'] ?? []).filter(isLpReleaseGroup).map((group) => ({
+      mbid: group.id,
+      title: group.title,
+      primary_artist_name: artistName,
+      primary_artist_mbid: artistMbid,
+      release_year: releaseYear(group),
+      cover_url: coverUrlFor(group.id),
+    }));
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error('musicbrainz_browse_timeout');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export function mergeDiscovered(
   previouslyUnranked: DiscoveredAlbum[],
   newlyDiscovered: DiscoveredAlbum[]
