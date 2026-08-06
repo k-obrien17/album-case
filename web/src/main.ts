@@ -60,8 +60,12 @@ import {
   pushArtistCooldown,
   saveCandidateArtistCooldown,
 } from './candidateCooldown';
+import { CURATED_LISTS } from './data/curatedLists';
+import { unrankedFromCuratedList } from './curatedListMatch';
+import { renderCuratedListView } from './ui/curatedListView';
+import type { CuratedAlbumEntry } from './data/curatedLists';
 
-type ViewMode = 'ranked' | ListName | 'blockedArtists' | 'artistBatch' | 'speedRound';
+type ViewMode = 'ranked' | ListName | 'blockedArtists' | 'artistBatch' | 'speedRound' | 'curatedLists';
 
 type RestoreSnapshot = { state: RankingState; lists: SavedLists };
 
@@ -396,6 +400,9 @@ async function main(): Promise<void> {
   // any) is mid-fetch, and the one-shot message to show once it resolves.
   let selectingArtistMbid: string | null = null;
   let artistSelectMessage: string | null = null;
+
+  // Curated-list browsing (curatedLists.ts): which list (if any) is selected.
+  let selectedCuratedListId: string | null = null;
 
   const shell = document.createElement('div');
   shell.className = 'app-shell';
@@ -830,6 +837,46 @@ async function main(): Promise<void> {
 
   reselectCandidate();
 
+  // Named (not inline) so handleRankCuratedAlbum can trigger the same search
+  // when the owner jumps here from the curated-list view.
+  function runMusicBrainzSearch(query: string): void {
+    void (async () => {
+      // Guard against a stale response landing after the user kept typing:
+      // capture the query this fetch is FOR, and discard the result if the
+      // live search box has since moved on to a different query.
+      const forQuery = query.trim();
+      searchResults = { status: 'loading' };
+      rankList.render();
+
+      // Album and band results come from two independent MusicBrainz
+      // endpoints, fired together. Each is caught on its own so one
+      // failing doesn't blank out the other -- only report 'error' when
+      // BOTH fail.
+      const albumsPromise: Promise<Album[] | null> = (async () => {
+        try {
+          const res = await fetch(`/api/search-album?q=${encodeURIComponent(query)}`);
+          if (!res.ok) throw new Error(String(res.status));
+          const body = (await res.json()) as { albums: Album[] };
+          return body.albums ?? [];
+        } catch {
+          return null;
+        }
+      })();
+
+      const [albums, artistOutcome] = await Promise.all([albumsPromise, searchArtists(query)]);
+      const artists = artistOutcome.status === 'found' ? artistOutcome.artists : [];
+
+      const next: SearchResultsState =
+        albums === null && artistOutcome.status === 'error'
+          ? { status: 'error' }
+          : { status: 'done', albums: albums ?? [], artists };
+
+      if (searchQuery.trim() !== forQuery) return; // stale response, discard
+      searchResults = next;
+      rankList.render();
+    })();
+  }
+
   const rankList = mountRankList(stage, {
     getRanked: () => filterAlbums(state.ranked, searchQuery),
     getGlobalRanked: () => state.ranked,
@@ -840,43 +887,7 @@ async function main(): Promise<void> {
       artistSelectMessage = null; // and any leftover band-selection message
       rankList.render();
     },
-    onSearchMusicBrainz: (query) => {
-      void (async () => {
-        // Guard against a stale response landing after the user kept typing:
-        // capture the query this fetch is FOR, and discard the result if the
-        // live search box has since moved on to a different query.
-        const forQuery = query.trim();
-        searchResults = { status: 'loading' };
-        rankList.render();
-
-        // Album and band results come from two independent MusicBrainz
-        // endpoints, fired together. Each is caught on its own so one
-        // failing doesn't blank out the other -- only report 'error' when
-        // BOTH fail.
-        const albumsPromise: Promise<Album[] | null> = (async () => {
-          try {
-            const res = await fetch(`/api/search-album?q=${encodeURIComponent(query)}`);
-            if (!res.ok) throw new Error(String(res.status));
-            const body = (await res.json()) as { albums: Album[] };
-            return body.albums ?? [];
-          } catch {
-            return null;
-          }
-        })();
-
-        const [albums, artistOutcome] = await Promise.all([albumsPromise, searchArtists(query)]);
-        const artists = artistOutcome.status === 'found' ? artistOutcome.artists : [];
-
-        const next: SearchResultsState =
-          albums === null && artistOutcome.status === 'error'
-            ? { status: 'error' }
-            : { status: 'done', albums: albums ?? [], artists };
-
-        if (searchQuery.trim() !== forQuery) return; // stale response, discard
-        searchResults = next;
-        rankList.render();
-      })();
-    },
+    onSearchMusicBrainz: runMusicBrainzSearch,
     getSearchResults: () => searchResults,
     onRateSearchResult: (album, rating) => {
       const added = addSearchedAlbum(state.ranked, lists, album, rating);
@@ -1064,6 +1075,35 @@ async function main(): Promise<void> {
     stage.append(list);
   }
 
+  function handleSelectCuratedList(listId: string): void {
+    selectedCuratedListId = listId;
+    renderCuratedListsView();
+  }
+
+  /** Jump into the search box pre-filled with this entry's artist/title and
+   *  fire the same MusicBrainz search a manual query would -- reuses the
+   *  existing search-then-rate flow rather than a separate ingestion path. */
+  function handleRankCuratedAlbum(entry: CuratedAlbumEntry): void {
+    searchQuery = `${entry.artist} ${entry.title}`;
+    searchResults = { status: 'idle' };
+    artistSelectMessage = null;
+    showView('ranked');
+    runMusicBrainzSearch(searchQuery);
+  }
+
+  function renderCuratedListsView(): void {
+    const unranked = selectedCuratedListId
+      ? unrankedFromCuratedList(CURATED_LISTS[selectedCuratedListId].albums, state.ranked)
+      : [];
+    renderCuratedListView(stage, {
+      lists: CURATED_LISTS,
+      selectedListId: selectedCuratedListId,
+      unranked,
+      onSelectList: handleSelectCuratedList,
+      onRankAlbum: handleRankCuratedAlbum,
+    });
+  }
+
   function showView(next: ViewMode): void {
     // Leaving the drag view: cancel any in-flight drag / listeners.
     if (view === 'ranked' && next !== 'ranked') {
@@ -1085,6 +1125,8 @@ async function main(): Promise<void> {
       renderArtistBatchView();
     } else if (view === 'speedRound') {
       renderSpeedRound();
+    } else if (view === 'curatedLists') {
+      renderCuratedListsView();
     } else {
       renderCurrentSavedList(view);
     }
@@ -1110,6 +1152,7 @@ async function main(): Promise<void> {
       { mode: 'dontCare', label: `Don't care (${lists.dontCare.length})` },
       { mode: 'blockedArtists', label: `Blocked artists (${blockedArtists.length})` },
       { mode: 'speedRound', label: 'Voice speed round' },
+      { mode: 'curatedLists', label: 'Curated lists' },
     ];
 
     for (const { mode, label } of items) {
