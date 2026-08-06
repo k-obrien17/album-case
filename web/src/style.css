@@ -417,6 +417,18 @@ body {
   color: var(--color-muted);
 }
 
+.rank-search-section-label {
+  margin: 0.75rem 0 0.25rem;
+  color: var(--color-muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.rank-search-section-label:first-child {
+  margin-top: 0;
+}
+
 .rank-search-results {
   list-style: none;
   margin: 0;

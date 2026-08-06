@@ -23,7 +23,8 @@ import {
   type ListName,
   type SavedLists,
 } from './lists';
-import { mountRankList } from './ui/rankList';
+import { mountRankList, type SearchResultsState } from './ui/rankList';
+import { searchArtists, type ArtistResult } from './artistSearch';
 import { mountArtistBatchView } from './ui/artistBatchView';
 import { mountSpeedRound } from './ui/speedRound';
 import { artistAlbumsFor } from './artistLockAlbums';
@@ -389,12 +390,12 @@ async function main(): Promise<void> {
   // nothing local matches. Kept in main.ts, not rankList.ts -- rankList is a
   // pure render layer over whatever state it's handed.
   let searchQuery = '';
-  type SearchResultsState =
-    | { status: 'idle' }
-    | { status: 'loading' }
-    | { status: 'error' }
-    | { status: 'done'; albums: Album[] };
   let searchResults: SearchResultsState = { status: 'idle' };
+
+  // Band-hit selection from the merged search box below: which artist (if
+  // any) is mid-fetch, and the one-shot message to show once it resolves.
+  let selectingArtistMbid: string | null = null;
+  let artistSelectMessage: string | null = null;
 
   const shell = document.createElement('div');
   shell.className = 'app-shell';
@@ -744,6 +745,50 @@ async function main(): Promise<void> {
     showView('artistBatch');
   }
 
+  async function handleSelectSearchedArtist(artist: ArtistResult): Promise<void> {
+    if (selectingArtistMbid) return; // a selection is already in flight
+    selectingArtistMbid = artist.mbid;
+    artistSelectMessage = null;
+    rankList.render();
+
+    const result = await discoverArtistDetailed(session.session_id, artist.name, artist.mbid, []);
+
+    // The owner may have navigated away from the ranked view (where the
+    // merged search box lives) while this was in flight -- discard a
+    // response that no longer applies.
+    if (view !== 'ranked') return;
+    selectingArtistMbid = null;
+
+    if (result.status === 'error') {
+      artistSelectMessage = `Could not load ${artist.name}'s albums.`;
+      rankList.render();
+      return;
+    }
+    if (result.status === 'empty') {
+      artistSelectMessage = `No albums found for ${artist.name}.`;
+      rankList.render();
+      return;
+    }
+
+    const found = result.albums;
+    const poolIds = new Set(pool.map((a) => a.mbid));
+    for (const album of found) {
+      if (!poolIds.has(album.mbid)) {
+        pool.push(album);
+        poolIds.add(album.mbid);
+      }
+    }
+    // Pool just grew: if every existing album was already placed, candidate
+    // was null -- same reselect-if-exhausted convention as markAsHeard /
+    // restoreArtist / the old artist-search flow this replaces.
+    if (!candidate) reselectCandidate();
+
+    searchQuery = '';
+    searchResults = { status: 'idle' };
+    batchArtistMbid = artist.mbid;
+    showView('artistBatch');
+  }
+
   let speedRoundController: ReturnType<typeof mountSpeedRound> | null = null;
 
   // Same remount-on-every-change convention as renderArtistBatchView: one
@@ -788,15 +833,30 @@ async function main(): Promise<void> {
         const forQuery = query.trim();
         searchResults = { status: 'loading' };
         rankList.render();
-        let next: SearchResultsState;
-        try {
-          const res = await fetch(`/api/search-album?q=${encodeURIComponent(query)}`);
-          if (!res.ok) throw new Error(String(res.status));
-          const body = (await res.json()) as { albums: Album[] };
-          next = { status: 'done', albums: body.albums ?? [] };
-        } catch {
-          next = { status: 'error' };
-        }
+
+        // Album and band results come from two independent MusicBrainz
+        // endpoints, fired together. Each is caught on its own so one
+        // failing doesn't blank out the other -- only report 'error' when
+        // BOTH fail.
+        const albumsPromise: Promise<Album[] | null> = (async () => {
+          try {
+            const res = await fetch(`/api/search-album?q=${encodeURIComponent(query)}`);
+            if (!res.ok) throw new Error(String(res.status));
+            const body = (await res.json()) as { albums: Album[] };
+            return body.albums ?? [];
+          } catch {
+            return null;
+          }
+        })();
+
+        const [albums, artistOutcome] = await Promise.all([albumsPromise, searchArtists(query)]);
+        const artists = artistOutcome.status === 'found' ? artistOutcome.artists : [];
+
+        const next: SearchResultsState =
+          albums === null && artistOutcome.status === 'error'
+            ? { status: 'error' }
+            : { status: 'done', albums: albums ?? [], artists };
+
         if (searchQuery.trim() !== forQuery) return; // stale response, discard
         searchResults = next;
         rankList.render();
@@ -816,6 +876,11 @@ async function main(): Promise<void> {
       rankList.render();
       renderNav();
     },
+    onSelectArtist: (artist) => {
+      void handleSelectSearchedArtist(artist);
+    },
+    getSelectingArtistMbid: () => selectingArtistMbid,
+    getArtistSelectMessage: () => artistSelectMessage,
     getCandidate: () => candidate,
     onPlace: (index) => {
       if (!candidate) return;

@@ -1,6 +1,7 @@
 import type { Album, RankedAlbum } from '../ranking/types';
 import { computeSubRanks, type SubRank } from '../ranking/subRank';
 import type { ListName } from '../lists';
+import type { ArtistResult } from '../artistSearch';
 import {
   startAssist,
   assistOpponent,
@@ -29,7 +30,7 @@ export type SearchResultsState =
   | { status: 'idle' }
   | { status: 'loading' }
   | { status: 'error' }
-  | { status: 'done'; albums: Album[] };
+  | { status: 'done'; albums: Album[]; artists: ArtistResult[] };
 
 export type RankListOptions = {
   getRanked: () => RankedAlbum[];
@@ -123,6 +124,19 @@ export type RankListOptions = {
    *  rating. No comparison happened, so unlike onPlace this never fires a
    *  pairwise atom -- same precedent as onDirectRate. */
   onRateSearchResult?: (album: Album, rating: number) => void;
+  /** Tapped "See albums" on a band hit from the merged MusicBrainz search --
+   *  album hits rate directly via onRateSearchResult above; band hits go
+   *  through this instead. The caller owns the discovery fetch and any
+   *  resulting view navigation. Omit to hide band-hit rows entirely. */
+  onSelectArtist?: (artist: ArtistResult) => void;
+  /** mbid of the band-hit row currently fetching its albums, for the
+   *  "Loading…" button state. Omit (or return null) when nothing is in
+   *  flight. */
+  getSelectingArtistMbid?: () => string | null;
+  /** A one-shot message to show below the results after a band-hit
+   *  selection resolves (e.g. "No albums found for X."). Omit (or return
+   *  null) to show nothing. */
+  getArtistSelectMessage?: () => string | null;
 };
 
 /**
@@ -918,8 +932,8 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     const input = document.createElement('input');
     input.type = 'search';
     input.className = 'rank-search-input';
-    input.placeholder = 'Search your albums';
-    input.setAttribute('aria-label', 'Search your albums');
+    input.placeholder = 'Search your albums or bands';
+    input.setAttribute('aria-label', 'Search your albums or bands');
     input.value = opts.getSearchQuery?.() ?? '';
     input.addEventListener('input', () => {
       opts.onSearchQueryChange?.(input.value);
@@ -998,6 +1012,46 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     return li;
   }
 
+  function artistSubtitle(artist: ArtistResult): string {
+    const parts = [artist.disambiguation, artist.type, artist.country].filter(
+      (part): part is string => !!part
+    );
+    return parts.join(' · ');
+  }
+
+  function buildArtistResultRow(artist: ArtistResult): HTMLLIElement {
+    const li = document.createElement('li');
+    li.className = 'rank-search-result';
+
+    const meta = document.createElement('div');
+    meta.className = 'rank-meta';
+    const name = document.createElement('p');
+    name.className = 'rank-title';
+    name.textContent = artist.name;
+    meta.append(name);
+    const sub = artistSubtitle(artist);
+    if (sub) {
+      const subEl = document.createElement('p');
+      subEl.className = 'rank-sub';
+      subEl.textContent = sub;
+      meta.append(subEl);
+    }
+    li.append(meta);
+
+    const selectingMbid = opts.getSelectingArtistMbid?.() ?? null;
+    const isSelecting = selectingMbid === artist.mbid;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'candidate-action';
+    btn.textContent = isSelecting ? 'Loading…' : 'See albums';
+    btn.disabled = selectingMbid !== null;
+    btn.setAttribute('aria-label', `See albums by ${artist.name}`);
+    btn.addEventListener('click', () => opts.onSelectArtist?.(artist));
+    li.append(btn);
+
+    return li;
+  }
+
   /** The MusicBrainz fallback itself -- an idle "search" prompt, a loading
    *  state, an error + retry, or the results list. Shared by the
    *  no-local-matches empty state AND the "search for more by this artist"
@@ -1044,20 +1098,42 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     }
 
     // status === 'done'
-    if (results.albums.length === 0) {
+    if (results.albums.length === 0 && results.artists.length === 0) {
       const none = document.createElement('p');
       none.className = 'rank-search-status';
-      none.textContent = 'No albums found.';
+      none.textContent = 'No albums or bands found.';
       wrap.append(none);
       return wrap;
     }
 
-    const resultsList = document.createElement('ul');
-    resultsList.className = 'rank-search-results';
-    for (const album of results.albums) {
-      resultsList.append(buildSearchResultRow(album));
+    if (results.albums.length > 0) {
+      const label = document.createElement('p');
+      label.className = 'rank-search-section-label';
+      label.textContent = 'Albums';
+      const albumsList = document.createElement('ul');
+      albumsList.className = 'rank-search-results';
+      for (const album of results.albums) albumsList.append(buildSearchResultRow(album));
+      wrap.append(label, albumsList);
     }
-    wrap.append(resultsList);
+
+    if (results.artists.length > 0) {
+      const label = document.createElement('p');
+      label.className = 'rank-search-section-label';
+      label.textContent = 'Bands';
+      const artistsList = document.createElement('ul');
+      artistsList.className = 'rank-search-results';
+      for (const artist of results.artists) artistsList.append(buildArtistResultRow(artist));
+      wrap.append(label, artistsList);
+    }
+
+    const selectMessage = opts.getArtistSelectMessage?.() ?? null;
+    if (selectMessage) {
+      const msg = document.createElement('p');
+      msg.className = 'rank-search-status';
+      msg.textContent = selectMessage;
+      wrap.append(msg);
+    }
+
     return wrap;
   }
 
