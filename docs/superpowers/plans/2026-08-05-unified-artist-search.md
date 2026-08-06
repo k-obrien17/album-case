@@ -1035,6 +1035,29 @@ Add to `web/src/style.css`, near the other `.rank-search-*` rules (e.g. right af
 }
 ```
 
+- [ ] **Step 5.5: Clear the stale band-select message on every new query**
+
+`onSearchQueryChange` (already in `main.ts`, unmodified by earlier tasks) resets `searchResults` to `{ status: 'idle' }` on every keystroke, but never touches `artistSelectMessage`. Since `buildMusicBrainzFallback` (Step 4, above) renders `getArtistSelectMessage()` unconditionally whenever the search reaches `status: 'done'`, a message left over from a *previous* band selection (e.g. "No albums found for X.") would otherwise still be showing, glued onto a completely unrelated later search's results. Change (currently):
+
+```ts
+    onSearchQueryChange: (query) => {
+      searchQuery = query;
+      searchResults = { status: 'idle' }; // a new query invalidates old results
+      rankList.render();
+    },
+```
+
+to:
+
+```ts
+    onSearchQueryChange: (query) => {
+      searchQuery = query;
+      searchResults = { status: 'idle' }; // a new query invalidates old results
+      artistSelectMessage = null; // and any leftover band-selection message
+      rankList.render();
+    },
+```
+
 - [ ] **Step 6: Update `main.ts`'s search state and import**
 
 Change the `mountRankList` import (currently `import { mountRankList } from './ui/rankList';`) to also pull in the type:
@@ -1147,12 +1170,20 @@ Add this function (in place of where Task 4 deleted the old `handleSelectSearche
     rankList.render();
 
     const result = await discoverArtistDetailed(session.session_id, artist.name, artist.mbid, []);
+    // Reset unconditionally, before the view check below. selectingArtistMbid
+    // is main.ts-scoped state that outlives this call, unlike the old
+    // artistSearchView.ts's per-view-instance `selectingMbid` (torn down with
+    // the view on navigation) -- if the reset were skipped here whenever the
+    // owner had left the ranked view, every future band selection would
+    // silently no-op forever (guarded by the `if (selectingArtistMbid) return`
+    // above), with no visible error and no reload-fixable state.
+    selectingArtistMbid = null;
 
     // The owner may have navigated away from the ranked view (where the
-    // merged search box lives) while this was in flight -- discard a
-    // response that no longer applies.
+    // merged search box lives) while this was in flight -- discard the
+    // remaining rendering/navigation side effects below, but the state reset
+    // above must still happen regardless.
     if (view !== 'ranked') return;
-    selectingArtistMbid = null;
 
     if (result.status === 'error') {
       artistSelectMessage = `Could not load ${artist.name}'s albums.`;
