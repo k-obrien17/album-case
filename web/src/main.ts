@@ -752,12 +752,20 @@ async function main(): Promise<void> {
     rankList.render();
 
     const result = await discoverArtistDetailed(session.session_id, artist.name, artist.mbid, []);
+    // Reset unconditionally, before the view check below. selectingArtistMbid
+    // is main.ts-scoped state that outlives this call, unlike the old
+    // artistSearchView.ts's per-view-instance `selectingMbid` (torn down with
+    // the view on navigation) -- if the reset were skipped here whenever the
+    // owner had left the ranked view, every future band selection would
+    // silently no-op forever (guarded by the `if (selectingArtistMbid) return`
+    // above), with no visible error and no reload-fixable state.
+    selectingArtistMbid = null;
 
     // The owner may have navigated away from the ranked view (where the
-    // merged search box lives) while this was in flight -- discard a
-    // response that no longer applies.
+    // merged search box lives) while this was in flight -- discard the
+    // remaining rendering/navigation side effects below, but the state reset
+    // above must still happen regardless.
     if (view !== 'ranked') return;
-    selectingArtistMbid = null;
 
     if (result.status === 'error') {
       artistSelectMessage = `Could not load ${artist.name}'s albums.`;
@@ -823,6 +831,7 @@ async function main(): Promise<void> {
     onSearchQueryChange: (query) => {
       searchQuery = query;
       searchResults = { status: 'idle' }; // a new query invalidates old results
+      artistSelectMessage = null; // and any leftover band-selection message
       rankList.render();
     },
     onSearchMusicBrainz: (query) => {
