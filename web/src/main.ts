@@ -751,8 +751,13 @@ async function main(): Promise<void> {
     artistSelectMessage = null;
     rankList.render();
 
+    // Guard against a stale response landing after the search box has moved
+    // on to a different query, same convention as onSearchMusicBrainz above:
+    // capture the query this selection is FOR before the await.
+    const forQuery = searchQuery.trim();
+
     const result = await discoverArtistDetailed(session.session_id, artist.name, artist.mbid, []);
-    // Reset unconditionally, before the view check below. selectingArtistMbid
+    // Reset unconditionally, before the view/query checks below. selectingArtistMbid
     // is main.ts-scoped state that outlives this call, unlike the old
     // artistSearchView.ts's per-view-instance `selectingMbid` (torn down with
     // the view on navigation) -- if the reset were skipped here whenever the
@@ -762,10 +767,11 @@ async function main(): Promise<void> {
     selectingArtistMbid = null;
 
     // The owner may have navigated away from the ranked view (where the
-    // merged search box lives) while this was in flight -- discard the
-    // remaining rendering/navigation side effects below, but the state reset
-    // above must still happen regardless.
-    if (view !== 'ranked') return;
+    // merged search box lives) while this was in flight, or kept typing and
+    // moved on to a different search entirely -- discard the remaining
+    // rendering/navigation side effects below (including any message write)
+    // in either case, but the state reset above must still happen regardless.
+    if (view !== 'ranked' || searchQuery.trim() !== forQuery) return;
 
     if (result.status === 'error') {
       artistSelectMessage = `Could not load ${artist.name}'s albums.`;
