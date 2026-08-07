@@ -62,7 +62,7 @@ import {
 } from './candidateCooldown';
 import { CURATED_LISTS } from './data/curatedLists';
 import { unrankedFromCuratedList } from './curatedListMatch';
-import { renderCuratedListView } from './ui/curatedListView';
+import { renderCuratedListView, curatedEntryKey } from './ui/curatedListView';
 import type { CuratedAlbumEntry } from './data/curatedLists';
 
 type ViewMode = 'ranked' | ListName | 'blockedArtists' | 'artistBatch' | 'speedRound' | 'curatedLists';
@@ -401,8 +401,11 @@ async function main(): Promise<void> {
   let selectingArtistMbid: string | null = null;
   let artistSelectMessage: string | null = null;
 
-  // Curated-list browsing (curatedLists.ts): which list (if any) is selected.
+  // Curated-list browsing (curatedLists.ts): which list (if any) is selected,
+  // which row (if any) is mid-resolve, and a message tied to a specific row.
   let selectedCuratedListId: string | null = null;
+  let curatedRatingEntryKey: string | null = null;
+  let curatedRateMessage: { key: string; text: string } | null = null;
 
   const shell = document.createElement('div');
   shell.className = 'app-shell';
@@ -837,11 +840,7 @@ async function main(): Promise<void> {
 
   reselectCandidate();
 
-  // Named (not inline) so handleRankCuratedAlbum can trigger the same search
-  // when the owner jumps here from the curated-list view. `onDone` fires
-  // only when results actually land (not on the stale-response discard
-  // path below) -- curated-list entry uses it to focus the rating field.
-  function runMusicBrainzSearch(query: string, onDone?: () => void): void {
+  function runMusicBrainzSearch(query: string): void {
     void (async () => {
       // Guard against a stale response landing after the user kept typing:
       // capture the query this fetch is FOR, and discard the result if the
@@ -876,7 +875,6 @@ async function main(): Promise<void> {
       if (searchQuery.trim() !== forQuery) return; // stale response, discard
       searchResults = next;
       rankList.render();
-      onDone?.();
     })();
   }
 
@@ -1080,20 +1078,54 @@ async function main(): Promise<void> {
 
   function handleSelectCuratedList(listId: string): void {
     selectedCuratedListId = listId;
+    curatedRateMessage = null;
     renderCuratedListsView();
   }
 
-  /** Jump into the search box pre-filled with this entry's artist/title and
-   *  fire the same MusicBrainz search a manual query would -- reuses the
-   *  existing search-then-rate flow rather than a separate ingestion path.
-   *  Focuses the top result's rating field once results land, so the owner
-   *  can type a score straight away instead of tapping into it first. */
-  function handleRankCuratedAlbum(entry: CuratedAlbumEntry): void {
-    searchQuery = `${entry.artist} ${entry.title}`;
-    searchResults = { status: 'idle' };
-    artistSelectMessage = null;
-    showView('ranked');
-    runMusicBrainzSearch(searchQuery, () => rankList.focusFirstSearchResult());
+  /** Resolve this entry via MusicBrainz search and rate it directly at
+   *  `rating` -- no navigation to the ranked view, no results list to pick
+   *  from, the top match is used. Same insertion path as the main search
+   *  box's onRateSearchResult (addSearchedAlbum). */
+  async function handleRateCuratedAlbum(entry: CuratedAlbumEntry, rating: number): Promise<void> {
+    if (!selectedCuratedListId || curatedRatingEntryKey) return;
+    const listId = selectedCuratedListId;
+    const entryKey = curatedEntryKey(listId, entry);
+    curatedRatingEntryKey = entryKey;
+    curatedRateMessage = null;
+    renderCuratedListsView();
+
+    let album: Album | null = null;
+    try {
+      const q = `${entry.artist} ${entry.title}`;
+      const res = await fetch(`/api/search-album?q=${encodeURIComponent(q)}`);
+      if (res.ok) {
+        const body = (await res.json()) as { albums?: Album[] };
+        album = body.albums?.[0] ?? null;
+      }
+    } catch {
+      album = null;
+    }
+
+    // The owner may have switched to a different curated list while this
+    // was in flight -- discard a response that no longer applies, same
+    // stale-response convention used elsewhere in this file.
+    if (selectedCuratedListId !== listId) return;
+    curatedRatingEntryKey = null;
+
+    if (!album) {
+      curatedRateMessage = { key: entryKey, text: `Could not find "${entry.title}" by ${entry.artist}.` };
+      renderCuratedListsView();
+      return;
+    }
+
+    const added = addSearchedAlbum(state.ranked, lists, album, rating);
+    state = { ranked: added.ranked, pending: null };
+    lists = added.lists;
+    persistRankingState();
+    persistLists();
+    reselectCandidate();
+    renderNav();
+    renderCuratedListsView();
   }
 
   function renderCuratedListsView(): void {
@@ -1105,7 +1137,11 @@ async function main(): Promise<void> {
       selectedListId: selectedCuratedListId,
       unranked,
       onSelectList: handleSelectCuratedList,
-      onRankAlbum: handleRankCuratedAlbum,
+      onRateAlbum: (entry, rating) => {
+        void handleRateCuratedAlbum(entry, rating);
+      },
+      ratingEntryKey: curatedRatingEntryKey,
+      rateMessage: curatedRateMessage,
     });
   }
 

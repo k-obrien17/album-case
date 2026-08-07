@@ -1,5 +1,11 @@
 import type { CuratedAlbumEntry, CuratedList } from '../data/curatedLists';
 
+/** Stable per-entry identity for in-flight/message tracking -- curated
+ *  entries carry no mbid (see curatedLists.ts's header comment). */
+export function curatedEntryKey(listId: string, entry: CuratedAlbumEntry): string {
+  return `${listId}:${entry.rank}`;
+}
+
 export type CuratedListViewOptions = {
   lists: Record<string, CuratedList>;
   selectedListId: string | null;
@@ -7,8 +13,14 @@ export type CuratedListViewOptions = {
    *  source rank order. Ignored while `selectedListId` is null. */
   unranked: CuratedAlbumEntry[];
   onSelectList: (listId: string) => void;
-  /** Jump into the search box pre-filled with this entry's artist/title. */
-  onRankAlbum: (entry: CuratedAlbumEntry) => void;
+  /** Resolve this entry via MusicBrainz search and rate it directly at
+   *  `rating` -- no separate results screen, the top match is used. */
+  onRateAlbum: (entry: CuratedAlbumEntry, rating: number) => void;
+  /** curatedEntryKey() of the row currently resolving/rating, if any. */
+  ratingEntryKey: string | null;
+  /** A one-shot message tied to a specific row (e.g. "couldn't find X"),
+   *  shown only next to that row. */
+  rateMessage: { key: string; text: string } | null;
 };
 
 /**
@@ -43,8 +55,9 @@ export function renderCuratedListView(container: HTMLElement, opts: CuratedListV
     container.append(wrap);
     return;
   }
+  const selectedListId = opts.selectedListId;
 
-  const selected = opts.lists[opts.selectedListId];
+  const selected = opts.lists[selectedListId];
   const heading = document.createElement('p');
   heading.className = 'curated-list-status';
   heading.textContent = `${opts.unranked.length} of ${selected.albums.length} not yet ranked.`;
@@ -62,6 +75,7 @@ export function renderCuratedListView(container: HTMLElement, opts: CuratedListV
   const list = document.createElement('ul');
   list.className = 'saved-list';
   for (const entry of opts.unranked) {
+    const entryKey = curatedEntryKey(selectedListId, entry);
     const item = document.createElement('li');
     item.className = 'saved-item';
 
@@ -75,14 +89,47 @@ export function renderCuratedListView(container: HTMLElement, opts: CuratedListV
     artist.textContent = entry.artist;
     meta.append(title, artist);
 
-    const rankBtn = document.createElement('button');
-    rankBtn.type = 'button';
-    rankBtn.className = 'saved-mark';
-    rankBtn.textContent = 'Rank this';
-    rankBtn.setAttribute('aria-label', `Search for ${entry.title} by ${entry.artist} to rank it`);
-    rankBtn.addEventListener('click', () => opts.onRankAlbum(entry));
+    if (opts.rateMessage?.key === entryKey) {
+      const msg = document.createElement('p');
+      msg.className = 'curated-list-row-status';
+      msg.textContent = opts.rateMessage.text;
+      meta.append(msg);
+    }
 
-    item.append(meta, rankBtn);
+    item.append(meta);
+
+    const isRating = opts.ratingEntryKey === entryKey;
+    const form = document.createElement('form');
+    form.className = 'candidate-place';
+    form.noValidate = true;
+
+    const input = document.createElement('input');
+    input.className = 'candidate-place-input';
+    input.type = 'number';
+    input.inputMode = 'decimal';
+    input.min = '0';
+    input.max = '10';
+    input.step = '0.01';
+    input.placeholder = '0-10';
+    input.disabled = opts.ratingEntryKey !== null;
+    input.setAttribute('aria-label', `Rating for ${entry.title}`);
+
+    const btn = document.createElement('button');
+    btn.type = 'submit';
+    btn.className = 'candidate-place-button';
+    btn.textContent = isRating ? 'Rating…' : 'Rate';
+    btn.disabled = opts.ratingEntryKey !== null;
+
+    form.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      const raw = input.value.trim();
+      const rating = Number(raw);
+      if (raw === '' || !Number.isFinite(rating) || rating < 0 || rating > 10) return;
+      opts.onRateAlbum(entry, Math.round(rating * 100) / 100);
+    });
+
+    form.append(input, btn);
+    item.append(form);
     list.append(item);
   }
   wrap.append(list);
