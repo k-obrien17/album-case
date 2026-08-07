@@ -150,6 +150,13 @@ export type RankListController = {
   render: () => void;
   teardown: () => void;
   showStatus: (message: string) => void;
+  /** Focus (and select) the rating input on the first MusicBrainz search
+   *  result row, if one is currently rendered. For callers that jump
+   *  straight into a search (e.g. curated-list "Rank this") -- lets the
+   *  owner type a score immediately instead of tapping into the field
+   *  first. A no-op if no result row with a rating input is on screen
+   *  (empty results, or the top match is already ranked). */
+  focusFirstSearchResult: () => void;
 };
 
 const EDGE = 72; // px from the viewport edge that triggers autoscroll
@@ -1298,6 +1305,14 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     render();
   }
 
+  function focusFirstSearchResult(): void {
+    const input = container.querySelector<HTMLInputElement>(
+      '.rank-search-fallback .rank-search-result .candidate-place-input'
+    );
+    input?.focus();
+    input?.select();
+  }
+
   render();
-  return { render, teardown, showStatus };
+  return { render, teardown, showStatus, focusFirstSearchResult };
 }

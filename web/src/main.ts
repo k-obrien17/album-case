@@ -838,8 +838,10 @@ async function main(): Promise<void> {
   reselectCandidate();
 
   // Named (not inline) so handleRankCuratedAlbum can trigger the same search
-  // when the owner jumps here from the curated-list view.
-  function runMusicBrainzSearch(query: string): void {
+  // when the owner jumps here from the curated-list view. `onDone` fires
+  // only when results actually land (not on the stale-response discard
+  // path below) -- curated-list entry uses it to focus the rating field.
+  function runMusicBrainzSearch(query: string, onDone?: () => void): void {
     void (async () => {
       // Guard against a stale response landing after the user kept typing:
       // capture the query this fetch is FOR, and discard the result if the
@@ -874,6 +876,7 @@ async function main(): Promise<void> {
       if (searchQuery.trim() !== forQuery) return; // stale response, discard
       searchResults = next;
       rankList.render();
+      onDone?.();
     })();
   }
 
@@ -1082,13 +1085,15 @@ async function main(): Promise<void> {
 
   /** Jump into the search box pre-filled with this entry's artist/title and
    *  fire the same MusicBrainz search a manual query would -- reuses the
-   *  existing search-then-rate flow rather than a separate ingestion path. */
+   *  existing search-then-rate flow rather than a separate ingestion path.
+   *  Focuses the top result's rating field once results land, so the owner
+   *  can type a score straight away instead of tapping into it first. */
   function handleRankCuratedAlbum(entry: CuratedAlbumEntry): void {
     searchQuery = `${entry.artist} ${entry.title}`;
     searchResults = { status: 'idle' };
     artistSelectMessage = null;
     showView('ranked');
-    runMusicBrainzSearch(searchQuery);
+    runMusicBrainzSearch(searchQuery, () => rankList.focusFirstSearchResult());
   }
 
   function renderCuratedListsView(): void {
