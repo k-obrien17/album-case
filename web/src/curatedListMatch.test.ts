@@ -57,4 +57,15 @@ describe('unrankedFromCuratedList', () => {
     const result = unrankedFromCuratedList(curated, []);
     expect(result.map((a) => a.rank)).toEqual([1, 2, 3]);
   });
+
+  it('matches a title using an ae ligature against a curated entry spelled out as two letters', () => {
+    // Real bug: MusicBrainz's canonical title uses the "æ" ligature
+    // (as in "Ágætis Byrjun"), while the curated-list source text
+    // spelled it "Agaetis" -- both must normalize to the same key.
+    const sigurRos: CuratedAlbumEntry[] = [{ rank: 1, artist: 'Sigur Rós', title: 'Ágaetis Byrjun' }];
+    const result = unrankedFromCuratedList(sigurRos, [
+      ranked({ mbid: 'a', title: 'Ágætis byrjun', primary_artist_name: 'Sigur Rós' }),
+    ]);
+    expect(result).toEqual([]);
+  });
 });
