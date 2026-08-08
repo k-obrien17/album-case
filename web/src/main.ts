@@ -11,6 +11,7 @@ import {
 } from './seed';
 import type { ArtistPlays } from './seed';
 import { loadRanking, saveRanking } from './storage';
+import { createRankingBackup } from './backup';
 import { filterAlbums } from './search';
 import { getOrCreateSession, isValidSessionId } from './session';
 import { OWNER_ID } from './owner';
@@ -1193,6 +1194,24 @@ async function main(): Promise<void> {
     void flushAtomQueue();
   }
 
+  /** Download the current ranking + lists as a standalone JSON file --
+   *  createRankingBackup/parseRankingBackup already existed (backup.ts,
+   *  fully tested) from the old restore-code flow but had nothing wiring
+   *  them into the UI. An independent recovery point outside whatever
+   *  browser/device this session is in, doesn't depend on server sync. */
+  function handleExportBackup(): void {
+    const json = createRankingBackup(state, lists);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `album-case-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
   function renderNav(): void {
     nav.textContent = '';
     const items: Array<{ mode: ViewMode; label: string }> = [
@@ -1246,6 +1265,14 @@ async function main(): Promise<void> {
       void handleBulkDiscover();
     });
     nav.append(bulkDiscoverBtn);
+
+    const exportBtn = document.createElement('button');
+    exportBtn.type = 'button';
+    exportBtn.className = 'view-tab';
+    exportBtn.textContent = 'Export backup';
+    exportBtn.title = 'Download your ranking and lists as a JSON file';
+    exportBtn.addEventListener('click', handleExportBackup);
+    nav.append(exportBtn);
   }
 
   renderNav();
