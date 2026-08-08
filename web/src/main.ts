@@ -434,15 +434,24 @@ async function main(): Promise<void> {
   let view: ViewMode = 'ranked';
 
   function updateSyncBanner(): void {
+    // Locked writes get a warning up front, before any rating happens --
+    // not just once there's already an unsynced edit to warn about. A
+    // locked session with zero edits yet used to show no banner at all,
+    // which is exactly how ratings sat unsynced for a long stretch without
+    // anything on screen saying so.
+    if (!hasWriteKey()) {
+      syncBanner.hidden = false;
+      syncBanner.textContent =
+        'Writes are locked -- changes are only saved on this device. Unlock writes to save them to the server.';
+      return;
+    }
     if (!hasPendingSync()) {
       syncBanner.hidden = true;
       syncBanner.textContent = '';
       return;
     }
     syncBanner.hidden = false;
-    syncBanner.textContent = hasWriteKey()
-      ? 'Not saved to the server yet. Retrying...'
-      : 'Writes are locked -- changes are only saved on this device. Unlock writes to save them to the server.';
+    syncBanner.textContent = 'Not saved to the server yet. Retrying...';
   }
 
   updateSyncBanner();
