@@ -1,50 +1,46 @@
 # Handoff
 
 ## Current task
-Merged artist/band search into the existing "Search your albums" box, replacing the separate "+ Add a band" view/button shipped earlier this session. Executed via `superpowers:subagent-driven-development` from a written spec + plan.
+Built and shipped a "Curated lists" feature: browse expert best-of album lists (starting with Pitchfork's 1960s and 2000s decade lists) and see which ones Keith hasn't ranked yet, rate them inline. Along the way, diagnosed a real data-durability issue: Keith's browser had writes locked, so ratings were only saving locally and never reaching the server.
 
 ## Status
-All 5 tasks complete, each with fresh implementer + task review (2 fix loops needed: Task 1 unused imports, Task 5 two state-leak bugs). Final whole-branch review (opus) came back "Ready to merge: Yes" with one more Important finding (a third, narrower recurrence of the same stale-message bug class) fixed in one more round. Merged locally into `main` at `e573137`. 289/289 tests passing, clean `tsc`/`vite build` on the merged result.
+Feature is live on production (`album-case.vercel.app`), verified against real ranked-list data multiple times. Three real curated-list data mismatches found and fixed (title spelling didn't match MusicBrainz's canonical title: "The Beatles (White Album)" -> "The Beatles", "Greetings from Michigan..." -> "Michigan", "Bows and Arrows" -> "Bows + Arrows"; separately, a ligature-normalization bug was also fixed, "æ" vs "ae"). Redesigned the "rank an unranked entry" flow twice based on live feedback: first from a jump-to-search-results screen to an inline field, then removed an unused auto-focus mechanism that became dead code after that redesign.
 
-**Not pushed to origin, not deployed.** `origin/main` is still at `06dfddc`; local `main` is 15 commits ahead (this redesign plus the earlier-session handoff/spec/plan commits that were also unpushed). Production (album-case.vercel.app) is still running the old separate "+ Add a band" view.
+Data-durability investigation: confirmed Keith's browser had `writes are locked` this whole time, so 635 locally-cached ratings (including both Vampire Weekend albums) never synced to the server (still at 627). Nothing is confirmed lost from what's checkable (server + that one browser's local storage), but Keith believes more Vampire Weekend albums existed and aren't in either place -- can't confirm or recover those from here. Shipped two hardening fixes: the "writes are locked" banner now shows proactively (before any edit, not just after), and an "Export backup" button (wires up a pre-existing, already-tested `createRankingBackup` in `backup.ts` that had no UI hook until now).
 
-Two real gaps in the plan surfaced mid-execution (both confirmed with Keith before extending scope, not silently decided): `bulkDiscovery.ts`'s bulk-discovery button also depended on the removed `'locked'` status and needed the same locked-browse treatment; and the search box's band-selection flow had a permanent-disable bug (fixed across 3 rounds total, including the final-review pass).
+**In progress, blocked on Keith:** walking him through building a bookmarkable `#key=...` auto-unlock URL so his browser stops silently caching writes locally. He pulled the write key locally via `vercel env pull` (file still on disk, see Don't forget), but hit a browser warning describing itself as "sensitive" partway through pasting the URL -- exact wording and which step it's on is still unknown.
 
 ## Next concrete step
-Decide whether to push `origin/main` and deploy to Vercel production now. If yes: run the pre-deploy checklist (`npm run build` clean, `vercel env ls production` has all vars, confirm `vercel.json` compat) before `vercel --prod` from `web/`.
+Ask Keith for the exact wording of the "sensitive" warning and which step it appeared on (most likely Chrome's address-bar paste-protection prompt when pasting a long token-like string). Walk him past it, then confirm the "Writes are locked" banner clears and the nav button reads "Lock writes". Once at least one device is unlocked, re-check the server ranked count (`curl .../api/ranking?session_id=...`) to confirm it jumped from 627 toward 635+.
 
 ## Open questions
-- Push + deploy this redesign now, or hold for further review first?
+- Exact wording/location of the "sensitive" warning Keith hit while pasting the unlock URL.
+- Whether Keith actually rated Vampire Weekend albums beyond the two found (Vampire Weekend, Modern Vampires of the City) on some other device/browser never checked.
 
 ## Don't forget
-- `CLAUDE.md`'s discovery description (lines ~31-33, ~74) is now stale: still describes `discover-artist.ts` as the only discovery path and omits `browse-artist`/`search-artist` from the route list.
-- `vercel dev`'s Development environment on this project shares production Turso credentials with no write key configured — a GET request during manual testing unexpectedly returned real production `discovered_albums` data. Future manual write-path testing should use an isolated scratch DB + local API server (as Task 5 did), never `vercel dev` against the linked project.
-- A handful of Minor code-review findings were deferred as non-blocking (test coverage gaps in `browse-artist.test.ts`/`discovery.test.ts`, `_lp.ts` exporting `USER_AGENT`/`MB_BASE`/`coverUrlFor` unused outside itself while `search-album.ts`/`search-artist.ts` keep their own duplicates, band selection doing 2 discovery round-trips since `artistBatchView.ts` auto-re-discovers on mount). Full detail lived in the SDD ledger, deleted per convention once the final review passed — recoverable via `git log -p -- .superpowers/sdd` on the merged branch if needed.
-- Standing repo gotchas: similarity-scores-skew-popular, artist locks paused (`web/src/ranking/locks.ts`), `Number('') === 0` gotcha, never append-then-sort, `CONFIRM_CANON_IMPORT` danger.
+- `/Users/keithobrien/Desktop/Claude/Projects/album-case/web/.env.vercel-temp` still exists on disk (real write key inside, pulled via `vercel env pull`). Remind Keith to delete it once he's unlocked at least one device: `rm web/.env.vercel-temp`. Never read or display this file's contents.
+- Only 2 of the original 9 Pitchfork decade lists are built out in `web/src/data/curatedLists.ts` (1960s, 2000s). The other 7 (1970s, 1980s, 1990s, 2010s, 2020s-so-far, 2000-04, 2010-14) were never scraped/added this session.
+- The 3 title mismatches found so far were surfaced reactively (Keith reporting specific albums). Worth proactively re-running the same cross-check script used mid-session (compare every curated entry's artist+title against real ranked-artist titles, flag same-artist-different-title near-misses) across the two existing lists before adding more, and again after adding each new list -- past pattern strongly suggests more hand-transcribed titles won't exactly match MusicBrainz's canonical spelling.
+- `pitchfork.com` itself and several mirror sites (`albumoftheyear.org`, `rateyourmusic.com`, `discogs.com`, `listchallenges.com`, `musicthisday.com`) are unreachable via WebFetch (403/blocked). `besteveralbums.com` (paginated, 10/page) and `muzieklijstjes.nl` (single-page, full list) both work and were the actual sources used.
+- Standing repo gotchas: similarity-scores-skew-popular, artist locks paused (`web/src/ranking/locks.ts`), `Number('') === 0` gotcha, never append-then-sort, `CONFIRM_CANON_IMPORT` danger, `vercel dev`'s Development env shares production Turso credentials (use an isolated scratch DB for manual write-path testing, never `vercel dev` against the linked project).
 
 ## Files touched this session
-- web/api/_lp.ts — extracted shared `browseArtistLps` helper (+8s timeout, new)
-- web/api/browse-artist.ts, web/api/browse-artist.test.ts — new unauthenticated browse-only route
-- web/api/discover-artist.ts — repointed at the shared helper
-- web/src/discovery.ts, web/src/discovery.test.ts — locked-browse/unlocked-persist split, `'locked'` status removed
-- web/src/bulkDiscovery.ts, web/src/bulkDiscovery.test.ts — same locked-browse treatment applied
-- web/src/ui/artistBatchView.ts — dropped dead `'locked'` branch
-- web/src/ui/artistSearchView.ts — deleted (separate view no longer exists)
-- web/src/ui/rankList.ts — merged band results into the search box (two labeled sections)
-- web/src/main.ts — search wiring rewrite, state-leak fixes
-- web/src/style.css — new section-label rule, removed old button rule
-- docs/superpowers/specs/2026-08-05-unified-artist-search-design.md — design spec
-- docs/superpowers/plans/2026-08-05-unified-artist-search.md — implementation plan (corrected twice mid-execution)
+- web/src/data/curatedLists.ts — new: curated-list catalog (1960s + 2000s Pitchfork lists, 400 albums)
+- web/src/curatedListMatch.ts, web/src/curatedListMatch.test.ts — new: pure unranked-filtering logic incl. ligature/diacritic normalization
+- web/src/ui/curatedListView.ts — new: curated-list browsing view, inline per-row rating
+- web/src/main.ts — curated-list wiring, inline-rate handler, proactive lock banner, export-backup button
+- web/src/ui/rankList.ts — added then removed `focusFirstSearchResult` (superseded by the inline-rate redesign)
+- web/src/style.css — curated-list view styles
 
 ## Git state
 - Branch: main
-- Last commit: e573137 Merge branch 'worktree-unified-artist-search'
-- Uncommitted changes: no (only pre-existing untracked `.playwright-mcp/`, not session work)
-- Pushed to origin: no — origin/main at 06dfddc, local main 15 commits ahead
+- Last commit: bfe8a09 feat: wire up the JSON backup export button
+- Uncommitted changes: no (only pre-existing untracked `.playwright-mcp/`, not session work; `web/.env.vercel-temp` is untracked and gitignored, contains a real secret, not committed)
+- Pushed to origin: yes, deployed to Vercel production
 - Stashed: no
 
 ## Reason for handoff
 session paused
 
 ## Updated
-2026-08-06T12:52:40Z
+2026-08-10T14:04:23Z
