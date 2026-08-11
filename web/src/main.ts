@@ -44,7 +44,6 @@ import { loadRankingSnapshotDetailed, saveRankingSnapshot } from './rankingSync'
 import { discoverArtistDetailed, loadDiscoveredAlbums } from './discovery';
 import { runBulkDiscovery, runSimilarExpansion, TOP_ARTIST_DISCOVERY_COUNT } from './bulkDiscovery';
 import type { SimilarArtist } from './bulkDiscovery';
-import { clearWriteKey, extractKeyFromFragment, hasWriteKey, setWriteKey } from './writeKey';
 import { clearPendingSync, hasPendingSync, markPendingSync } from './syncStatus';
 import {
   addBlockedArtist,
@@ -260,16 +259,6 @@ async function main(): Promise<void> {
     throw new Error('#app mount point not found');
   }
 
-  // Bookmark a URL with #key=... once per device and never type the write
-  // key again. A fragment, not a query string, so the browser never sends it
-  // to the server (no risk of it landing in access logs). Strip it from the
-  // visible address bar after storing -- the bookmark itself is unaffected.
-  const urlKey = extractKeyFromFragment(window.location.hash);
-  if (urlKey) {
-    setWriteKey(urlKey);
-    window.history.replaceState(null, '', window.location.pathname + window.location.search);
-  }
-
   const session = getOrCreateSession();
   void flushAtomQueue();
 
@@ -416,8 +405,7 @@ async function main(): Promise<void> {
   heading.textContent = 'Album Case';
 
   // Visible, persistent (not a transient rankList.showStatus toast) warning
-  // for unsynced local changes -- the fix for silently losing an add when
-  // writes are locked and the server snapshot clobbers the local cache.
+  // for a save that hasn't reached the server yet -- e.g. a network hiccup.
   const syncBanner = document.createElement('p');
   syncBanner.className = 'sync-banner';
   syncBanner.hidden = true;
@@ -434,18 +422,10 @@ async function main(): Promise<void> {
 
   let view: ViewMode = 'ranked';
 
+  // Write-key enforcement is dropped for now, so the only thing left to
+  // warn about is a genuine save failure (network/server), not a locked
+  // session -- there's no more "locked" state.
   function updateSyncBanner(): void {
-    // Locked writes get a warning up front, before any rating happens --
-    // not just once there's already an unsynced edit to warn about. A
-    // locked session with zero edits yet used to show no banner at all,
-    // which is exactly how ratings sat unsynced for a long stretch without
-    // anything on screen saying so.
-    if (!hasWriteKey()) {
-      syncBanner.hidden = false;
-      syncBanner.textContent =
-        'Writes are locked -- changes are only saved on this device. Unlock writes to save them to the server.';
-      return;
-    }
     if (!hasPendingSync()) {
       syncBanner.hidden = true;
       syncBanner.textContent = '';
@@ -478,8 +458,8 @@ async function main(): Promise<void> {
   }
 
   async function syncRankingSnapshot(): Promise<void> {
-    // Nothing outstanding -- e.g. a queued retry fired after handleUnlock
-    // already resolved things. Skip the redundant round-trip.
+    // Nothing outstanding -- e.g. a queued retry fired after an earlier
+    // call in the chain already resolved things. Skip the redundant round-trip.
     if (!hasPendingSync()) return;
 
     if (snapshotBaseUpdatedAt === undefined) {
@@ -510,17 +490,15 @@ async function main(): Promise<void> {
       snapshotBaseUpdatedAt = result.updatedAt;
       clearPendingSync();
     } else {
-      // 'skipped' (writes locked), 'error' (network/server), or 'conflict':
-      // none of these mean the local edit made it to the server, so keep the
-      // pending flag set. 'skipped' only resolves by unlocking (handleUnlock
-      // re-syncs), so don't burn a timer retrying that; the rest genuinely
-      // retry, since the banner promises they will.
+      // 'error' (network/server) or 'conflict': neither means the local
+      // edit made it to the server, so keep the pending flag set and retry,
+      // since the banner promises it will.
       markPendingSync();
       if (result.status === 'conflict') {
         snapshotBaseUpdatedAt = undefined;
         console.warn('albumcase: ranking snapshot save skipped because the server copy changed');
       }
-      if (result.status !== 'skipped') scheduleSyncRetry();
+      scheduleSyncRetry();
     }
     updateSyncBanner();
   }
@@ -1184,16 +1162,6 @@ async function main(): Promise<void> {
     renderNav();
   }
 
-  // Reads are public, so boot-on-load already has the real server state by
-  // the time writes get unlocked -- just push it (or retry, if there's a
-  // pending edit) rather than re-fetching first.
-  function handleUnlock(): void {
-    rankList.showStatus('Writes unlocked.');
-    renderNav();
-    persistRankingState();
-    void flushAtomQueue();
-  }
-
   /** Download the current ranking + lists as a standalone JSON file --
    *  createRankingBackup/parseRankingBackup already existed (backup.ts,
    *  fully tested) from the old restore-code flow but had nothing wiring
@@ -1232,28 +1200,6 @@ async function main(): Promise<void> {
       btn.addEventListener('click', () => showView(mode));
       nav.append(btn);
     }
-
-    const writeUnlocked = hasWriteKey();
-    const writeBtn = document.createElement('button');
-    writeBtn.type = 'button';
-    writeBtn.className = writeUnlocked ? 'view-tab write-tab write-tab-active' : 'view-tab write-tab';
-    writeBtn.textContent = writeUnlocked ? 'Lock writes' : 'Unlock writes';
-    writeBtn.title = writeUnlocked ? 'Clear the stored write key from this browser' : 'Store the write key in this browser';
-    writeBtn.addEventListener('click', () => {
-      if (hasWriteKey()) {
-        clearWriteKey();
-        rankList.showStatus('Writes locked.');
-        updateSyncBanner();
-        renderNav();
-        return;
-      }
-
-      const secret = window.prompt('Enter the Album Case write key');
-      if (!secret || !secret.trim()) return;
-      setWriteKey(secret.trim());
-      handleUnlock();
-    });
-    nav.append(writeBtn);
 
     const bulkDiscoverBtn = document.createElement('button');
     bulkDiscoverBtn.type = 'button';

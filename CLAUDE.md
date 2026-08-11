@@ -8,8 +8,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 starting experience: show one candidate album, drag it into the exact position
 in the ranked list, and repeat until the owner has a true, self-consistent album
 order. The canonical list is the fixed owner snapshot in Turso; localStorage is
-only a fast/offline cache. Mutations are guarded by `ALBUM_CASE_WRITE_KEY`;
-public reads are an accepted tradeoff for now.
+only a fast/offline cache. Write-key enforcement (`ALBUM_CASE_WRITE_KEY`) is
+currently dropped (2026-08-11, see `SECURITY.md`) -- mutations are unauthenticated
+for now, same as reads. `requireWriteKey()` in `web/api/_writeKey.ts` is a
+pass-through, not deleted, so re-enabling is a one-function revert.
 
 The older public "Taste Test" / crowd-aggregate direction is historical
 planning context, not the implemented product surface. Do not re-expand toward

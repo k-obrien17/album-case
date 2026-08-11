@@ -1,6 +1,6 @@
 import type { SavedLists } from './lists';
 import type { Album, ArtistLock, RankedAlbum, RankingState } from './ranking/types';
-import { getWriteKey, writeKeyHeaders } from './writeKey';
+import { writeKeyHeaders } from './writeKey';
 import { parseAlbumArray, parseRankedAlbumArray } from './album';
 
 /**
@@ -52,7 +52,6 @@ export type RankingSnapshotLoad =
 export type RankingSnapshotSave =
   | { status: 'saved'; updatedAt: number }
   | { status: 'conflict' }
-  | { status: 'skipped' }
   | { status: 'error' };
 
 export function snapshotPayload(
@@ -83,8 +82,6 @@ export async function saveRankingSnapshot(
   artistLocks: ArtistLock[],
   baseUpdatedAt?: number | null
 ): Promise<RankingSnapshotSave> {
-  if (!getWriteKey()) return { status: 'skipped' };
-
   try {
     const response = await fetch('/api/ranking', {
       method: 'POST',

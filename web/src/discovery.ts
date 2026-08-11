@@ -1,5 +1,5 @@
 import type { Album } from './ranking/types';
-import { getWriteKey, writeKeyHeaders } from './writeKey';
+import { writeKeyHeaders } from './writeKey';
 import { parseAlbumArray } from './album';
 
 export type DiscoverArtistResult =
@@ -24,40 +24,18 @@ export async function loadDiscoveredAlbums(sessionId: string): Promise<Album[]> 
   }
 }
 
-async function browseArtist(artistName: string, artistMbid: string): Promise<DiscoverArtistResult> {
-  let response: Response;
-  try {
-    response = await fetch(
-      `/api/browse-artist?artist_mbid=${encodeURIComponent(artistMbid)}&artist_name=${encodeURIComponent(artistName)}`
-    );
-  } catch {
-    return { status: 'error' };
-  }
-  if (!response.ok) return { status: 'error' };
-
-  try {
-    const body = (await response.json()) as { albums?: unknown };
-    const albums = parseAlbumArray(body.albums);
-    return albums.length > 0 ? { status: 'found', albums } : { status: 'empty' };
-  } catch {
-    return { status: 'error' };
-  }
-}
-
 export async function discoverArtistDetailed(
   sessionId: string,
   artistName: string,
   artistMbid: string,
   knownMbids: string[]
 ): Promise<DiscoverArtistResult> {
-  // No write key: browse-only, no persistence -- see docs/superpowers/specs/
-  // 2026-08-05-unified-artist-search-design.md's "Write-key branching
-  // mechanism". `knownMbids` is ignored here: browse never persists, so
-  // there's no server-side "previously discovered" set to merge against;
-  // every caller already dedupes the returned albums against its own local
-  // pool by mbid.
-  if (!getWriteKey()) return browseArtist(artistName, artistMbid);
-
+  // Used to branch on a write key here (browse-only when locked -- see
+  // docs/superpowers/specs/2026-08-05-unified-artist-search-design.md's
+  // "Write-key branching mechanism"). Write-key enforcement is dropped for
+  // now, so this always persists; /api/browse-artist is unused from the
+  // client but left in place (api/browse-artist.ts, api/_lp.ts) in case
+  // that gets reconsidered.
   let response: Response;
   try {
     response = await fetch('/api/discover-artist', {

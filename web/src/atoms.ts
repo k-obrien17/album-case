@@ -1,4 +1,4 @@
-import { getWriteKey, writeKeyHeaders } from './writeKey';
+import { writeKeyHeaders } from './writeKey';
 
 const ATOM_QUEUE_KEY = 'tastetest-atom-queue';
 
@@ -42,7 +42,6 @@ export function enqueueAtom(atom: AtomPayload): void {
 
 export async function flushAtomQueue(): Promise<void> {
   if (activeFlush) return activeFlush;
-  if (!getWriteKey()) return;
 
   activeFlush = (async () => {
     let queue = loadQueue();

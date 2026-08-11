@@ -22,42 +22,25 @@ describe('requireWriteKey', () => {
     vi.unstubAllEnvs();
   });
 
-  it('accepts a matching write key', () => {
+  it('always passes, regardless of headers or env -- enforcement is dropped for now', () => {
     vi.stubEnv('VERCEL_ENV', 'production');
     vi.stubEnv('ALBUM_CASE_WRITE_KEY', 'secret-123');
     const res = makeRes();
 
-    const ok = requireWriteKey(
-      { headers: { 'x-album-case-write-key': 'secret-123' } } as never,
-      res as never
-    );
+    const ok = requireWriteKey({ headers: {} } as never, res as never);
 
     expect(ok).toBe(true);
     expect(res.statusCode).toBe(200);
     expect(res.body).toBeNull();
   });
 
-  it('rejects a missing or wrong key', () => {
-    vi.stubEnv('VERCEL_ENV', 'production');
-    vi.stubEnv('ALBUM_CASE_WRITE_KEY', 'secret-123');
+  it('passes even with no write key configured at all', () => {
     const res = makeRes();
 
     const ok = requireWriteKey({ headers: {} } as never, res as never);
 
-    expect(ok).toBe(false);
-    expect(res.statusCode).toBe(401);
-    expect(res.body).toEqual({ error: 'write_key_required' });
-  });
-
-  it('fails closed when Turso is configured but no write key is set', () => {
-    vi.stubEnv('TURSO_DATABASE_URL', 'libsql://example.test');
-    vi.stubEnv('TURSO_AUTH_TOKEN', 'token');
-    const res = makeRes();
-
-    const ok = requireWriteKey({ headers: {} } as never, res as never);
-
-    expect(ok).toBe(false);
-    expect(res.statusCode).toBe(500);
-    expect(res.body).toEqual({ error: 'missing_write_key' });
+    expect(ok).toBe(true);
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toBeNull();
   });
 });
