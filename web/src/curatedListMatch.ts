@@ -27,16 +27,28 @@ function normalize(s: string): string {
   return out.replace(/^the /, '').replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
-function key(artist: string, title: string): string {
+// Exported so resolve-curated-list-mbids.mjs can build its local-ranked-hit
+// index against the exact same normalization -- two independently-drifting
+// implementations would risk the resolver and the live app disagreeing
+// about what counts as "already ranked".
+export function key(artist: string, title: string): string {
   return `${normalize(artist)}|${normalize(title)}`;
 }
 
-/** Curated list entries whose artist+title doesn't match anything in
- *  `ranked`, in the list's original rank order. */
+/** Curated list entries not yet represented in `ranked`, in the list's
+ *  original rank order. An entry with a `resolved` mbid is checked against
+ *  `ranked`'s mbids directly (exact, handles a curated entry's artist
+ *  spelling differing from MusicBrainz's canonical artist credit -- e.g.
+ *  "MF DOOM & Madlib" on the curated list vs. "Madvillain" as ranked).
+ *  Everything else falls back to the normalized artist+title text match. */
 export function unrankedFromCuratedList(
   albums: CuratedAlbumEntry[],
   ranked: RankedAlbum[]
 ): CuratedAlbumEntry[] {
+  const rankedIds = new Set(ranked.map((a) => a.mbid));
   const rankedKeys = new Set(ranked.map((a) => key(a.primary_artist_name, a.title)));
-  return albums.filter((a) => !rankedKeys.has(key(a.artist, a.title)));
+  return albums.filter((a) => {
+    if (a.resolved && rankedIds.has(a.resolved.mbid)) return false;
+    return !rankedKeys.has(key(a.artist, a.title));
+  });
 }

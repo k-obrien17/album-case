@@ -1090,9 +1090,27 @@ async function main(): Promise<void> {
     if (!selectedCuratedListId || curatedRatingEntryKey) return;
     const listId = selectedCuratedListId;
     const entryKey = curatedEntryKey(listId, entry);
-    curatedRatingEntryKey = entryKey;
     curatedRateMessage = null;
     curatedPendingMatch = null;
+
+    // Pre-vetted offline by resolve-curated-list-mbids.mjs (score>=90
+    // MusicBrainz confidence bar, or a direct hit against the owner's own
+    // already-ranked albums) -- no live search, no confirm step. The point
+    // of the confirm gate below is defending against an unscoped live text
+    // search; a resolved entry already cleared a stricter bar than that.
+    if (entry.resolved) {
+      const added = addSearchedAlbum(state.ranked, lists, entry.resolved, rating);
+      state = { ranked: added.ranked, pending: null };
+      lists = added.lists;
+      persistRankingState();
+      persistLists();
+      reselectCandidate();
+      renderNav();
+      renderCuratedListsView();
+      return;
+    }
+
+    curatedRatingEntryKey = entryKey;
     renderCuratedListsView();
 
     let album: Album | null = null;

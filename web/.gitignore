@@ -31,3 +31,7 @@ public/import-ranking.html
 # canon import scratch artifacts (personal ranking data — never commit)
 scripts/canon-import-report.json
 scripts/backups/
+
+# curated-list mbid resolver report (includes owner's own ranked-list
+# titles/artists via local-hit matches -- never commit)
+scripts/curated-mbid-report.json

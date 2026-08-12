@@ -68,4 +68,53 @@ describe('unrankedFromCuratedList', () => {
     ]);
     expect(result).toEqual([]);
   });
+
+  it('drops a resolved entry whose mbid is ranked, even when the artist text differs', () => {
+    // Real bug: Madvillainy is ranked under MusicBrainz's canonical artist
+    // credit "Madvillain", but the curated list spells the artist "MF DOOM &
+    // Madlib" -- the text-key match alone would never catch this.
+    const madvillainy: CuratedAlbumEntry[] = [
+      {
+        rank: 1,
+        artist: 'MF DOOM & Madlib',
+        title: 'Madvillainy',
+        resolved: {
+          mbid: 'ab570ccb-b06b-3746-8147-4903163ba895',
+          title: 'Madvillainy',
+          primary_artist_name: 'Madvillain',
+          release_year: 2004,
+          cover_url: 'https://example.test/madvillainy.jpg',
+        },
+      },
+    ];
+    const result = unrankedFromCuratedList(madvillainy, [
+      ranked({ mbid: 'ab570ccb-b06b-3746-8147-4903163ba895', title: 'Madvillainy', primary_artist_name: 'Madvillain' }),
+    ]);
+    expect(result).toEqual([]);
+  });
+
+  it('falls back to the text-key match for a resolved entry whose mbid is not ranked', () => {
+    const entry: CuratedAlbumEntry[] = [
+      {
+        rank: 1,
+        artist: 'Radiohead',
+        title: 'Kid A',
+        resolved: {
+          mbid: 'a1664324-9982-4c68-8b62-9ea4c631e5d5',
+          title: 'Kid A',
+          primary_artist_name: 'Radiohead',
+          release_year: 2000,
+          cover_url: 'https://example.test/kida.jpg',
+        },
+      },
+    ];
+    // Nothing ranked yet with that mbid or matching text -- still unranked.
+    expect(unrankedFromCuratedList(entry, [])).toEqual(entry);
+    // Ranked under the same text, different mbid (e.g. a different edition) --
+    // text match still catches it.
+    const result = unrankedFromCuratedList(entry, [
+      ranked({ mbid: 'some-other-edition', title: 'Kid A', primary_artist_name: 'Radiohead' }),
+    ]);
+    expect(result).toEqual([]);
+  });
 });
