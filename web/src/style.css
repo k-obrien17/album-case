@@ -821,6 +821,12 @@ button.rank-rating:hover {
   font-size: 0.8rem;
 }
 
+.curated-list-match-text {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.8rem;
+}
+
 .lock-view {
   display: flex;
   flex-direction: column;

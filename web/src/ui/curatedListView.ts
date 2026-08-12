@@ -1,4 +1,5 @@
 import type { CuratedAlbumEntry, CuratedList } from '../data/curatedLists';
+import type { Album } from '../ranking/types';
 
 /** Stable per-entry identity for in-flight/message tracking -- curated
  *  entries carry no mbid (see curatedLists.ts's header comment). */
@@ -13,14 +14,24 @@ export type CuratedListViewOptions = {
    *  source rank order. Ignored while `selectedListId` is null. */
   unranked: CuratedAlbumEntry[];
   onSelectList: (listId: string) => void;
-  /** Resolve this entry via MusicBrainz search and rate it directly at
-   *  `rating` -- no separate results screen, the top match is used. */
+  /** Resolve this entry via MusicBrainz search. Doesn't insert anything --
+   *  the found album is held as `pendingMatch` until the owner confirms it
+   *  actually is the album they meant (see `onConfirmMatch`). A raw text
+   *  search's top hit is not reliably the right album (see
+   *  `onConfirmMatch`'s doc comment for the incident that made this
+   *  mandatory), so nothing gets written to the ranked list sight-unseen. */
   onRateAlbum: (entry: CuratedAlbumEntry, rating: number) => void;
-  /** curatedEntryKey() of the row currently resolving/rating, if any. */
+  /** curatedEntryKey() of the row currently resolving/awaiting confirmation, if any. */
   ratingEntryKey: string | null;
   /** A one-shot message tied to a specific row (e.g. "couldn't find X"),
    *  shown only next to that row. */
   rateMessage: { key: string; text: string } | null;
+  /** A search match awaiting owner confirmation before it's inserted. */
+  pendingMatch: { key: string; album: Album; rating: number } | null;
+  /** Owner confirmed `pendingMatch` is the right album -- insert it now. */
+  onConfirmMatch: () => void;
+  /** Owner rejected `pendingMatch` -- discard it, row goes back to the rating form. */
+  onCancelMatch: () => void;
 };
 
 /**
@@ -98,6 +109,34 @@ export function renderCuratedListView(container: HTMLElement, opts: CuratedListV
 
     item.append(meta);
 
+    if (opts.pendingMatch?.key === entryKey) {
+      const { album, rating } = opts.pendingMatch;
+      const year = album.release_year ?? '?';
+      const found = document.createElement('p');
+      found.className = 'curated-list-match-text';
+      found.textContent = `Found: ${album.title} by ${album.primary_artist_name} (${year}). Rate it ${rating}?`;
+
+      const confirmForm = document.createElement('div');
+      confirmForm.className = 'candidate-place';
+
+      const confirmBtn = document.createElement('button');
+      confirmBtn.type = 'button';
+      confirmBtn.className = 'candidate-place-button';
+      confirmBtn.textContent = 'Yes, that one';
+      confirmBtn.addEventListener('click', () => opts.onConfirmMatch());
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.type = 'button';
+      cancelBtn.className = 'candidate-place-button';
+      cancelBtn.textContent = 'Not this one';
+      cancelBtn.addEventListener('click', () => opts.onCancelMatch());
+
+      confirmForm.append(confirmBtn, cancelBtn);
+      item.append(found, confirmForm);
+      list.append(item);
+      continue;
+    }
+
     const isRating = opts.ratingEntryKey === entryKey;
     const form = document.createElement('form');
     form.className = 'candidate-place';
@@ -117,14 +156,27 @@ export function renderCuratedListView(container: HTMLElement, opts: CuratedListV
     const btn = document.createElement('button');
     btn.type = 'submit';
     btn.className = 'candidate-place-button';
-    btn.textContent = isRating ? 'Rating…' : 'Rate';
+    btn.textContent = isRating ? 'Searching…' : 'Rate';
     btn.disabled = opts.ratingEntryKey !== null;
 
     form.addEventListener('submit', (ev) => {
       ev.preventDefault();
       const raw = input.value.trim();
       const rating = Number(raw);
-      if (raw === '' || !Number.isFinite(rating) || rating < 0 || rating > 10) return;
+      if (raw === '' || !Number.isFinite(rating) || rating < 0 || rating > 10) {
+        // Native constraint-validation UI is off (noValidate, above), so an
+        // out-of-range/unparseable value used to fail with zero feedback --
+        // read as "rating a curated album doesn't save". Same message
+        // rankList.ts's equivalent rating input shows via showStatus.
+        let invalidMsg = form.querySelector<HTMLParagraphElement>('.curated-list-row-status');
+        if (!invalidMsg) {
+          invalidMsg = document.createElement('p');
+          invalidMsg.className = 'curated-list-row-status';
+          form.append(invalidMsg);
+        }
+        invalidMsg.textContent = 'Enter 0-10.';
+        return;
+      }
       opts.onRateAlbum(entry, Math.round(rating * 100) / 100);
     });
 

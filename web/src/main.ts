@@ -396,6 +396,10 @@ async function main(): Promise<void> {
   let selectedCuratedListId: string | null = null;
   let curatedRatingEntryKey: string | null = null;
   let curatedRateMessage: { key: string; text: string } | null = null;
+  // A search match awaiting owner confirmation before it's inserted -- see
+  // handleRateCuratedAlbum's doc comment for why nothing gets inserted
+  // sight-unseen.
+  let curatedPendingMatch: { key: string; album: Album; rating: number } | null = null;
 
   const shell = document.createElement('div');
   shell.className = 'app-shell';
@@ -1067,19 +1071,28 @@ async function main(): Promise<void> {
   function handleSelectCuratedList(listId: string): void {
     selectedCuratedListId = listId;
     curatedRateMessage = null;
+    curatedPendingMatch = null;
     renderCuratedListsView();
   }
 
-  /** Resolve this entry via MusicBrainz search and rate it directly at
-   *  `rating` -- no navigation to the ranked view, no results list to pick
-   *  from, the top match is used. Same insertion path as the main search
-   *  box's onRateSearchResult (addSearchedAlbum). */
+  /** Resolve this entry via MusicBrainz search, but don't insert anything yet
+   *  -- hold the result as `curatedPendingMatch` for the owner to confirm
+   *  (see handleConfirmCuratedMatch). A raw "${artist} ${title}" text search
+   *  against MusicBrainz is NOT reliably the right album: querying "MF DOOM
+   *  & Madlib Madvillainy" returned an unrelated 2026 release ("MF Doom" by
+   *  Pozer) as the top hit, and it got inserted into the real ranked list at
+   *  the owner's typed rating before this confirm step existed -- diagnosed
+   *  2026-08-12 after the owner reported ratings "not saving" (the wrong
+   *  album silently landed instead, and since its title/artist didn't match
+   *  the curated entry's text, unrankedFromCuratedList kept showing the
+   *  entry as unrated too, masking the corruption). */
   async function handleRateCuratedAlbum(entry: CuratedAlbumEntry, rating: number): Promise<void> {
     if (!selectedCuratedListId || curatedRatingEntryKey) return;
     const listId = selectedCuratedListId;
     const entryKey = curatedEntryKey(listId, entry);
     curatedRatingEntryKey = entryKey;
     curatedRateMessage = null;
+    curatedPendingMatch = null;
     renderCuratedListsView();
 
     let album: Album | null = null;
@@ -1096,23 +1109,49 @@ async function main(): Promise<void> {
 
     // The owner may have switched to a different curated list while this
     // was in flight -- discard a response that no longer applies, same
-    // stale-response convention used elsewhere in this file.
-    if (selectedCuratedListId !== listId) return;
-    curatedRatingEntryKey = null;
+    // stale-response convention used elsewhere in this file. Still clear the
+    // lock: leaving it set would strand every row disabled for the rest of
+    // the session.
+    if (selectedCuratedListId !== listId) {
+      curatedRatingEntryKey = null;
+      return;
+    }
 
     if (!album) {
+      curatedRatingEntryKey = null;
       curatedRateMessage = { key: entryKey, text: `Could not find "${entry.title}" by ${entry.artist}.` };
       renderCuratedListsView();
       return;
     }
 
+    // Keep curatedRatingEntryKey set (locks other rows) until the owner
+    // confirms or cancels -- resolved in handleConfirmCuratedMatch /
+    // handleCancelCuratedMatch.
+    curatedPendingMatch = { key: entryKey, album, rating };
+    renderCuratedListsView();
+  }
+
+  /** Owner confirmed `curatedPendingMatch` is the right album. Same
+   *  insertion path as the main search box's onRateSearchResult
+   *  (addSearchedAlbum). */
+  function handleConfirmCuratedMatch(): void {
+    if (!curatedPendingMatch) return;
+    const { album, rating } = curatedPendingMatch;
     const added = addSearchedAlbum(state.ranked, lists, album, rating);
     state = { ranked: added.ranked, pending: null };
     lists = added.lists;
     persistRankingState();
     persistLists();
+    curatedPendingMatch = null;
+    curatedRatingEntryKey = null;
     reselectCandidate();
     renderNav();
+    renderCuratedListsView();
+  }
+
+  function handleCancelCuratedMatch(): void {
+    curatedPendingMatch = null;
+    curatedRatingEntryKey = null;
     renderCuratedListsView();
   }
 
@@ -1130,6 +1169,9 @@ async function main(): Promise<void> {
       },
       ratingEntryKey: curatedRatingEntryKey,
       rateMessage: curatedRateMessage,
+      pendingMatch: curatedPendingMatch,
+      onConfirmMatch: handleConfirmCuratedMatch,
+      onCancelMatch: handleCancelCuratedMatch,
     });
   }
 
