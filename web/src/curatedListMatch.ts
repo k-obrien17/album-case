@@ -19,8 +19,9 @@ const LIGATURES: Record<string, string> = {
 // Loose text match (case/punctuation/diacritic/leading-"the"-insensitive):
 // curated list entries carry no mbid (see curatedLists.ts's header
 // comment), so this is the only way to check them against the owner's
-// ranked list.
-function normalize(s: string): string {
+// ranked list. Exported so cross-check-curated-titles.mjs can group by the
+// same normalized artist -- see that script for why.
+export function normalize(s: string): string {
   let out = s.toLowerCase();
   for (const [from, to] of Object.entries(LIGATURES)) out = out.split(from).join(to);
   out = out.normalize('NFD').replace(/[̀-ͯ]/g, ''); // combining accents, e.g. acute/tilde
