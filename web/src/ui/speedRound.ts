@@ -10,6 +10,10 @@ export type SpeedRoundOptions = {
    *  view afterward (see rankList.ts's onDirectRate / artistBatchView.ts's
    *  onRate for the established convention this mirrors). */
   onRate: (album: Album, rating: number) => void;
+  /** Same "Skip for now" contract as the main candidate card (rankList.ts's
+   *  onSkip): sets the album aside without rating it. The caller is expected
+   *  to advance to the next candidate and remount/re-render, same as onRate. */
+  onSkip: (album: Album) => void;
   onClose: () => void;
 };
 
@@ -137,6 +141,21 @@ export function mountSpeedRound(
     return wrap;
   }
 
+  /** Same "Skip for now" contract as rankList.ts's buildActions -- always
+   *  available, independent of listening/manual/error phase, since skipping
+   *  isn't a rating outcome. */
+  function buildSkipAction(album: Album): HTMLElement {
+    const actions = document.createElement('div');
+    actions.className = 'candidate-actions';
+    const skipBtn = document.createElement('button');
+    skipBtn.type = 'button';
+    skipBtn.className = 'candidate-action';
+    skipBtn.textContent = 'Skip for now';
+    skipBtn.addEventListener('click', () => opts.onSkip(album)); // caller advances + remounts
+    actions.append(skipBtn);
+    return actions;
+  }
+
   function render(): void {
     container.textContent = '';
     const album = opts.getCandidate();
@@ -195,6 +214,8 @@ export function mountSpeedRound(
       status.textContent = phase.message;
       card.append(status, buildFallback(album, { showRetry: true }));
     }
+
+    card.append(buildSkipAction(album));
 
     wrap.append(card);
     container.append(wrap);

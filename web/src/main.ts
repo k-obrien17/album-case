@@ -824,6 +824,12 @@ async function main(): Promise<void> {
         renderSpeedRound();
         renderNav();
       },
+      onSkip: (album) => {
+        skippedAlbums.add(album.mbid);
+        saveSkippedAlbums(skippedAlbums);
+        reselectCandidate();
+        renderSpeedRound();
+      },
       onClose: () => {
         showView('ranked');
       },
