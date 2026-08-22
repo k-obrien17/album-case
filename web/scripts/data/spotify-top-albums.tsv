@@ -1,0 +1,501 @@
+rank	album	artist	total_plays	distinct_tracks	top_track	hours_played	first_played	last_played
+1	A Moon Shaped Pool	Radiohead	683	11	The Numbers	49.75	2016-06-23	2026-08-16
+2	The Bones Of What You Believe	CHVRCHES	531	24	The Mother We Share	33.18	2013-10-23	2026-07-13
+3	Carrie & Lowell	Sufjan Stevens	524	11	Eugene	32.04	2015-03-31	2026-05-29
+4	Brill Bruisers	The New Pornographers	515	13	Brill Bruisers	27.97	2014-09-05	2026-07-12
+5	Lush	Snail Mail	475	10	Pristine	29.54	2018-07-04	2026-05-29
+6	Bloom	Beach House	466	10	Myth	37.27	2012-05-28	2026-07-13
+7	We got it from Here... Thank You 4 Your service	A Tribe Called Quest	462	16	Dis Generation (feat. Busta Rhymes)	26.29	2016-11-11	2026-08-08
+8	Things We Lost In the Fire	Low	456	14	Sunflower	30.71	2011-12-23	2026-07-30
+9	Art Angels	Grimes	452	14	Flesh without Blood	26.51	2015-11-07	2026-05-26
+10	Keepsake	Hatchie	423	10	Secret	30.35	2019-06-29	2026-05-13
+11	Norman Fucking Rockwell!	Lana Del Rey	416	14	Mariners Apartment Complex	31.35	2019-09-03	2026-05-27
+12	Untitled (Rise)	SAULT	415	15	Street Fighter	22.3	2020-10-03	2026-08-19
+13	Blade Runner 2049 (Original Motion Picture Soundtrack)	Hans Zimmer	412	19	2049	21.82	2017-10-11	2023-03-07
+14	The Invisible Way	Low	409	11	Plastic Cup	24.04	2013-01-30	2024-05-11
+15	Wide Awake!	Parquet Courts	397	13	Total Football	20.16	2018-05-18	2026-08-10
+16	Heligoland	Massive Attack	396	14	Pray For Rain	32.36	2012-03-17	2026-08-03
+17	Abbey Road	The Beatles	393	26	Here Comes The Sun	18.71	2017-06-19	2026-06-27
+18	Are We There	Sharon Van Etten	387	11	Tarifa	26.76	2014-12-24	2026-07-12
+19	Disconnect From Desire	School Of Seven Bells	384	12	Heart Is Strange	29.27	2012-03-02	2026-05-29
+20	Reflektor	Arcade Fire	382	16	We Exist	33.57	2013-10-29	2025-01-18
+21	Ones and Sixes	Low	377	12	What Part of Me	23.63	2015-11-24	2026-08-19
+22	C'mon	Low	373	11	Nothing But Heart	30.42	2011-12-19	2026-07-14
+23	Más + Corazón Profundo Tour: En Vivo Desde la Bahía de Santa Marta	Carlos Vives	372	15	La Tierra del Olvido (feat. Fanny Lu, Fonseca, Maluma, Andrea Echeverri, Cholo Valderrama, Coral Group & Herencia de Timbiquí) - 2015	30.55	2015-08-26	2026-07-12
+24	Loveless	my bloody valentine	370	11	Only Shallow	23.23	2012-05-23	2025-01-16
+25	Visions	Grimes	369	15	Genesis	20.97	2012-03-10	2026-07-13
+26	HEY WHAT	Low	364	10	White Horses	26.57	2021-09-10	2026-07-30
+27	Hannah Georgas	Hannah Georgas	362	12	Enemies	20.66	2013-02-01	2025-10-04
+28	Ride Your Heart	Bleached	360	13	Dead in Your Head	19.12	2013-04-03	2026-05-29
+29	Afraid Of Heights	Wavves	358	14	Sail to the Sun	18.86	2013-05-20	2026-05-07
+30	Double Negative	Low	344	11	Always Trying to Work It Out	23.73	2018-09-24	2024-10-01
+31	Run the Jewels 3	Run The Jewels	342	18	Call Ticketron	18.79	2017-01-07	2026-05-18
+32	Suntub	ML Buch	337	15	Flames shards goo	20.96	2025-03-11	2026-08-17
+33	The Double EP: A Sea of Split Peas	Courtney Barnett	336	12	Avant Gardener	25.37	2013-11-12	2026-08-01
+34	Mandy (Original Motion Picture Soundtrack)	Jóhann Jóhannsson	335	15	Death and Ashes	15.23	2018-10-06	2025-10-19
+35	Secret Name	Low	329	14	Soon	23.76	2013-04-24	2026-07-25
+36	OK Computer	Radiohead	328	18	Let Down	21.82	2012-06-07	2026-08-16
+37	Whiteout Conditions	The New Pornographers	328	11	High Ticket Attractions	19.61	2017-04-08	2025-05-24
+38	Antisocialites	Alvvays	328	10	Dreams Tonite	17.35	2017-09-12	2026-06-11
+39	Automatic For The People	R.E.M.	325	46	Everybody Hurts	22.62	2014-05-02	2026-08-05
+40	Siamese Dream	The Smashing Pumpkins	324	31	Cherub Rock	24.23	2012-07-14	2026-08-02
+41	The Knick (Original Series Soundtrack)	Cliff Martinez	306	21	Son of Placenta Previa	12.39	2015-03-16	2022-09-03
+42	Moon Safari	Air	303	10	Sexy Boy	20.68	2013-11-17	2026-02-19
+43	Watchmen: Volume 1 (Music from the HBO Series)	Trent Reznor and Atticus Ross	303	15	OBJECTS IN MIRROR (ARE CLOSER THAN THEY APPEAR)	12.24	2019-11-19	2025-03-07
+44	Fórmula, Vol. 2	Romeo Santos	298	19	Odio (feat. Drake)	18.36	2015-04-25	2026-07-14
+45	Dragon New Warm Mountain I Believe In You	Big Thief	287	20	Certainty	17.67	2022-02-12	2026-08-15
+46	The Bends	Radiohead	272	14	Planet Telex	17.41	2012-06-02	2026-08-16
+47	Heaven Or Las Vegas	Cocteau Twins	267	11	Cherry-coloured Funk	15.75	2014-04-02	2026-08-04
+48	Ghostory	School Of Seven Bells	261	11	When You Sing	22.04	2012-03-28	2025-03-18
+49	In Rainbows	Radiohead	259	18	Bodysnatchers	16.94	2016-06-15	2026-08-15
+50	Hearts	I Break Horses	258	15	Winter Beats	18.46	2012-01-04	2026-08-15
+51	Yeezus	Kanye West	257	10	Black Skinhead	15.96	2013-06-19	2026-06-10
+52	KIDZ BOP 2021	Kidz Bop Kids	252	34	Kings & Queens	12.34	2020-11-19	2021-07-29
+53	Dummy	Portishead	251	11	Roads	17.94	2012-01-29	2026-08-05
+54	Every Open Eye	CHVRCHES	251	14	Empty Threat	15.91	2015-10-02	2025-03-25
+55	Hazards Of Love	The Decemberists	251	16	The Hazards Of Love 2 (Wager All)	14.62	2013-09-05	2026-07-13
+56	Untitled (Black Is)	SAULT	251	20	Wildfires	11.76	2020-06-26	2026-05-15
+57	Night Time, My Time	Sky Ferreira	250	12	I Blame Myself	15.54	2013-11-19	2026-07-13
+58	I Never Learn	Lykke Li	245	9	I Never Learn	14.38	2014-04-30	2026-07-12
+59	KIDZ BOP 40	Kidz Bop Kids	244	39	Señorita	11.82	2020-10-07	2021-07-29
+60	Suspiria	Thom Yorke	243	25	Suspirium	11.61	2019-01-12	2026-03-28
+61	Drunk	Thundercat	242	25	Friend Zone	9.99	2017-04-02	2026-06-26
+62	El Mal Querer	ROSALÍA	241	11	PIENSO EN TU MIRÁ - Cap.3: Celos	10.7	2018-12-06	2026-07-12
+63	Out Of Time	R.E.M.	240	30	Shiny Happy People	15.13	2014-05-05	2025-12-11
+64	The Besnard Lakes are the Ghost Nation	The Besnard Lakes	238	8	Carried It All Around	21.01	2025-11-20	2026-08-01
+65	YHLQMDLG	Bad Bunny	238	20	Yo Perreo Sola	11.98	2020-03-05	2026-07-25
+66	Fever Ray	Fever Ray	237	19	When I Grow Up	16.39	2012-02-13	2026-07-30
+67	Punisher	Phoebe Bridgers	236	11	I Know The End	16.35	2020-06-19	2026-08-19
+68	xx	The xx	236	11	Crystalised	13.38	2011-12-23	2026-07-15
+69	Blippi Tunes, Vol. 2: Machines (Music for Toddlers)	Blippi	236	11	The Excavator Song	10.51	2018-03-09	2020-05-01
+70	The Great Destroyer	Low	233	17	Silver Rider	14.54	2012-09-21	2026-07-30
+71	Rips	Ex Hex	233	12	You Fell Apart	10.41	2014-10-17	2026-07-28
+72	Saint Cloud	Waxahatchee	231	11	Can't Do Much	13.34	2020-05-01	2026-05-29
+73	If I Can't Have Love, I Want Power	Halsey	230	13	I am not a woman, I'm a god	11.78	2021-08-27	2026-05-26
+74	Melodrama	Lorde	228	12	The Louvre	12.8	2017-06-21	2026-07-25
+75	Drums And Guns	Low	228	13	Breaker	11.38	2011-12-22	2026-05-20
+76	The Life Of Pablo	Kanye West	228	19	Pt. 2	10.17	2016-04-02	2026-08-10
+77	7	Beach House	227	11	Dive	15.22	2018-05-12	2024-07-23
+78	Luster	Maria Somerville	226	12	Garden	11.66	2025-05-20	2026-07-04
+79	Ignorance	The Weather Station	224	12	Robber	14.76	2021-02-13	2023-08-13
+80	Sometimes I Sit and Think, And Sometimes I Just Sit	Courtney Barnett	221	18	Pedestrian at Best	13.6	2015-03-23	2026-07-23
+81	Dawn FM	The Weeknd	221	16	Gasoline	11.59	2022-01-08	2026-03-28
+82	The Innocents	Weyes Blood	220	12	Land of Broken Dreams	15.67	2014-10-29	2026-07-13
+83	The New Abnormal	The Strokes	217	9	Bad Decisions	16.94	2020-04-10	2026-07-14
+84	DANCEHALL	The Blaze	217	10	PLACES	13.53	2018-11-04	2023-07-21
+85	Silence Yourself	Savages	217	12	City's Full	11.85	2013-05-18	2026-07-13
+86	The Haunted Man	Bat For Lashes	214	16	All Your Gold	15.61	2012-11-07	2026-08-16
+87	Funeral	Arcade Fire	213	10	Rebellion (Lies)	16.22	2012-09-13	2026-07-28
+88	Lifes Rich Pageant	R.E.M.	211	13	Fall On Me	10.3	2017-02-20	2026-06-25
+89	Masterpiece	Big Thief	206	12	Masterpiece	10.52	2016-12-30	2026-07-25
+90	Kid A	Radiohead	205	26	Optimistic	15.01	2012-06-07	2026-07-25
+91	Help!	The Beatles	205	14	Help!	8.04	2020-10-05	2025-10-04
+92	Access All Arenas	Justice	204	28	New Lands - Live / AAA	16.56	2013-05-15	2026-03-10
+93	Father of the Bride	Vampire Weekend	204	19	Harmony Hall	10.82	2019-05-04	2026-02-03
+94	Skinned	ML Buch	204	10	Can't Get Over You With You	9.14	2025-03-11	2026-08-19
+95	Starboy	The Weeknd	202	18	Starboy	12.53	2016-09-24	2026-07-12
+96	LONG.LIVE.A$AP	A$AP Rocky	196	14	1Train (feat. Kendrick Lamar, Joey Bada$$, Yelawolf, Danny Brown, Action Bronson & Big K.R.I.T.)	13.24	2013-01-16	2026-07-13
+97	Giving The World Away	Hatchie	196	17	Lights On	12.65	2022-06-10	2026-08-15
+98	In the Aeroplane Over the Sea	Neutral Milk Hotel	196	11	Ghost	10.5	2012-08-26	2026-03-27
+99	so sad so sexy	Lykke Li	196	10	hard rain	10.32	2018-07-17	2024-01-29
+100	808s & Heartbreak	Kanye West	195	13	RoboCop	13.13	2013-05-20	2026-05-15
+101	U.F.O.F.	Big Thief	195	12	UFOF	11.09	2019-05-06	2026-03-28
+102	Ágætis Byrjun	Sigur Rós	194	16	Svefn-g-englar	22.69	2014-04-18	2026-07-16
+103	Bitte Orca	Dirty Projectors	194	27	Useful Chamber	14.33	2012-01-30	2026-06-08
+104	The Beatles	The Beatles	193	31	Ob-La-Di, Ob-La-Da	9.32	2018-08-07	2026-06-27
+105	Designer	Aldous Harding	192	9	Zoo Eyes	13.83	2019-05-15	2026-07-15
+106	Blue Rev	Alvvays	191	14	After The Earthquake	8.53	2022-10-07	2026-05-01
+107	MTV Unplugged In New York	Nirvana	189	23	Jesus Doesn't Want Me For A Sunbeam - Live	11.67	2014-05-16	2026-08-15
+108	Magnolia Electric Co.	Songs: Ohia	188	10	Farewell Transmission	17.44	2014-08-28	2026-07-27
+109	In a Poem Unlimited	U.S. Girls	188	9	Velvet 4 Sale	11.86	2018-02-16	2026-07-12
+110	Wet Leg	Wet Leg	187	12	Chaise Longue	9.15	2022-04-21	2026-05-18
+111	Let It Be	The Beatles	184	67	Let It Be	9.89	2017-06-19	2025-10-04
+112	Be the Cowboy	Mitski	182	14	Me and My Husband	7.03	2018-08-31	2026-07-26
+113	Mezzanine	Massive Attack	181	11	Teardrop	15.23	2012-03-17	2026-08-03
+114	100 Best – Mozart	Wolfgang Amadeus Mozart	180	98	Zaide, K. 344, Act I: "Ruhe sanft, mein holdes Leben"	16.67	2016-03-31	2016-04-07
+115	In Colour	Jamie xx	180	11	Loud Places	11.51	2015-06-02	2026-07-14
+116	XXX	Danny Brown	180	20	Monopoly	7.54	2012-05-27	2026-07-25
+117	Random Access Memories	Daft Punk	179	13	Get Lucky (feat. Pharrell Williams and Nile Rodgers)	15.51	2013-05-22	2026-07-13
+118	A Light for Attracting Attention	The Smile	178	13	The Smoke	11.39	2022-05-13	2026-02-28
+119	Fetch The Bolt Cutters	Fiona Apple	175	13	Under The Table	10.91	2020-04-17	2026-07-14
+120	color theory	Soccer Mommy	174	14	circle the drain	12.56	2020-04-01	2026-05-16
+121	ABBA Gold	ABBA	174	19	SOS	10.84	2013-03-28	2021-07-30
+122	Titanic Rising	Weyes Blood	173	10	Andromeda	12.81	2019-04-06	2026-07-26
+123	Pure Heroine	Lorde	173	15	Royals	9.7	2013-10-17	2026-07-13
+124	Syro	Aphex Twin	172	12	CIRCLONT6A [141.98][syrobonkus mix]	15.34	2014-09-23	2026-07-12
+125	AT.LONG.LAST.A$AP	A$AP Rocky	172	18	Lord Pretty Flacko Jodye 2 (LPFJ2)	8.9	2015-05-29	2026-06-08
+126	Capacity	Big Thief	171	11	Mythological Beauty	11.56	2017-10-30	2026-07-25
+127	I Could Live In Hope	Low	168	11	Words	13.88	2013-01-30	2026-07-30
+128	New Adventures In Hi-Fi	R.E.M.	167	22	Leave	12.65	2012-10-19	2026-08-04
+129	good kid, m.A.A.d city	Kendrick Lamar	167	16	Backseat Freestyle	11.85	2012-11-06	2026-07-13
+130	Family Album	Lia Ices	166	9	Our Time	11.79	2021-02-11	2024-04-05
+131	Stop Making Sense	Talking Heads	165	16	What a Day That Was - Live; Edit	12.66	2013-07-27	2025-05-04
+132	channel ORANGE	Frank Ocean	165	16	Thinkin Bout You	9.5	2012-07-17	2026-07-13
+133	Vivaldi: Dorilla in Tempe, RV 709	Antonio Vivaldi	165	52	Dorilla in Tempe, RV 709: Sinfonia. Allegro	7.27	2017-12-06	2018-01-09
+134	MY WOMAN	Angel Olsen	164	10	Sister	13.75	2016-09-02	2026-08-02
+135	To Pimp A Butterfly	Kendrick Lamar	164	16	King Kunta	10.29	2015-03-16	2025-12-10
+136	Illinois	Sufjan Stevens	163	21	Casimir Pulaski Day	11.52	2012-03-01	2026-01-13
+137	No Cities to Love	Sleater-Kinney	163	10	A New Wave	8.53	2015-03-10	2026-05-18
+138	Two Hands	Big Thief	161	11	Not	10.78	2019-10-12	2026-07-25
+139	OIL OF EVERY PEARL'S UN-INSIDES	SOPHIE	159	9	Immaterial	10.48	2018-11-13	2026-07-23
+140	If You're Reading This It's Too Late	Drake	157	15	6 Man	8.52	2015-02-13	2026-05-01
+141	Sun, Cloud	Luke Howard	156	13	August	10.62	2021-04-02	2024-01-25
+142	Remind Me Tomorrow	Sharon Van Etten	156	10	No One's Easy to Love	10.59	2019-01-18	2026-04-20
+143	Liquid Swords	GZA	156	13	4th Chamber	8.96	2012-02-25	2026-05-26
+144	TERRITORY	The Blaze	156	7	JUVENILE	8.76	2018-11-04	2025-07-06
+145	Screen Memories	John Maus	155	12	Touchdown	8.0	2018-01-29	2023-05-18
+146	Days Are Gone	HAIM	154	11	The Wire	9.54	2013-10-01	2026-07-13
+147	Big city life	Smerz	154	12	A thousand lies	8.11	2025-09-25	2026-08-02
+148	Everything Now	Arcade Fire	153	12	Everything Now	10.28	2017-06-03	2023-11-17
+149	I See You	The xx	149	11	On Hold	9.49	2017-02-09	2025-10-19
+150	Wake UP!	Hazel English	148	10	Wake UP!	8.19	2020-05-12	2026-05-29
+151	Whack World	Tierra Whack	148	15	Flea Market	2.43	2018-06-02	2022-02-20
+152	Miss Anthropocene	Grimes	147	15	4ÆM	10.12	2020-02-23	2026-07-25
+153	Trust	Low	146	13	Canada	10.64	2013-04-23	2024-10-31
+154	Deltron 3030	Deltron 3030	146	22	3030	9.3	2011-12-23	2026-02-08
+155	The Greatest	Cat Power	146	13	Living Proof	7.86	2012-07-26	2026-08-13
+156	Illusion Of Time	Daniel Avery	145	10	Illusion Of Time	10.01	2020-12-08	2024-03-21
+157	An Overview on Phenomenal Nature	Cassandra Jenkins	144	7	Hard Drive	10.54	2021-02-25	2026-05-13
+158	Little Earthquakes	Tori Amos	144	27	Little Earthquakes	10.41	2012-02-01	2026-01-11
+159	Secret Life	Fred again..	144	11	Enough	9.43	2023-05-15	2025-04-14
+160	Colourgrade	Tirzah	144	10	Tectonic	8.87	2021-10-01	2022-03-05
+161	american dream	LCD Soundsystem	143	11	tonite	13.53	2017-09-01	2026-05-16
+162	Lemonade	Beyoncé	143	13	Sorry	8.48	2019-04-28	2026-07-12
+163	Soft Sounds from Another Planet	Japanese Breakfast	143	12	Road Head	8.13	2017-09-13	2026-07-12
+164	This Is Happening	LCD Soundsystem	140	13	I Can Change	14.05	2012-02-07	2026-07-29
+165	R.A.P. Music	Killer Mike	140	13	Big Beast (feat. Bun B, T.I., and Trouble)	7.67	2012-05-26	2015-10-09
+166	Magna Carta... Holy Grail	JAY-Z	139	16	Holy Grail	7.43	2013-07-09	2015-12-04
+167	Rubber Soul	The Beatles	139	14	In My Life	5.58	2015-12-24	2025-10-04
+168	Alpinisms	School Of Seven Bells	138	26	Iamundernodisguise	9.75	2012-03-02	2026-08-16
+169	Under the Pink	Tori Amos	137	20	Yes, Anastasia	12.08	2012-07-14	2026-08-05
+170	Hail to the Thief	Radiohead	137	22	There, There	8.59	2014-11-05	2026-08-10
+171	Scorpion	Drake	137	28	God's Plan	7.35	2018-06-29	2026-08-18
+172	Exile In Guyville	Liz Phair	137	21	Glory	6.65	2014-07-28	2022-12-17
+173	DAMN.	Kendrick Lamar	136	14	HUMBLE.	6.69	2017-04-14	2026-04-28
+174	Ten	Pearl Jam	135	11	Black	9.66	2012-10-02	2026-08-04
+175	Late Registration	Kanye West	135	20	Gone	8.7	2013-03-27	2024-11-09
+176	Cigarettes After Sex	Cigarettes After Sex	134	10	K.	9.48	2017-08-22	2023-09-17
+177	Unplugged 1991/2001: The Complete Sessions	R.E.M.	134	32	Fall on Me	8.1	2014-07-23	2019-11-23
+178	Music Has The Right To Children	Boards of Canada	134	18	Olson	7.14	2020-01-22	2025-07-11
+179	Third	Portishead	131	11	The Rip	9.28	2012-05-01	2025-11-18
+180	Pisces Iscariot	The Smashing Pumpkins	131	31	Landslide	8.44	2013-07-14	2026-05-25
+181	Recovering The Satellites	Counting Crows	131	14	Catapult	7.89	2017-09-09	2026-07-14
+182	WHEN WE ALL FALL ASLEEP, WHERE DO WE GO?	Billie Eilish	131	13	bury a friend	6.67	2019-03-30	2025-06-22
+183	100th Window	Massive Attack	130	9	What Your Soul Sings	14.42	2012-12-04	2026-03-28
+184	Vulnicura	Björk	129	9	Stonemilker	12.6	2015-12-09	2025-10-24
+185	Desire, I Want To Turn Into You	Caroline Polachek	129	12	Fly To You (feat. Grimes and Dido)	7.78	2023-03-03	2026-07-30
+186	Rumours	Fleetwood Mac	129	12	Dreams	7.44	2012-01-31	2026-06-12
+187	Magical Mystery Tour	The Beatles	128	11	Strawberry Fields Forever	7.2	2015-12-24	2023-06-06
+188	(III)	Crystal Castles	128	12	Affection	6.75	2012-11-13	2024-05-08
+189	MOTOMAMI	ROSALÍA	128	16	SAOKO	5.21	2022-03-18	2026-02-28
+190	Kill for Love	Chromatics	127	26	Kill For Love	8.95	2012-12-06	2022-04-25
+191	Up	R.E.M.	127	15	Daysleeper	8.89	2012-10-18	2026-07-17
+192	Monster	R.E.M.	127	14	Strange Currencies	7.93	2013-01-24	2026-07-25
+193	Mess	Liars	126	11	Vox Tuned D.E.D.	9.71	2014-03-25	2026-07-12
+194	Hamilton	Leslie Odom Jr.	126	10	Alexander Hamilton	6.71	2015-12-01	2021-07-27
+195	Wounded Rhymes	Lykke Li	125	10	I Follow Rivers	7.47	2012-02-19	2026-08-18
+196	In Cold Blood	White Sea	124	10	They Don't Know	7.6	2014-05-21	2026-07-14
+197	St. Vincent	St. Vincent	124	12	Digital Witness	6.91	2014-07-10	2026-07-13
+198	Dr. Octagonecologyst	Dr. Octagon	124	19	Blue Flowers	6.72	2012-06-02	2026-03-24
+199	One Battle After Another	Jonny Greenwood	123	18	Baktan Cross	5.27	2025-09-28	2025-10-04
+200	From the Choir Girl Hotel	Tori Amos	122	12	Jackie's Strength	8.01	2014-05-16	2026-01-11
+201	Twin Cinema	The New Pornographers	122	15	The Bleeding Heart Show	6.98	2013-01-07	2026-04-17
+202	Revolver	The Beatles	122	13	Eleanor Rigby	4.71	2018-06-09	2025-06-13
+203	What A Time To Be Alive	Drake	121	10	Big Rings	7.1	2015-10-13	2025-04-20
+204	We Must Become The Pitiless Censors Of Ourselves	John Maus	121	11	Hey Moon	6.7	2014-04-16	2026-07-25
+205	Chet Baker Sings	Chet Baker	121	12	I Get Along Without You Very Well (Except Sometimes) - Vocal Version	6.12	2019-10-21	2023-04-01
+206	Valentine	Snail Mail	121	10	Valentine	5.96	2021-10-15	2026-07-25
+207	Hesitation Marks	Nine Inch Nails	120	17	Copy of a	9.72	2014-01-27	2019-12-16
+208	Born To Die - The Paradise Edition	Lana Del Rey	120	11	Blue Jeans	7.79	2013-03-26	2024-09-28
+209	Pet Sounds	The Beach Boys	120	21	God Only Knows - Mono	5.34	2012-05-14	2026-06-12
+210	In Our Heads	Hot Chip	119	11	Flutes	10.51	2012-07-25	2026-05-16
+211	Blue Jeans Remixes	Lana Del Rey	119	6	Blue Jeans - RAC Mix	8.74	2013-08-24	2026-05-15
+212	Merriweather Post Pavilion	Animal Collective	119	11	Summertime Clothes	8.4	2012-05-27	2026-08-14
+213	Geidi Primes	Grimes	119	11	Caladan	5.38	2012-03-10	2020-03-25
+214	Alive 2007	Daft Punk	118	13	Too Long / Steam Machine	11.04	2013-01-04	2026-07-05
+215	Dark Matter	Pearl Jam	118	11	Scared Of Fear	7.69	2024-02-15	2025-03-13
+216	Ctrl	SZA	118	14	Drew Barrymore	6.65	2017-06-29	2025-05-24
+217	Preacher's Daughter	Ethel Cain	117	13	American Teenager	10.42	2022-05-13	2026-03-28
+218	Challengers	The New Pornographers	117	12	Challengers	7.28	2013-01-07	2026-07-15
+219	Seeds	TV On The Radio	116	12	Ride	9.35	2014-11-25	2026-05-26
+220	The Beatles 1962 - 1966	The Beatles	116	3	I Want To Hold Your Hand	4.87	2020-10-05	2025-10-05
+221	Coloring Book	Chance the Rapper	115	14	Angels (feat. Saba)	6.9	2016-06-04	2026-07-29
+222	Treasures from the Temple	Thievery Corporation	114	19	San San Rock	7.7	2018-06-09	2023-11-02
+223	SAWAYAMA	Rina Sawayama	114	25	Paradisin'	6.07	2020-05-19	2023-07-23
+224	Sunbathing Animal	Parquet Courts	114	19	Black And White	6.0	2014-06-07	2026-07-12
+225	Meddle	Pink Floyd	113	8	Fearless	12.6	2013-10-03	2026-07-16
+226	Halcyon Digest	Deerhunter	113	5	Desire Lines	10.26	2013-10-01	2026-08-08
+227	Our Love	Caribou	113	10	Silver	7.87	2014-10-24	2026-07-14
+228	Home Video	Lucy Dacus	113	11	VBS	7.2	2021-08-02	2024-04-25
+229	RTJ4	Run The Jewels	113	12	JU$T (feat. Pharrell Williams & Zack de la Rocha)	6.01	2020-06-03	2026-05-15
+230	Sweet Heart Sweet Light	Spiritualized	112	11	Hey Jane	12.32	2013-01-12	2026-05-26
+231	So Tonight That I Might See	Mazzy Star	112	10	Fade Into You	8.69	2013-01-06	2026-08-16
+232	Strange Diary	Psychic Twin	112	9	Strangers	7.62	2017-04-11	2025-10-20
+233	Ghosts I-IV	Nine Inch Nails	112	36	34 Ghosts IV	5.75	2015-08-11	2022-04-29
+234	Que Me Parta Un Rayo	Christina y Los Subterraneos	112	9	Tú por mí	5.73	2013-09-03	2026-08-05
+235	Hurry Up We're Dreaming	M83	111	22	Claudia Lewis	5.91	2011-12-10	2013-11-23
+236	Shaking the Habitual	The Knife	110	13	Full of Fire	11.81	2013-04-23	2026-07-13
+237	Junip	Junip	110	12	Line of Fire	7.95	2013-05-15	2024-05-23
+238	Amnesiac	Radiohead	110	18	Knives Out	6.7	2012-05-07	2026-05-14
+239	Body Talk	Robyn	110	12	Call Your Girlfriend	6.32	2011-12-23	2026-05-20
+240	LUX	ROSALÍA	110	15	Reliquia	6.0	2025-11-15	2026-05-08
+241	My Beautiful Dark Twisted Fantasy	Kanye West	109	13	Monster	9.38	2012-03-02	2026-05-15
+242	Teen Dream	Beach House	109	10	Zebra	8.34	2012-07-08	2026-07-04
+243	LCD Soundsystem	LCD Soundsystem	108	13	Movement	8.74	2012-08-22	2026-07-31
+244	Within and Without	Washed Out	108	9	Amor Fati	7.83	2011-12-16	2026-07-15
+245	In The Morse Code Of Brake Lights	The New Pornographers	108	11	Falling Down The Stairs Of Your Smile	6.53	2019-09-27	2024-04-28
+246	Modern Vampires of the City	Vampire Weekend	108	12	Hannah Hunt	6.35	2013-06-08	2026-03-10
+247	Woman	Justice	107	10	Safe and Sound	9.1	2017-01-15	2022-01-13
+248	Ultraviolence	Lana Del Rey	107	14	West Coast	7.96	2014-06-13	2026-07-13
+249	The Suburbs	Arcade Fire	107	18	Ready to Start	7.26	2012-09-05	2026-05-17
+250	Plunge	Fever Ray	107	12	To The Moon And Back	7.13	2017-10-27	2025-08-10
+251	Halfaxa	Grimes	107	15	Outer	5.83	2012-03-10	2020-03-07
+252	SOUND & FURY	Sturgill Simpson	106	10	Remember to Breathe	6.41	2019-10-08	2022-12-04
+253	Boys For Pele	Tori Amos	106	37	Marianne	5.96	2012-02-01	2025-04-19
+254	Alan Sparhawk with Trampled by Turtles	Alan Sparhawk	106	9	Get Still	5.86	2025-06-01	2025-12-30
+255	Sgt. Pepper's Lonely Hearts Club Band	The Beatles	106	11	Lucy In The Sky With Diamonds	5.59	2018-06-09	2025-10-05
+256	Endless Summer	Fennesz	105	10	Endless Summer	8.99	2013-07-15	2026-04-23
+257	Rat Saw God	Wednesday	105	10	Chosen to Deserve	6.77	2023-04-11	2026-07-25
+258	Blonde	Frank Ocean	105	17	Nikes	6.57	2016-09-16	2026-07-13
+259	Morning Phase	Beck	105	13	Waking Light	6.5	2014-02-26	2023-08-27
+260	Please Please Me	The Beatles	105	8	Twist And Shout	4.33	2020-10-07	2025-10-05
+261	Start Singing With Barney	Barney	105	23	ABC Song	1.98	2017-10-24	2019-02-19
+262	Voulez-Vous	ABBA	104	6	Gimme! Gimme! Gimme! (A Man After Midnight)	8.36	2017-06-11	2025-12-14
+263	Watch The Throne	JAY-Z	104	13	Ni**as In Paris	5.76	2011-12-16	2026-01-08
+264	Protection	Massive Attack	103	10	Protection	8.92	2013-08-20	2026-07-23
+265	Muchacho	Phosphorescent	103	11	Song For Zula	8.91	2013-04-03	2026-05-25
+266	Debut	Björk	103	11	Venus as a Boy	7.33	2012-03-02	2026-07-25
+267	Personal Record	Eleanor Friedberger	103	12	She's a Mirror	6.38	2013-06-29	2015-10-08
+268	-io	Circuit des Yeux	103	10	Vanishing	6.38	2021-10-22	2026-02-03
+269	Throwing Copper	Live	103	13	Stage	6.25	2012-03-22	2026-04-19
+270	The Beatles 1967 - 1970	The Beatles	102	4	Hey Jude	9.43	2019-03-07	2022-06-18
+271	Skeleton Tree	Nick Cave & The Bad Seeds	102	8	Rings Of Saturn	7.8	2017-04-27	2025-05-01
+272	Audio, Video, Disco.	Justice	102	12	New Lands	6.64	2012-10-04	2023-05-02
+273	Vivaldi: The Four Seasons	Antonio Vivaldi	102	9	Vivaldi: The Four Seasons, Violin Concerto in G Minor, Op. 8 No. 2, RV 315 "Summer": III. Presto	6.12	2016-04-17	2019-10-30
+274	Future Nostalgia	Dua Lipa	102	17	Love Again	5.92	2020-03-30	2026-05-14
+275	Live at Reading	Nirvana	102	24	Lounge Act - 1992/Live at Reading	4.92	2015-04-19	2025-04-14
+276	Nothing Was The Same	Drake	101	15	Hold On, We're Going Home	7.01	2013-10-14	2020-05-19
+277	Closer To Grey	Chromatics	101	13	Twist The Knife	6.06	2019-10-03	2022-04-25
+278	Un Verano Sin Ti	Bad Bunny	101	23	Ojitos Lindos	5.87	2022-06-11	2026-02-25
+279	Pig (Original Motion Picture Soundtrack)	Alexis Grapsas	101	13	Turquoise	3.51	2022-01-03	2022-01-18
+280	Awake	Tycho	100	8	Awake	7.48	2014-03-21	2021-07-18
+281	Warm Chris	Aldous Harding	100	10	Fever	6.36	2022-03-26	2026-07-26
+282	Confess	Twin Shadow	99	12	Golden Light	6.73	2012-07-17	2026-07-25
+283	The Richest Man In Babylon	Thievery Corporation	99	12	Until The Morning	6.32	2016-12-03	2023-11-01
+284	Green	R.E.M.	99	31	Orange Crush	5.75	2014-05-28	2026-02-19
+285	Greatest Hits	Fleetwood Mac	99	16	Hold Me	5.39	2012-02-01	2026-07-22
+286	Daddy's Highway	The Bats	99	18	North By North	5.25	2013-05-31	2026-06-27
+287	Tragic Magic	Julianna Barwick	98	7	Perpetual Adoration	8.86	2026-01-16	2026-07-04
+288	Depression Cherry	Beach House	98	9	Space Song	8.02	2015-10-13	2025-12-19
+289	Adore	The Smashing Pumpkins	98	16	Ava Adore	7.05	2014-08-28	2026-07-28
+290	Long Division	Low	98	12	Below & Above	5.8	2013-01-30	2026-07-08
+291	Immunity	Clairo	98	11	Bags	5.71	2019-08-15	2026-07-26
+292	X 100PRE	Bad Bunny	98	15	Caro	5.67	2019-01-09	2023-04-23
+293	Sound of Silver	LCD Soundsystem	97	9	All My Friends	9.03	2011-12-22	2026-08-15
+294	Our Time in Eden	10,000 Maniacs	97	12	These Are Days	5.85	2012-08-05	2024-12-12
+295	She Hangs Brightly	Mazzy Star	97	11	Halah	5.44	2013-07-14	2026-08-16
+296	Burn Your Fire For No Witness	Angel Olsen	97	16	Forgiven/Forgotten	5.32	2014-05-27	2026-07-13
+297	Disintegration	The Cure	96	35	Pictures of You	7.98	2014-05-03	2026-08-04
+298	It's Blitz!	Yeah Yeah Yeahs	96	12	Zero	6.15	2012-10-04	2026-05-17
+299	Mature Themes	Ariel Pink	96	7	Only In My Dreams	5.57	2013-01-11	2026-07-15
+300	Alvvays	Alvvays	96	9	Archie, Marry Me	5.38	2015-02-03	2026-07-28
+301	Mass Romantic	The New Pornographers	96	13	Mass Romantic	5.25	2012-06-06	2026-05-16
+302	Doolittle	Pixies	96	16	Monkey Gone to Heaven	4.16	2012-08-14	2026-07-14
+303	From Here To Now To You	Jack Johnson	95	12	Never Fade	4.63	2021-01-07	2021-07-21
+304	Hamilton	Lin-Manuel Miranda	95	9	Aaron Burr, Sir	4.52	2015-12-01	2021-07-27
+305	Kind Of Blue	Miles Davis	94	19	Blue in Green (feat. John Coltrane & Bill Evans)	9.91	2017-12-09	2023-09-16
+306	Cupid Deluxe	Blood Orange	94	11	Uncle ACE	6.72	2014-01-08	2026-07-12
+307	Mosquito	Yeah Yeah Yeahs	94	11	Despair	6.68	2013-06-29	2026-08-16
+308	Mellon Collie And The Infinite Sadness	The Smashing Pumpkins	94	25	1979	5.73	2013-08-10	2026-08-04
+309	End of Daze	Dum Dum Girls	94	5	Lord Knows	5.66	2012-08-09	2021-04-05
+310	you seem pretty sad for a girl so in love	Olivia Rodrigo	94	13	stupid song	5.58	2026-06-12	2026-08-18
+311	A Hard Day's Night	The Beatles	94	8	A Hard Day's Night	3.73	2019-03-07	2025-10-04
+312	No Protection	Massive Attack	93	8	Radiation Ruling The Nation (Protection)	9.56	2012-01-27	2025-04-05
+313	Marquee Moon	Television	93	8	See No Evil	7.84	2013-10-03	2026-05-15
+314	Turn On The Bright Lights	Interpol	93	11	Untitled	5.9	2012-10-02	2026-07-25
+315	Tidal	Fiona Apple	92	11	Criminal	7.21	2012-06-20	2026-07-24
+316	I'm All Ears	Let's Eat Grandma	92	11	Falling Into Me	6.51	2018-07-03	2026-08-17
+317	Ten Love Songs	Susanne Sundfør	91	9	Fade Away	6.03	2016-03-11	2025-10-10
+318	Crystal Anis	The Limiñanas	91	11	Belmondo	4.45	2012-08-17	2012-11-15
+319	Once Twice Melody	Beach House	90	14	Masquerade	7.05	2021-11-12	2026-03-28
+320	Turn On The Bright Lights: The Tenth Anniversary Edition	Interpol	90	28	Untitled	6.5	2014-04-04	2020-06-04
+321	Sometimes, Forever	Soccer Mommy	90	11	Bones	5.63	2022-06-26	2023-01-26
+322	Lazaretto	Jack White	90	11	Would You Fight For My Love?	5.09	2014-06-05	2026-07-13
+323	Superstar	Caroline Rose	89	5	Do You Think We'll Last Forever?	5.58	2021-06-04	2026-07-10
+324	Slime Season 3	Young Thug	89	8	Digits	4.6	2016-03-25	2024-11-01
+325	Blackstar	David Bowie	88	8	Blackstar	9.38	2016-01-11	2023-11-30
+326	Vs.	Pearl Jam	88	15	Rearviewmirror	5.56	2012-07-19	2026-05-18
+327	The Downward Spiral	Nine Inch Nails	88	20	March Of The Pigs	5.48	2012-03-29	2025-11-10
+328	Coexist	The xx	88	11	Angels	4.66	2012-10-05	2024-10-30
+329	Stay Gold	First Aid Kit	87	10	Cedar Lane	5.72	2015-03-04	2017-05-22
+330	The Temple of I & I	Thievery Corporation	87	13	Let The Chalice Blaze	5.62	2017-02-10	2021-10-24
+331	Together	The New Pornographers	87	12	Crash Years	5.09	2014-09-05	2026-07-27
+332	Switcheroo	Gelli Haha	87	11	Klouds Will Carry Me To Sleep	4.63	2026-04-03	2026-08-11
+333	In Between Dreams	Jack Johnson	87	14	Do You Remember	4.19	2017-11-04	2021-07-21
+334	Oh, Inverted World	The Shins	87	15	New Slang	4.14	2013-02-21	2026-05-14
+335	Bach, The Piano Genius	Johann Sebastian Bach	87	19	Bach, Badinerie	2.51	2023-04-26	2023-06-01
+336	Seal	Seal	86	10	Killer	6.88	2012-12-27	2023-05-18
+337	ken	Destroyer	86	13	Tinseltown Swimming in Blood	5.45	2018-05-16	2025-02-05
+338	Based On A T.R.U. Story - Deluxe	2 Chainz	86	6	No Lie	5.41	2013-01-16	2021-03-30
+339	PAPI JUANCHO	Maluma	86	22	Medallo City	4.57	2020-08-22	2021-06-13
+340	Love Is Real	John Maus	86	12	Do Your Best	4.36	2018-03-14	2023-06-21
+341	Fancy That	PinkPantheress	86	8	Tonight	3.38	2025-08-01	2026-05-13
+342	I Remember Everything	Rivulets	85	10	Ride On, Molina	7.81	2020-10-12	2026-07-29
+343	Blunderbuss	Jack White	85	13	Love Interruption	4.1	2012-06-05	2024-08-18
+344	Colossal Youth	Young Marble Giants	85	46	Credit In The Straight World	3.29	2012-05-08	2026-07-17
+345	The Curtain Hits The Cast	Low	84	12	Do You Know How To Waltz	7.15	2013-01-30	2023-03-30
+346	Dogsbody	Model/Actriz	84	10	Crossing Guard	4.8	2023-02-26	2026-07-25
+347	(An Overview on) An Overview on Phenomenal Nature	Cassandra Jenkins	84	8	American Spirits	4.76	2021-12-06	2022-12-22
+348	Radio Retaliation	Thievery Corporation	83	9	Sweet Tides	5.86	2016-12-01	2025-05-24
+349	Voluspa	The Golden Filter	83	11	Solid Gold	5.74	2013-07-30	2026-05-16
+350	Ghost	Sky Ferreira	83	5	Everything Is Embarrassing	5.33	2013-01-13	2026-07-31
+351	Screws	Nils Frahm	83	9	Fa	4.17	2019-11-20	2024-05-17
+352	The Velvet Underground	The Velvet Underground	82	29	Candy Says	5.91	2013-08-13	2026-07-04
+353	Realmente Lo Mejor	Julieta Venegas	82	12	Eres para Mí (with Anita Tijoux)	4.38	2012-09-20	2017-03-31
+354	Lost River Original Motion Picture Score	Johnny Jewel	82	17	The Big Bad Wolf (Feat. Rob Zabrecky) / Cool Water (Feat. Ben Mendelsohn)	4.02	2017-05-30	2022-07-24
+355	Gold Dust	Tori Amos	81	14	Yes, Anastasia	5.67	2013-04-18	2022-01-15
+356	Star Wars: The Empire Strikes Back - Original Motion Picture Soundtrack	John Williams	81	17	The Imperial March (Darth Vader's Theme)	4.81	2020-11-28	2022-09-30
+357	Another Green World	Brian Eno	81	14	Another Green World	3.68	2014-04-07	2026-06-25
+358	Moon Beams	Bill Evans Trio	80	7	I Fall In Love Too Easily	5.77	2021-03-17	2022-12-15
+359	WIXIW	Liars	80	11	No.1 Against the Rush	5.7	2013-01-11	2026-07-13
+360	Neon Bible	Arcade Fire	80	12	No Cars Go	5.64	2013-09-27	2026-08-15
+361	SASAMI	SASAMI	80	10	Morning Comes	5.44	2019-03-12	2026-08-17
+362	If You're Feeling Sinister	Belle and Sebastian	80	11	Get Me Away From Here, I'm Dying	5.25	2019-09-06	2026-08-13
+363	Donde Estan Los Ladrones	Shakira	80	11	Moscas en la Casa	4.74	2013-03-26	2024-02-16
+364	MASSEDUCTION	St. Vincent	80	13	Sugarboy	4.46	2017-10-25	2026-07-25
+365	Room On Fire	The Strokes	80	11	Reptilia	3.85	2012-12-11	2026-07-28
+366	De Stijl	The White Stripes	80	16	Hello Operator	3.82	2014-03-26	2023-02-20
+367	Silver & Gold	Sufjan Stevens	80	29	Silent Night	3.37	2013-02-11	2020-01-14
+368	Waltz For Debby	Bill Evans Trio	79	5	My Foolish Heart	6.71	2018-08-29	2023-01-06
+369	Maxinquaye	Tricky	79	25	Overcome	5.88	2012-01-26	2024-06-03
+370	Super Trouper	ABBA	79	7	The Winner Takes It All	5.69	2016-12-10	2025-09-26
+371	Hemiplegia	HAERTS	79	4	Hemiplegia	5.47	2013-11-14	2014-08-19
+372	Stranger in the Alps	Phoebe Bridgers	79	10	Motion Sickness	5.11	2018-06-01	2026-08-15
+373	Hearts And Unicorns	Giant Drag	79	13	This Isn't It	4.03	2013-07-14	2026-05-16
+374	White Blood Cells	The White Stripes	79	21	Dead Leaves and the Dirty Ground	3.3	2013-09-01	2026-05-14
+375	Fields	Junip	78	20	Rope & Summit	5.41	2013-03-20	2023-03-13
+376	My Maudlin Career	Camera Obscura	78	13	Swans	5.19	2012-09-12	2024-11-09
+377	All Things Must Pass	George Harrison	78	39	All Things Must Pass	5.17	2016-08-22	2026-06-12
+378	Rio	Duran Duran	77	25	Hungry Like the Wolf	5.45	2013-12-04	2026-05-14
+379	Souvlaki	Slowdive	77	11	Alison	5.06	2015-07-09	2026-07-15
+380	Lust For Life	Lana Del Rey	77	14	Love	4.99	2017-08-23	2023-09-06
+381	Pretty Hate Machine	Nine Inch Nails	77	8	Sin	4.94	2012-03-29	2026-05-25
+382	What Would The Community Think	Cat Power	77	15	Nude As the News	4.93	2012-07-27	2026-08-05
+383	After Hours	The Weeknd	77	16	Blinding Lights	4.23	2020-05-31	2026-05-16
+384	GUTS	Olivia Rodrigo	77	11	love is embarrassing	3.56	2023-09-13	2026-07-25
+385	Dive	Tycho	76	15	A Walk	6.59	2014-03-21	2021-07-18
+386	Déjenme Llorar	Carla Morrison	76	29	No Quise Mirar	5.39	2015-09-24	2025-10-10
+387	Homogenic	Björk	76	10	Joga	5.04	2017-07-20	2026-04-09
+388	MY SKYSCRAPER	Nirosta Steel	75	14	BOSS TRIX (BENNY'S SONG)	4.99	2026-07-21	2026-08-16
+389	Beauty Behind The Madness	The Weeknd	75	14	Can't Feel My Face	4.94	2015-09-08	2023-11-08
+390	Our Nature	Savoir Adore	75	13	Dreamers	4.81	2014-04-17	2026-07-13
+391	Stories From The City, Stories From The Sea	PJ Harvey	75	12	This Mess We're In	4.54	2013-09-27	2026-07-25
+392	Nevermind	Nirvana	75	27	Lounge Act	3.87	2012-09-12	2026-08-04
+393	Too True	Dum Dum Girls	75	10	Evil Blooms	3.49	2014-07-13	2026-08-16
+394	Roseland NYC Live	Portishead	74	11	Humming - Live	6.33	2012-05-01	2023-07-15
+395	Set My Heart On Fire Immediately	Perfume Genius	74	5	On the Floor	5.25	2020-06-17	2026-05-14
+396	I Used to Spend So Much Time Alone	Chastity Belt	74	13	Different Now	4.97	2017-08-22	2025-04-14
+397	Freakout/Release	Hot Chip	74	12	Down	4.61	2022-08-23	2026-05-15
+398	The Dark Side of the Moon	Pink Floyd	74	10	Breathe (In the Air)	4.54	2017-08-03	2026-06-21
+399	Clean	Soccer Mommy	74	10	Your Dog	4.05	2018-03-12	2025-05-18
+400	Pablo Honey	Radiohead	74	12	Creep	3.76	2013-02-05	2025-11-29
+401	Figure 8	Elliott Smith	74	16	Can't Make A Sound	3.63	2013-01-18	2026-07-29
+402	Is This It	The Strokes	74	11	Hard To Explain	3.61	2013-06-10	2026-07-28
+403	Intro Bonito	Kero Kero Bonito	74	13	Sick Beat	3.26	2014-09-23	2026-08-11
+404	Text While Driving If You Want to Meet God!	Vegyn	74	71	80's Nihtmare Setup (127.136 BPM)	1.51	2019-06-06	2024-07-12
+405	45:33	LCD Soundsystem	73	4	45:33	19.69	2012-02-09	2025-11-20
+406	All Mirrors	Angel Olsen	73	11	All Mirrors	5.35	2019-07-30	2026-08-02
+407	The Man Who	Travis	73	12	The Fear	5.19	2017-06-04	2023-03-13
+408	Post	Björk	73	10	Army of Me	4.92	2015-12-16	2026-07-23
+409	Two Suns	Bat For Lashes	73	11	Sleep Alone	4.65	2013-01-04	2026-07-25
+410	Born To Die	Lana Del Rey	73	11	National Anthem	4.38	2012-02-13	2026-07-13
+411	Dirty Computer	Janelle Monáe	73	13	Crazy, Classic, Life	4.28	2018-05-02	2025-12-20
+412	Evil Empire	Rage Against The Machine	73	11	Bulls On Parade	4.05	2014-10-22	2026-08-04
+413	Run the Jewels	Run The Jewels	73	12	Ddfh	3.34	2014-09-17	2026-07-13
+414	With The Beatles	The Beatles	73	9	All My Loving	2.67	2020-10-06	2025-10-05
+415	Mozart: Divertimento & Preludes to Bach	Wolfgang Amadeus Mozart	72	12	Divertimento in E-Flat Major, K. 563: I. Allegro	7.04	2018-03-25	2022-08-09
+416	Undercurrent	Bill Evans	72	7	Skating In Central Park	5.94	2018-08-30	2023-02-05
+417	folklore	Taylor Swift	72	16	exile (feat. Bon Iver)	4.63	2020-07-25	2023-11-07
+418	The Last Exit	Still Corners	72	11	White Sands	4.61	2021-02-22	2021-03-22
+419	Harmony in Ultraviolet	Tim Hecker	72	15	Rainbow Blood	3.83	2018-04-23	2024-11-06
+420	The College Dropout	Kanye West	72	25	School Spirit	3.64	2012-09-13	2026-06-10
+421	Bach, Partita No. 2 in C Minor	Johann Sebastian Bach	72	7	Bach, Partita No. 2 in C Minor, Andante and Fugue	3.21	2023-01-30	2023-06-01
+422	The Golden Age of Apocalypse	Thundercat	72	13	Walkin'	2.52	2017-05-06	2023-03-15
+423	Street Of Dreams	Bill Charlap Trio	71	6	The Duke	6.94	2022-01-19	2023-07-18
+424	Workin' With The Miles Davis Quintet	Miles Davis Quintet	71	2	It Never Entered My Mind	5.86	2022-08-16	2023-04-01
+425	Amoroso	João Gilberto	71	8	'S Wonderful	5.58	2020-09-27	2024-02-29
+426	Mental Jewelry	Live	71	13	Mother Earth Is A Vicious Crowd	4.75	2012-08-14	2023-12-22
+427	The Cosmic Game	Thievery Corporation	71	14	Amerimacka	4.38	2017-02-10	2024-01-28
+428	Westworld: Season 1 (Music from the HBO® Series)	Ramin Djawadi	71	32	This World	3.72	2016-12-10	2018-02-06
+429	TRON: Ares	Nine Inch Nails	71	21	As Alive As You Need Me To Be	3.38	2025-09-23	2025-10-10
+430	Ambient 1: Music For Airports	Brian Eno	70	4	1/1	13.07	2013-02-17	2026-06-20
+431	Heavy Light	U.S. Girls	70	5	4 American Dollars	5.66	2020-05-16	2026-07-11
+432	Honey	Robyn	70	10	Honey	4.8	2018-09-28	2026-07-31
+433	Run the Jewels 2	Run The Jewels	70	20	Close Your Eyes (And Count to Fuck) [feat. Zack De La Rocha]	3.7	2015-01-24	2026-07-12
+434	Saudade	Thievery Corporation	70	18	Décollage (feat. Lou Lou Ghelichkhani)	3.51	2016-12-03	2023-02-03
+435	EL ÚLTIMO TOUR DEL MUNDO	Bad Bunny	70	12	LA NOCHE DE ANOCHE	3.28	2020-11-28	2025-07-04
+436	Bach, French Suite No.4 in E Flat Major	Johann Sebastian Bach	70	7	Bach, French Suite No.4 in E Flat Major, Gique	2.01	2023-01-30	2023-06-01
+437	Soundtrack From Twin Peaks	Angelo Badalamenti	69	8	Laura Palmer's Theme - Instrumental	4.93	2014-08-03	2025-01-19
+438	The King Stays King - Sold Out at Madison Square Garden	Romeo Santos	69	18	La Diabla - Live - The King Stays King Version	4.88	2015-04-27	2019-10-11
+439	Singles	Future Islands	69	11	Seasons (Waiting On You)	4.48	2014-03-28	2022-05-27
+440	Days Of Abandon	The Pains Of Being Pure At Heart	69	15	Simple and Sure	4.09	2014-05-22	2017-03-04
+441	Blippi Tunes, Vol. 1	Blippi	69	21	The Tractor Song	3.17	2018-03-09	2019-11-01
+442	Last Splash	The Breeders	69	16	Cannonball	3.09	2013-07-18	2026-07-25
+443	The Complete Sinfonias /Three-Part Inventions/	Johann Sebastian Bach	69	15	Bach, Three Part Invention in C Major	2.18	2023-01-30	2023-05-29
+444	Front Row Seat To Earth	Weyes Blood	68	9	Do You Need My Love	5.82	2016-12-17	2026-07-12
+445	Eric Prydz Presents Pryda	Pryda	68	16	Allein	5.48	2012-06-27	2026-05-07
+446	Emperor Tomato Ketchup	Stereolab	68	28	Metronomic Underground	4.83	2017-06-09	2026-07-21
+447	The Life Pursuit	Belle and Sebastian	68	20	Another Sunny Day	4.17	2013-07-26	2026-08-13
+448	Scarlet's Walk	Tori Amos	68	18	A Sorta Fairytale	4.13	2014-05-15	2020-07-02
+449	British Road Movies	Kate Jackson	68	10	Wonder Feeling	3.85	2016-08-15	2025-04-14
+450	the record	boygenius	68	12	$20.00	3.76	2023-01-29	2026-07-09
+451	Swing Lo Magellan	Dirty Projectors	68	12	Dance For You	3.73	2012-07-10	2023-06-27
+452	Blue Bell Knoll	Cocteau Twins	68	12	Carolyn's Fingers	3.68	2017-03-28	2026-08-05
+453	XO	Elliott Smith	68	14	Waltz #2 (XO)	3.64	2012-09-13	2026-07-17
+454	Love in Mine	Big Thief	68	2	Love in Mine	3.43	2020-05-01	2026-05-14
+455	Solitude	Billie Holiday	68	6	Solitude	3.43	2021-03-11	2023-03-30
+456	Teens of Denial	Car Seat Headrest	67	7	Drunk Drivers/Killer Whales	6.14	2016-12-30	2026-04-28
+457	The Warning	Hot Chip	67	11	Over And Over	5.35	2013-01-06	2026-05-17
+458	Kaputt	Destroyer	67	9	Kaputt	5.19	2011-12-16	2026-07-15
+459	Let Love In	Nick Cave & The Bad Seeds	67	8	Red Right Hand	4.78	2015-01-08	2025-04-19
+460	Half Way Home	Angel Olsen	67	11	Acrobat	4.62	2014-02-13	2020-07-09
+461	So Far	Crosby, Stills, Nash & Young	67	11	Suite: Judy Blue Eyes	4.2	2014-07-09	2025-10-30
+462	Freetown Sound	Blood Orange	67	17	Augustine	3.73	2016-06-28	2026-07-12
+463	Midnights	Taylor Swift	67	22	Karma	3.71	2023-01-27	2024-07-27
+464	Everybody Looking	Gucci Mane	67	15	Back on Road	3.38	2016-07-29	2026-08-08
+465	Gold	The Mamas & The Papas	67	30	Monday, Monday - Single Version	3.21	2014-04-03	2014-05-30
+466	Beethoven: Diabelli Variations, Op. 120	Ludwig van Beethoven	67	40	Diabelli Variations, Op. 120: Var. 10, Presto	1.73	2016-04-12	2018-02-07
+467	The Fragile	Nine Inch Nails	66	23	We're In This Together	5.04	2012-03-29	2026-07-16
+468	Portishead	Portishead	66	11	All Mine	4.66	2012-05-01	2026-07-08
+469	Anima Mysterium	Yugen Blakrok	66	12	Obsidian Night	4.66	2019-04-23	2020-01-30
+470	The Modern Lovers	The Modern Lovers	66	19	Roadrunner (Alternative Version)	4.21	2012-07-05	2026-08-16
+471	beerbongs & bentleys	Post Malone	66	13	Better Now	3.63	2018-05-23	2025-07-29
+472	No Shape	Perfume Genius	66	13	Slip Away	3.3	2017-05-07	2025-05-24
+473	Nursery Rhymes	Nursery Rhymes	66	10	Old MacDonald Had a Farm	2.05	2017-11-07	2019-06-15
+474	the long goodbye	LCD Soundsystem	65	28	get innocuous! - live at madison square garden	6.88	2014-05-23	2023-06-16
+475	Duke Ellington & John Coltrane	Duke Ellington	65	3	In A Sentimental Mood	4.7	2018-08-29	2023-02-27
+476	Milk & Kisses	Cocteau Twins	65	11	Serpentskirt	4.45	2017-04-07	2026-08-05
+477	The Woods	Sleater-Kinney	65	10	The Fox	4.3	2011-12-23	2025-11-15
+478	Treasure	Cocteau Twins	65	8	Lorelei	4.14	2014-04-02	2026-08-05
+479	Primera Cita	CNCO	65	14	Reggaetón Lento (Bailemos)	3.56	2017-07-16	2017-09-17
+480	The Sound of the Smiths	The Smiths	65	33	This Charming Man - Single Version; 2008 Remaster	3.38	2013-07-30	2025-10-20
+481	Mercury - Acts 1 & 2	Imagine Dragons	65	21	My Life	3.13	2023-04-15	2023-07-19
+482	Forse 3	Alessandro Cortini	64	9	Scotta	7.85	2017-04-18	2020-10-29
+483	The Three E.P.'s	The Beta Band	64	5	Dry the Rain	4.88	2019-11-22	2026-05-16
+484	Clique	Kanye West	64	2	Clique	4.62	2012-09-18	2021-03-30
+485	Venice	Fennesz	64	14	Rivers of Sand	4.52	2017-04-04	2026-04-23
+486	A Rush of Blood to the Head	Coldplay	64	11	Clocks	4.42	2016-03-25	2025-06-04
+487	When The Pawn...	Fiona Apple	64	10	I Know	4.42	2012-06-20	2026-01-13
+488	ASTROWORLD	Travis Scott	64	6	SICKO MODE	4.38	2018-08-08	2026-08-18
+489	The Velvet Underground & Nico 45th Anniversary	The Velvet Underground	64	13	Sunday Morning	4.09	2013-08-13	2026-08-15
+490	Evolve	Imagine Dragons	64	8	Believer	3.2	2017-10-08	2023-06-19
+491	Big Fish Theory	Vince Staples	64	11	Yeah Right	3.01	2017-07-06	2026-01-10
+492	Tender Buttons	Broadcast	64	8	Tender Buttons	2.77	2013-10-04	2026-08-08
+493	Red (Taylor's Version)	Taylor Swift	63	22	All Too Well (10 Minute Version) (Taylor's Version) (From The Vault)	6.95	2021-11-16	2026-08-10
+494	Grace	Jeff Buckley	63	16	Eternal Life	4.38	2014-06-11	2026-08-05
+495	Sugar & Spice	Hatchie	63	5	Bad Guy	3.97	2019-08-03	2022-10-09
+496	Let's Get Out of This Country	Camera Obscura	63	15	Lloyd, I'm Ready To Be Heartbroken	3.84	2012-09-12	2026-08-13
+497	If You Asked For A Picture	Blondshell	63	12	Change	3.82	2025-05-05	2026-07-27
+498	ENOC	Ozuna	63	17	Una Locura	3.48	2020-09-08	2023-05-14
+499	Electric Version	The New Pornographers	63	14	The Electric Version	3.37	2013-01-07	2026-07-16
+500	Reckoning	R.E.M.	63	10	So. Central Rain	3.26	2021-08-05	2026-07-25
