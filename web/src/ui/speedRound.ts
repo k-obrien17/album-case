@@ -84,11 +84,14 @@ export function mountSpeedRound(
     armMic(album);
   }
 
-  /** Shown when voice rating didn't produce a usable number: a silent
-   *  recording, unintelligible speech, or a real mic/recognition failure all
-   *  land here. Same manual-entry contract as buildDirectRate's fallback
-   *  input (rankList.ts), plus a button to re-arm the mic for another try. */
-  function buildFallback(album: Album): HTMLElement {
+  /** Manual-entry fallback: same contract as buildDirectRate's fallback input
+   *  (rankList.ts). Shown whenever voice rating didn't produce a usable
+   *  number (silent recording, unintelligible speech, a real mic/recognition
+   *  failure) -- and also alongside the "Listening..." status, so typing a
+   *  rating never requires waiting for voice to fail first. The "Try voice
+   *  again" button only makes sense once the mic has already stopped, so it's
+   *  omitted while still listening. */
+  function buildFallback(album: Album, opts_: { showRetry: boolean }): HTMLElement {
     const wrap = document.createElement('div');
     wrap.className = 'speed-round-actions';
 
@@ -119,13 +122,17 @@ export function mountSpeedRound(
       opts.onRate(album, Math.round(rating * 100) / 100); // caller advances + remounts
     });
 
-    const retryBtn = document.createElement('button');
-    retryBtn.type = 'button';
-    retryBtn.className = 'candidate-place-button candidate-mic-button';
-    retryBtn.textContent = 'Try voice again';
-    retryBtn.addEventListener('click', () => startListening(album));
+    form.append(input, submitBtn);
 
-    form.append(input, submitBtn, retryBtn);
+    if (opts_.showRetry) {
+      const retryBtn = document.createElement('button');
+      retryBtn.type = 'button';
+      retryBtn.className = 'candidate-place-button candidate-mic-button';
+      retryBtn.textContent = 'Try voice again';
+      retryBtn.addEventListener('click', () => startListening(album));
+      form.append(retryBtn);
+    }
+
     wrap.append(form);
     return wrap;
   }
@@ -175,18 +182,18 @@ export function mountSpeedRound(
 
     if (phase.kind === 'listening') {
       status.classList.add('speed-round-status--listening');
-      status.textContent = 'Listening…';
-      card.append(status);
+      status.textContent = 'Listening… or type a rating below.';
+      card.append(status, buildFallback(album, { showRetry: false }));
     } else if (phase.kind === 'needs-manual') {
       status.classList.add('speed-round-status--unclear');
       status.textContent = phase.heardText
         ? `Heard "${phase.heardText}" -- couldn't parse a rating.`
         : 'Nothing heard.';
-      card.append(status, buildFallback(album));
+      card.append(status, buildFallback(album, { showRetry: true }));
     } else {
       status.classList.add('speed-round-status--error');
       status.textContent = phase.message;
-      card.append(status, buildFallback(album));
+      card.append(status, buildFallback(album, { showRetry: true }));
     }
 
     wrap.append(card);
