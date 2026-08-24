@@ -64,17 +64,18 @@ Defined in `web/api/_schema.ts`:
 | `atoms` | `id` (autoincrement) | Pairwise comparison/placement records (`entity_a`, `entity_b`, `winner`, `mechanism`, `session_id`) |
 | `sessions` | `session_id` | Session bookkeeping (`created_at`, `last_seen_at`) |
 | `ranking_snapshots` | `session_id` | Canonical owner ranking snapshot (`ranking_json`, `lists_json`, `artist_locks_json`, `updated_at`) |
-| `discovered_albums` | `session_id, mbid` | Full album records from live MusicBrainz discovery (see `discover-artist.ts`) |
+| `discovered_albums` | `session_id, mbid` | Full album records from live MusicBrainz discovery or bulk-import scripts (see `discover-artist.ts`, `web/scripts/import-spotify-albums.mjs`) |
 
 ## File structure
 
 | Path | What |
 |---|---|
 | `web/src/main.ts` | App entry point and top-level state wiring |
-| `web/src/ranking/` | Pure ranking engines (insertion, order, locks, set-aside) — no DOM |
+| `web/src/ranking/` | Pure ranking engines (insertion, order, locks, set-aside), no DOM |
 | `web/src/ui/` | DOM rendering/interaction (`rankList.ts`, `artistBatchView.ts`, `savedList.ts`) |
 | `web/api/` | Vercel serverless routes (`ranking`, `discover-artist`, `search-album`, `similar-artists`, `atom`, write-key/allowlist guards) |
 | `web/api/_schema.ts` | Turso table definitions |
+| `web/scripts/` | Operational scripts: bulk album imports, curated-list MBID resolution, exports (see each script's header for usage) |
 | `pipeline/` | Offline seed-generation pipeline (see "Codebases in this repo") |
 | `scoring/` | Legacy calibration scoring module + pytest tests |
 
@@ -95,6 +96,7 @@ npm install
 npm run dev
 npm run test
 npm run build
+vercel deploy --prod --yes   # from web/, required after every commit -- no auto-deploy
 ```
 
 ## Conventions
@@ -103,13 +105,17 @@ npm run build
   sections when they conflict.
 - Render with safe DOM construction, not `innerHTML`.
 - Mobile is the primary device: tap targets >= 44px, usable at 360px, no horizontal scroll.
-- Match the project's package manager and language once the product stack is chosen (see the phase plan / `DATA-SOURCES.md`); don't assume.
 
 ## Don't
 
 **Product (Album Case):**
 - **Don't put `ALBUM_CASE_WRITE_KEY` in source, screenshots, logs, or `VITE_*`
   env vars.**
+- **Don't hand-edit `te-tokens.css`** (root or `web/public/`). It's generated
+  from `portfolio/design-system/tokens.css` by that project's `sync.mjs`;
+  hand edits get silently overwritten on the next sync. Edit `te-bridge.css`
+  instead for app-specific brand overrides, it's hand-owned and loaded last
+  to win the cascade.
 - **Don't use artist-name search for discovery when an artist MBID is
   available.**
 - **Don't use Elo or any model that allows self-contradicting picks** for the
@@ -123,6 +129,14 @@ npm run build
 - **Don't re-enable artist locks without reading `ranking/locks.ts` first.**
   Lock enforcement is paused; every ranked/unranked row is currently always
   editable (see `artistBatchView.ts`'s header comment).
+- **Don't assume a merged/committed change is live in production.** This
+  project has no git-integration auto-deploy; every commit that should reach
+  production needs a manual `vercel deploy --prod --yes` from `web/`
+  afterward. A past session shipped a real bug this way: a curated list
+  landed on GitHub but nobody redeployed, so production silently served a
+  stale bundle. Verify with
+  `curl -s https://album-case.vercel.app/ | grep -o 'assets/index-[^"]*\.js'`
+  against the local build hash if in doubt.
 
 **Legacy tool only:**
 - **Don't hand-edit `artists.js`.** It is generated from `artists.json` by `build-artists.py`.
@@ -136,7 +150,7 @@ non-trivial change, read it and treat the relevant must-pass commitments as
 acceptance criteria. Build to the bar; don't wait for /ship-check to find the gap.
 
 Class is a custom "personal-app" lens set, not one of ship-standard's five
-presets — none assume a single-owner tool with no accounts/signup surface.
+presets: none assume a single-owner tool with no accounts/signup surface.
 Ongoing regression checks after this point should use `/regression-smoke`,
 not a full `/ship-check` (see that skill's own Don'ts).
 
