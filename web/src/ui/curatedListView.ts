@@ -1,11 +1,8 @@
 import type { CuratedAlbumEntry, CuratedList } from '../data/curatedLists';
 import type { Album } from '../ranking/types';
+import { curatedEntryKey } from '../curatedListMatch';
 
-/** Stable per-entry identity for in-flight/message tracking -- curated
- *  entries carry no mbid (see curatedLists.ts's header comment). */
-export function curatedEntryKey(listId: string, entry: CuratedAlbumEntry): string {
-  return `${listId}:${entry.rank}`;
-}
+export { curatedEntryKey };
 
 export type CuratedListViewOptions = {
   lists: Record<string, CuratedList>;
@@ -21,6 +18,16 @@ export type CuratedListViewOptions = {
    *  `onConfirmMatch`'s doc comment for the incident that made this
    *  mandatory), so nothing gets written to the ranked list sight-unseen. */
   onRateAlbum: (entry: CuratedAlbumEntry, rating: number) => void;
+  /** Marks this entry skipped (persisted server-side); it stops appearing
+   *  in `unranked` on the next render. No confirmation -- reviewing/undoing
+   *  a skip lives in the Blocked artists screen instead. */
+  onSkipEntry: (entry: CuratedAlbumEntry) => void;
+  /** Blocks the entry's artist entirely, same mechanism as the main
+   *  discovery pool's "No more X albums". */
+  onHideArtist: (entry: CuratedAlbumEntry) => void;
+  /** Adds a *resolved* entry straight to the owner's wantToListen list, no
+   *  search needed. A no-op (button hidden) for unresolved entries. */
+  onWantToListen: (entry: CuratedAlbumEntry) => void;
   /** curatedEntryKey() of the row currently resolving/awaiting confirmation, if any. */
   ratingEntryKey: string | null;
   /** A one-shot message tied to a specific row (e.g. "couldn't find X"),
@@ -182,6 +189,37 @@ export function renderCuratedListView(container: HTMLElement, opts: CuratedListV
 
     form.append(input, btn);
     item.append(form);
+
+    const actions = document.createElement('div');
+    actions.className = 'candidate-place';
+
+    if (entry.resolved) {
+      const wantBtn = document.createElement('button');
+      wantBtn.type = 'button';
+      wantBtn.className = 'candidate-place-button';
+      wantBtn.textContent = 'Want to listen';
+      wantBtn.disabled = opts.ratingEntryKey !== null;
+      wantBtn.addEventListener('click', () => opts.onWantToListen(entry));
+      actions.append(wantBtn);
+    }
+
+    const skipBtn = document.createElement('button');
+    skipBtn.type = 'button';
+    skipBtn.className = 'candidate-place-button';
+    skipBtn.textContent = 'Skip for now';
+    skipBtn.disabled = opts.ratingEntryKey !== null;
+    skipBtn.addEventListener('click', () => opts.onSkipEntry(entry));
+    actions.append(skipBtn);
+
+    const hideBtn = document.createElement('button');
+    hideBtn.type = 'button';
+    hideBtn.className = 'candidate-place-button';
+    hideBtn.textContent = `No more ${entry.artist}`;
+    hideBtn.disabled = opts.ratingEntryKey !== null;
+    hideBtn.addEventListener('click', () => opts.onHideArtist(entry));
+    actions.append(hideBtn);
+
+    item.append(actions);
     list.append(item);
   }
   wrap.append(list);

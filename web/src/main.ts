@@ -61,8 +61,8 @@ import {
   saveCandidateArtistCooldown,
 } from './candidateCooldown';
 import { CURATED_LISTS } from './data/curatedLists';
-import { unrankedFromCuratedList } from './curatedListMatch';
-import { renderCuratedListView, curatedEntryKey } from './ui/curatedListView';
+import { curatedEntryKey, unrankedFromCuratedList } from './curatedListMatch';
+import { renderCuratedListView } from './ui/curatedListView';
 import type { CuratedAlbumEntry } from './data/curatedLists';
 
 type ViewMode = 'ranked' | ListName | 'blockedArtists' | 'artistBatch' | 'speedRound' | 'curatedLists';
@@ -293,8 +293,18 @@ async function main(): Promise<void> {
   const cachedState: RankingState = loadRanking() ?? { ranked: [], pending: null };
   const cachedLists = loadLists();
   const cachedArtistLocks = loadArtistLocks();
+  // Turso is the source of truth for blocked artists / curated-entry skips,
+  // same as ranked/lists/artistLocks -- localStorage here is a fallback for
+  // the very first load after this field was introduced (nothing on the
+  // server yet) and an offline cache thereafter, never authoritative.
   let blockedArtists = loadBlockedArtists();
+  let curatedSkips = new Set<string>();
   const serverLoad = await loadRankingSnapshotDetailed(OWNER_ID);
+  if (serverLoad.status === 'found') {
+    blockedArtists = serverLoad.blockedArtists;
+    saveBlockedArtists(blockedArtists);
+    curatedSkips = new Set(serverLoad.curatedSkips);
+  }
   let serverSnapshot =
     serverLoad.status === 'found'
       ? { ranked: serverLoad.ranked, lists: serverLoad.lists, artistLocks: serverLoad.artistLocks }
@@ -488,6 +498,8 @@ async function main(): Promise<void> {
       state,
       lists,
       artistLocks,
+      blockedArtists,
+      [...curatedSkips],
       snapshotBaseUpdatedAt
     );
     if (result.status === 'saved') {
@@ -534,6 +546,19 @@ async function main(): Promise<void> {
     queueRankingSnapshotSync();
   }
 
+  function persistBlockedArtists(): void {
+    saveBlockedArtists(blockedArtists);
+    markPendingSync();
+    updateSyncBanner();
+    queueRankingSnapshotSync();
+  }
+
+  function persistCuratedSkips(): void {
+    markPendingSync();
+    updateSyncBanner();
+    queueRankingSnapshotSync();
+  }
+
   function removeBlockedFromPriorityQueue(): void {
     const blockedIds = blockedArtistMbids(pool, blockedArtists);
     priorityQueue = priorityQueue.filter((mbid) => !blockedIds.has(mbid));
@@ -542,7 +567,7 @@ async function main(): Promise<void> {
 
   function handleBlockArtist(album: Album): void {
     blockedArtists = addBlockedArtist(blockedArtists, album.primary_artist_name);
-    saveBlockedArtists(blockedArtists);
+    persistBlockedArtists();
     removeBlockedFromPriorityQueue();
     reselectCandidate();
     rankList.showStatus(`No more ${album.primary_artist_name} albums.`);
@@ -1033,45 +1058,105 @@ async function main(): Promise<void> {
 
   function restoreArtist(artistName: string): void {
     blockedArtists = removeBlockedArtist(blockedArtists, artistName);
-    saveBlockedArtists(blockedArtists);
+    persistBlockedArtists();
     if (!candidate) reselectCandidate();
     renderNav();
     renderBlockedArtists();
   }
 
+  /** Human-readable label for a skipped curatedEntryKey ("listId:rank"),
+   *  falling back to the raw key if the list/rank no longer resolves (a
+   *  list was renamed/removed since the skip was recorded). */
+  function describeCuratedSkip(entryKey: string): string {
+    const [listId, rankStr] = entryKey.split(':');
+    const rank = Number(rankStr);
+    const entry = listId ? CURATED_LISTS[listId]?.albums.find((a) => a.rank === rank) : undefined;
+    return entry ? `${entry.artist} – ${entry.title}` : entryKey;
+  }
+
+  function unskipCuratedEntry(entryKey: string): void {
+    curatedSkips.delete(entryKey);
+    persistCuratedSkips();
+    renderBlockedArtists();
+    renderCuratedListsView();
+  }
+
+  /** Shared review/undo screen for both hide-state mechanisms: blocked
+   *  artists (global, all views) and skipped curated albums (per-entry,
+   *  curated lists only) -- one screen rather than two, per the design
+   *  discussion (both are "I hid this, let me get it back" in spirit). */
   function renderBlockedArtists(): void {
     stage.textContent = '';
-    if (blockedArtists.length === 0) {
+
+    if (blockedArtists.length === 0 && curatedSkips.size === 0) {
       const empty = document.createElement('p');
       empty.className = 'saved-empty';
-      empty.textContent = 'No blocked artists.';
+      empty.textContent = 'No blocked artists or skipped albums.';
       stage.append(empty);
       return;
     }
 
-    const list = document.createElement('ul');
-    list.className = 'saved-list';
-    for (const artist of blockedArtists) {
-      const item = document.createElement('li');
-      item.className = 'saved-item';
+    if (blockedArtists.length > 0) {
+      const heading = document.createElement('p');
+      heading.className = 'curated-list-status';
+      heading.textContent = 'Blocked artists';
+      stage.append(heading);
 
-      const meta = document.createElement('div');
-      meta.className = 'saved-meta';
-      const name = document.createElement('p');
-      name.className = 'saved-title';
-      name.textContent = artist;
-      meta.append(name);
+      const list = document.createElement('ul');
+      list.className = 'saved-list';
+      for (const artist of blockedArtists) {
+        const item = document.createElement('li');
+        item.className = 'saved-item';
 
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'saved-mark';
-      btn.textContent = 'Restore';
-      btn.addEventListener('click', () => restoreArtist(artist));
+        const meta = document.createElement('div');
+        meta.className = 'saved-meta';
+        const name = document.createElement('p');
+        name.className = 'saved-title';
+        name.textContent = artist;
+        meta.append(name);
 
-      item.append(meta, btn);
-      list.append(item);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'saved-mark';
+        btn.textContent = 'Restore';
+        btn.addEventListener('click', () => restoreArtist(artist));
+
+        item.append(meta, btn);
+        list.append(item);
+      }
+      stage.append(list);
     }
-    stage.append(list);
+
+    if (curatedSkips.size > 0) {
+      const heading = document.createElement('p');
+      heading.className = 'curated-list-status';
+      heading.textContent = 'Skipped curated albums';
+      stage.append(heading);
+
+      const list = document.createElement('ul');
+      list.className = 'saved-list';
+      for (const entryKey of curatedSkips) {
+        const item = document.createElement('li');
+        item.className = 'saved-item';
+
+        const meta = document.createElement('div');
+        meta.className = 'saved-meta';
+        const name = document.createElement('p');
+        name.className = 'saved-title';
+        name.textContent = describeCuratedSkip(entryKey);
+        meta.append(name);
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'saved-mark';
+        btn.textContent = 'Unskip';
+        btn.addEventListener('click', () => unskipCuratedEntry(entryKey));
+
+        item.append(meta, btn);
+        list.append(item);
+      }
+      stage.append(list);
+    }
   }
 
   function handleSelectCuratedList(listId: string): void {
@@ -1179,9 +1264,44 @@ async function main(): Promise<void> {
     renderCuratedListsView();
   }
 
+  /** No confirmation, no undo-toast -- entries in error just have "no simple
+   *  way to skip" per the original complaint; unskip lives in the Blocked
+   *  artists screen (renderBlockedArtists) instead, so this stays one tap. */
+  function handleSkipCuratedEntry(listId: string, entry: CuratedAlbumEntry): void {
+    curatedSkips.add(curatedEntryKey(listId, entry));
+    persistCuratedSkips();
+    renderCuratedListsView();
+  }
+
+  /** Same block mechanism as the main discovery pool's "No more X albums"
+   *  (handleBlockArtist) -- curated entries carry an artist name but not
+   *  always an Album record, so this can't reuse that function directly. */
+  function handleHideCuratedArtist(entry: CuratedAlbumEntry): void {
+    blockedArtists = addBlockedArtist(blockedArtists, entry.artist);
+    persistBlockedArtists();
+    removeBlockedFromPriorityQueue();
+    renderCuratedListsView();
+  }
+
+  /** Resolved entries (pre-vetted offline, see handleRateCuratedAlbum's
+   *  comment) add straight to wantToListen -- no search needed. Unresolved
+   *  entries don't offer this button yet (see curatedListView.ts): reusing
+   *  the search-confirm flow for a non-rating destination is real scope,
+   *  deliberately deferred rather than rushed. */
+  function handleWantToListenCuratedEntry(entry: CuratedAlbumEntry): void {
+    if (!entry.resolved) return;
+    lists = addToList(lists, entry.resolved, 'wantToListen');
+    persistLists();
+    renderCuratedListsView();
+  }
+
   function renderCuratedListsView(): void {
     const unranked = selectedCuratedListId
-      ? unrankedFromCuratedList(CURATED_LISTS[selectedCuratedListId].albums, state.ranked)
+      ? unrankedFromCuratedList(CURATED_LISTS[selectedCuratedListId].albums, state.ranked, {
+          listId: selectedCuratedListId,
+          skippedKeys: curatedSkips,
+          blockedArtists,
+        })
       : [];
     renderCuratedListView(stage, {
       lists: CURATED_LISTS,
@@ -1191,6 +1311,11 @@ async function main(): Promise<void> {
       onRateAlbum: (entry, rating) => {
         void handleRateCuratedAlbum(entry, rating);
       },
+      onSkipEntry: (entry) => {
+        if (selectedCuratedListId) handleSkipCuratedEntry(selectedCuratedListId, entry);
+      },
+      onHideArtist: handleHideCuratedArtist,
+      onWantToListen: handleWantToListenCuratedEntry,
       ratingEntryKey: curatedRatingEntryKey,
       rateMessage: curatedRateMessage,
       pendingMatch: curatedPendingMatch,

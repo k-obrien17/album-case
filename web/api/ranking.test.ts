@@ -247,6 +247,107 @@ describe('/api/ranking', () => {
     expect(res.body).toEqual({ error: 'invalid_snapshot' });
   });
 
+  it('round-trips blocked_artists_json and curated_skips_json through POST then GET', async () => {
+    vi.stubEnv('TURSO_DATABASE_URL', 'libsql://example.test');
+    vi.stubEnv('TURSO_AUTH_TOKEN', 'token');
+    vi.stubEnv('ALBUM_CASE_WRITE_KEY', 'secret-123');
+    dbMock.execute.mockResolvedValue({ rows: [] });
+    dbMock.batch.mockResolvedValue([{ rowsAffected: 1 }, { rowsAffected: 1 }]);
+    const blockedArtists = ['Nickelback'];
+    const curatedSkips = ['pitchfork-1980s:47'];
+
+    const postRes = makeRes();
+    await handler(
+      postReq({
+        session_id: '11111111-1111-4111-8111-111111111111',
+        ranked: [],
+        lists: { wantToListen: [], notHeard: [], dontCare: [] },
+        blocked_artists: blockedArtists,
+        curated_skips: curatedSkips,
+      }) as never,
+      postRes as never
+    );
+    expect(postRes.statusCode).toBe(200);
+
+    const insertCall = dbMock.batch.mock.calls[0][0][1];
+    expect(insertCall.args).toContain(JSON.stringify(blockedArtists));
+    expect(insertCall.args).toContain(JSON.stringify(curatedSkips));
+
+    dbMock.execute.mockResolvedValue({
+      rows: [
+        {
+          ranking_json: '[]',
+          lists_json: '{"wantToListen":[],"notHeard":[],"dontCare":[]}',
+          artist_locks_json: null,
+          blocked_artists_json: JSON.stringify(blockedArtists),
+          curated_skips_json: JSON.stringify(curatedSkips),
+          updated_at: 123,
+        },
+      ],
+    });
+    const getRes = makeRes();
+    await handler(
+      getReq({ session_id: '11111111-1111-4111-8111-111111111111' }) as never,
+      getRes as never
+    );
+
+    expect(getRes.statusCode).toBe(200);
+    const snapshot = (getRes.body as { snapshot: { blocked_artists: unknown; curated_skips: unknown } })
+      .snapshot;
+    expect(snapshot.blocked_artists).toEqual(blockedArtists);
+    expect(snapshot.curated_skips).toEqual(curatedSkips);
+  });
+
+  it('defaults blocked_artists and curated_skips to empty arrays when the body omits them', async () => {
+    vi.stubEnv('TURSO_DATABASE_URL', 'libsql://example.test');
+    vi.stubEnv('TURSO_AUTH_TOKEN', 'token');
+    vi.stubEnv('ALBUM_CASE_WRITE_KEY', 'secret-123');
+    dbMock.execute.mockResolvedValue({ rows: [] });
+    dbMock.batch.mockResolvedValue([{ rowsAffected: 1 }, { rowsAffected: 1 }]);
+
+    const res = makeRes();
+    await handler(
+      postReq({
+        session_id: '11111111-1111-4111-8111-111111111111',
+        ranked: [],
+        lists: { wantToListen: [], notHeard: [], dontCare: [] },
+      }) as never,
+      res as never
+    );
+    expect(res.statusCode).toBe(200);
+
+    const insertCall = dbMock.batch.mock.calls[0][0][1];
+    expect(insertCall.args.filter((a: unknown) => a === '[]').length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('GET defaults null blocked_artists_json/curated_skips_json (pre-migration row) to empty arrays', async () => {
+    vi.stubEnv('TURSO_DATABASE_URL', 'libsql://example.test');
+    vi.stubEnv('TURSO_AUTH_TOKEN', 'token');
+    dbMock.execute.mockResolvedValue({
+      rows: [
+        {
+          ranking_json: '[]',
+          lists_json: '{"wantToListen":[],"notHeard":[],"dontCare":[]}',
+          artist_locks_json: null,
+          blocked_artists_json: null,
+          curated_skips_json: null,
+          updated_at: 123,
+        },
+      ],
+    });
+    const res = makeRes();
+
+    await handler(
+      getReq({ session_id: '11111111-1111-4111-8111-111111111111' }) as never,
+      res as never
+    );
+
+    expect(res.statusCode).toBe(200);
+    const snapshot = (res.body as { snapshot: { blocked_artists: unknown; curated_skips: unknown } }).snapshot;
+    expect(snapshot.blocked_artists).toEqual([]);
+    expect(snapshot.curated_skips).toEqual([]);
+  });
+
   it('does not require a rating on albums inside lists (wantToListen/notHeard/dontCare)', async () => {
     vi.stubEnv('TURSO_DATABASE_URL', 'libsql://example.test');
     vi.stubEnv('TURSO_AUTH_TOKEN', 'token');

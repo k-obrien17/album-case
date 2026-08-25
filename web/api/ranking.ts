@@ -40,6 +40,8 @@ type RankingBody = {
   ranked?: unknown;
   lists?: unknown;
   artist_locks?: unknown;
+  blocked_artists?: unknown;
+  curated_skips?: unknown;
   base_updated_at?: unknown;
 };
 
@@ -58,10 +60,12 @@ function ensureSchema(): Promise<void> {
     for (const sql of SCHEMA_STATEMENTS) {
       await client.execute(sql);
     }
-    try {
-      await client.execute('ALTER TABLE ranking_snapshots ADD COLUMN artist_locks_json TEXT');
-    } catch {
-      // Existing deployments may already have this nullable column.
+    for (const column of ['artist_locks_json', 'blocked_artists_json', 'curated_skips_json']) {
+      try {
+        await client.execute(`ALTER TABLE ranking_snapshots ADD COLUMN ${column} TEXT`);
+      } catch {
+        // Existing deployments may already have this nullable column.
+      }
     }
   })();
   return schemaReady;
@@ -177,6 +181,16 @@ function parseArtistLocks(value: unknown): ArtistLock[] | null {
   return locks;
 }
 
+// Plain string list -- blocked artist names and curated-entry skip keys
+// (`listId:rank`) are both just opaque strings from the API's point of
+// view; validated here, given meaning by the client.
+function parseStringArray(value: unknown): string[] | null {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) return null;
+  if (!value.every((item) => typeof item === 'string')) return null;
+  return value as string[];
+}
+
 function parseBaseUpdatedAt(value: unknown): number | null | undefined {
   if (value === undefined) return undefined;
   if (value === null) return null;
@@ -190,6 +204,8 @@ function validate(body: RankingBody | null):
       ranked: RankedAlbum[];
       lists: SnapshotLists;
       artistLocks: ArtistLock[];
+      blockedArtists: string[];
+      curatedSkips: string[];
       baseUpdatedAt: number | null | undefined;
     }
   | { ok: false; message: string } {
@@ -199,7 +215,11 @@ function validate(body: RankingBody | null):
   const ranked = parseRankedAlbumList(body.ranked);
   const lists = parseLists(body.lists);
   const artistLocks = parseArtistLocks(body.artist_locks);
-  if (!ranked || !lists || !artistLocks) return { ok: false, message: 'invalid_snapshot' };
+  const blockedArtists = parseStringArray(body.blocked_artists);
+  const curatedSkips = parseStringArray(body.curated_skips);
+  if (!ranked || !lists || !artistLocks || !blockedArtists || !curatedSkips) {
+    return { ok: false, message: 'invalid_snapshot' };
+  }
   const baseUpdatedAt = parseBaseUpdatedAt(body.base_updated_at);
   if (body.base_updated_at !== undefined && baseUpdatedAt === undefined) {
     return { ok: false, message: 'invalid_base_updated_at' };
@@ -217,7 +237,16 @@ function validate(body: RankingBody | null):
     savedIds.add(album.mbid);
   }
 
-  return { ok: true, sessionId: body.session_id, ranked, lists, artistLocks, baseUpdatedAt };
+  return {
+    ok: true,
+    sessionId: body.session_id,
+    ranked,
+    lists,
+    artistLocks,
+    blockedArtists,
+    curatedSkips,
+    baseUpdatedAt,
+  };
 }
 
 async function handleGet(req: VercelRequest, res: VercelResponse): Promise<void> {
@@ -230,7 +259,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse): Promise<void>
   await ensureSchema();
   const rows = await db().execute({
     sql: `
-SELECT ranking_json, lists_json, artist_locks_json, updated_at
+SELECT ranking_json, lists_json, artist_locks_json, blocked_artists_json, curated_skips_json, updated_at
 FROM ranking_snapshots
 WHERE session_id = ?
 `,
@@ -245,6 +274,8 @@ WHERE session_id = ?
   const ranked = JSON.parse(String(row.ranking_json)) as RankedAlbum[];
   const lists = JSON.parse(String(row.lists_json)) as Partial<SnapshotLists>;
   const artistLocks = row.artist_locks_json ? (JSON.parse(String(row.artist_locks_json)) as ArtistLock[]) : [];
+  const blockedArtists = row.blocked_artists_json ? (JSON.parse(String(row.blocked_artists_json)) as string[]) : [];
+  const curatedSkips = row.curated_skips_json ? (JSON.parse(String(row.curated_skips_json)) as string[]) : [];
   res.status(200).json({
     snapshot: {
       ranked,
@@ -254,6 +285,8 @@ WHERE session_id = ?
         dontCare: lists.dontCare ?? [],
       },
       artist_locks: artistLocks,
+      blocked_artists: blockedArtists,
+      curated_skips: curatedSkips,
       updated_at: Number(row.updated_at),
     },
   });
@@ -275,32 +308,38 @@ async function handlePost(req: VercelRequest, res: VercelResponse): Promise<void
     JSON.stringify(validated.ranked),
     JSON.stringify(validated.lists),
     JSON.stringify(validated.artistLocks),
+    JSON.stringify(validated.blockedArtists),
+    JSON.stringify(validated.curatedSkips),
     now,
   ];
   const snapshotSql =
     validated.baseUpdatedAt === null
       ? `
-INSERT INTO ranking_snapshots (session_id, ranking_json, lists_json, artist_locks_json, updated_at)
-VALUES (?, ?, ?, ?, ?)
+INSERT INTO ranking_snapshots (session_id, ranking_json, lists_json, artist_locks_json, blocked_artists_json, curated_skips_json, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(session_id) DO NOTHING
 `
       : validated.baseUpdatedAt === undefined
         ? `
-INSERT INTO ranking_snapshots (session_id, ranking_json, lists_json, artist_locks_json, updated_at)
-VALUES (?, ?, ?, ?, ?)
+INSERT INTO ranking_snapshots (session_id, ranking_json, lists_json, artist_locks_json, blocked_artists_json, curated_skips_json, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(session_id) DO UPDATE SET
   ranking_json = excluded.ranking_json,
   lists_json = excluded.lists_json,
   artist_locks_json = excluded.artist_locks_json,
+  blocked_artists_json = excluded.blocked_artists_json,
+  curated_skips_json = excluded.curated_skips_json,
   updated_at = excluded.updated_at
 `
         : `
-INSERT INTO ranking_snapshots (session_id, ranking_json, lists_json, artist_locks_json, updated_at)
-VALUES (?, ?, ?, ?, ?)
+INSERT INTO ranking_snapshots (session_id, ranking_json, lists_json, artist_locks_json, blocked_artists_json, curated_skips_json, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(session_id) DO UPDATE SET
   ranking_json = excluded.ranking_json,
   lists_json = excluded.lists_json,
   artist_locks_json = excluded.artist_locks_json,
+  blocked_artists_json = excluded.blocked_artists_json,
+  curated_skips_json = excluded.curated_skips_json,
   updated_at = excluded.updated_at
 WHERE ranking_snapshots.updated_at = ?
 `;

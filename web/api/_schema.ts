@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS ranking_snapshots (
     ranking_json TEXT NOT NULL,
     lists_json TEXT NOT NULL,
     artist_locks_json TEXT,
+    blocked_artists_json TEXT,
+    curated_skips_json TEXT,
     updated_at INTEGER NOT NULL
 );
 `;

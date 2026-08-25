@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { RankedAlbum } from './ranking/types';
 import type { CuratedAlbumEntry } from './data/curatedLists';
-import { unrankedFromCuratedList } from './curatedListMatch';
+import { curatedEntryKey, unrankedFromCuratedList } from './curatedListMatch';
 
 function ranked(overrides: Partial<RankedAlbum> & { mbid: string }): RankedAlbum {
   return {
@@ -116,5 +116,39 @@ describe('unrankedFromCuratedList', () => {
       ranked({ mbid: 'some-other-edition', title: 'Kid A', primary_artist_name: 'Radiohead' }),
     ]);
     expect(result).toEqual([]);
+  });
+
+  it('excludes an entry whose artist is blocked', () => {
+    const result = unrankedFromCuratedList(curated, [], { blockedArtists: ['Radiohead'] });
+    expect(result.map((a) => a.rank)).toEqual([2, 3]);
+  });
+
+  it('matches a blocked artist case-insensitively and regardless of a leading "The"', () => {
+    const result = unrankedFromCuratedList(curated, [], { blockedArtists: ['the beatles'] });
+    expect(result.map((a) => a.rank)).toEqual([1, 3]);
+  });
+
+  it('excludes an entry whose curatedEntryKey is skipped', () => {
+    const skippedKeys = new Set([curatedEntryKey('pitchfork-2020s', curated[2])]);
+    const result = unrankedFromCuratedList(curated, [], { listId: 'pitchfork-2020s', skippedKeys });
+    expect(result.map((a) => a.rank)).toEqual([1, 2]);
+  });
+
+  it('does not exclude entries from a different list sharing the same skipped rank number', () => {
+    // Skip keys are scoped by listId:rank, not rank alone -- rank 3 skipped
+    // on a different list must not affect this list's rank 3.
+    const skippedKeys = new Set([curatedEntryKey('some-other-list', curated[2])]);
+    const result = unrankedFromCuratedList(curated, [], { listId: 'pitchfork-2020s', skippedKeys });
+    expect(result.map((a) => a.rank)).toEqual([1, 2, 3]);
+  });
+
+  it('applies blocked and skipped filters together with the ranked-list filter', () => {
+    const skippedKeys = new Set([curatedEntryKey('pitchfork-2020s', curated[1])]);
+    const result = unrankedFromCuratedList(
+      curated,
+      [ranked({ mbid: 'a', title: 'Kid A', primary_artist_name: 'Radiohead' })],
+      { listId: 'pitchfork-2020s', skippedKeys, blockedArtists: [] }
+    );
+    expect(result.map((a) => a.rank)).toEqual([3]);
   });
 });

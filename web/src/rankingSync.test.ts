@@ -38,7 +38,7 @@ describe('ranking snapshot payload', () => {
     };
     const artistLocks = [{ artistMbid: '33333333-3333-4333-8333-333333333333', order: ['a'] }];
 
-    expect(snapshotPayload('session-1', state, lists, artistLocks)).toEqual({
+    expect(snapshotPayload('session-1', state, lists, artistLocks, [], [])).toEqual({
       session_id: 'session-1',
       ranked: [rankedAlbum('a'), rankedAlbum('b')],
       lists: {
@@ -47,18 +47,32 @@ describe('ranking snapshot payload', () => {
         dontCare: [album('e')],
       },
       artist_locks: artistLocks,
+      blocked_artists: [],
+      curated_skips: [],
     });
+  });
+
+  it('serializes blocked artists and curated-entry skip keys', () => {
+    const state: RankingState = { ranked: [], pending: null };
+    const lists: SavedLists = { wantToListen: [], notHeard: [], dontCare: [] };
+
+    const payload = snapshotPayload('session-1', state, lists, [], ['Nickelback'], ['pitchfork-1980s:47']);
+
+    expect(payload.blocked_artists).toEqual(['Nickelback']);
+    expect(payload.curated_skips).toEqual(['pitchfork-1980s:47']);
   });
 
   it('includes the snapshot version when provided', () => {
     const state: RankingState = { ranked: [rankedAlbum('a')], pending: null };
     const lists: SavedLists = { wantToListen: [], notHeard: [], dontCare: [] };
 
-    expect(snapshotPayload('session-1', state, lists, [], 123)).toEqual({
+    expect(snapshotPayload('session-1', state, lists, [], [], [], 123)).toEqual({
       session_id: 'session-1',
       ranked: [rankedAlbum('a')],
       lists,
       artist_locks: [],
+      blocked_artists: [],
+      curated_skips: [],
       base_updated_at: 123,
     });
   });
@@ -77,6 +91,8 @@ describe('ranking snapshot payload', () => {
       '11111111-1111-4111-8111-111111111111',
       { ranked: [rankedAlbum('a')], pending: null },
       { wantToListen: [], notHeard: [], dontCare: [] },
+      [],
+      [],
       [],
       123
     );
@@ -99,6 +115,8 @@ describe('loadRankingSnapshot', () => {
         dontCare: [album('d')],
       },
       artist_locks: [{ artistMbid: '33333333-3333-4333-8333-333333333333', order: ['a'] }],
+      blocked_artists: ['Nickelback'],
+      curated_skips: ['pitchfork-1980s:47'],
       updated_at: 123,
     };
     vi.stubGlobal(
@@ -120,7 +138,30 @@ describe('loadRankingSnapshot', () => {
         dontCare: [album('d')],
       },
       artistLocks: snapshot.artist_locks,
+      blockedArtists: ['Nickelback'],
+      curatedSkips: ['pitchfork-1980s:47'],
     });
+  });
+
+  it('defaults blocked_artists and curated_skips to empty arrays on an older snapshot', async () => {
+    const snapshot = {
+      ranked: [{ ...album('a'), rating: 8.43 }],
+      lists: { wantToListen: [], notHeard: [], dontCare: [] },
+      updated_at: 1,
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ snapshot }),
+      } as unknown as Response)
+    );
+
+    const result = await loadRankingSnapshot('11111111-1111-4111-8111-111111111111');
+
+    expect(result?.blockedArtists).toEqual([]);
+    expect(result?.curatedSkips).toEqual([]);
   });
 
   it('defaults a missing dontCare bucket to an empty list (older snapshot)', async () => {
@@ -144,6 +185,8 @@ describe('loadRankingSnapshot', () => {
       ranked: [{ ...album('a'), rating: 8.43 }],
       lists: { wantToListen: [], notHeard: [], dontCare: [] },
       artistLocks: [],
+      blockedArtists: [],
+      curatedSkips: [],
     });
   });
 
