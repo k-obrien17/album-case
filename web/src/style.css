@@ -710,11 +710,21 @@ button.rank-rating:hover {
   text-overflow: ellipsis;
 }
 
-/* Wide screens: candidate to the right of the list, list takes the rest. */
+/* Wide screens: candidate to the right of the list, list takes the rest.
+   .rank-search is a third flex sibling in .rank-layout (see its own
+   comment: full width, above the candidate/list columns) -- without
+   flex-wrap + a forced 100% basis here, it sat in the same row as the
+   other two and starved .rank-list-col down to ~176px, collapsing
+   .rank-title to 0 width (one-character-per-line rendering at 768px). */
 @media (min-width: 720px) {
   .rank-layout {
     flex-direction: row-reverse;
+    flex-wrap: wrap;
     align-items: flex-start;
+  }
+
+  .rank-search {
+    flex: 1 1 100%;
   }
 
   .candidate-col {
@@ -724,7 +734,11 @@ button.rank-rating:hover {
   }
 
   .rank-list-col {
-    flex: 1 1 auto;
+    /* flex-basis: 0%, not auto -- auto sizes off content's natural width
+       (the full ranked list, effectively unbounded) and made this wrap to
+       its own line below .candidate-col instead of sharing the row with
+       it; 0% makes the flex algorithm size purely from available space. */
+    flex: 1 1 0%;
     min-width: 0;
   }
 }
