@@ -90,7 +90,7 @@ export function renderSavedList(
         status.textContent = 'Enter 0-10.';
         return;
       }
-      onRate(album, rating);
+      onRate(album, Math.round(rating * 100) / 100);
     });
 
     form.append(input, rateBtn);

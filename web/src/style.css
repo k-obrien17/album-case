@@ -818,6 +818,7 @@ button.rank-rating:hover {
   overflow-wrap: anywhere;
 }
 
+.saved-mark,
 .saved-remove {
   flex-shrink: 0;
   min-height: 44px;
@@ -831,6 +832,7 @@ button.rank-rating:hover {
   cursor: pointer;
 }
 
+.saved-mark:hover,
 .saved-remove:hover {
   background: var(--color-bg-alt);
   color: var(--color-fg);
