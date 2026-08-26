@@ -1,37 +1,34 @@
 # Handoff
 
 ## Current task
-Hide/skip-permanence for the rating workflow: Keith reported hidden bands and
-curated-list albums keep resurfacing because that state was localStorage-only.
-Core fix is built, tested, and deployed. One piece deliberately deferred.
+Extend "Want to listen" on curated-list entries to work for unresolved
+entries too (previously only worked when the entry already had a resolved
+MusicBrainz match).
 
 ## Status
-Shipped and verified live this session: (1) added the Pitchfork "200 Best
-Albums of the 1980s" curated list (200 entries, 151 with resolved mbids); (2)
-ran a full `/ship-check` + launch-assassin + Fable brief, which found and led
-to fixing a Critical CSS bug (tablet-breakpoint layout break on the golden
-ranking screen); (3) built the hide/skip-permanence feature -- `blockedArtists`
-and a new `curatedSkips` set now persist to Turso (previously localStorage
-only, which was the actual bug), curated-list rows gained Skip for now / No
-more [Artist] / Want to listen actions, and the Blocked Artists screen now
-also reviews/unskips curated skips. Full TDD throughout, 306/306 tests
-passing, build clean, deployed and schema-verified live (both new columns
-confirmed present on the production Turso table).
-
-Not done: "Want to listen" on a curated entry only works when the entry
-already has a resolved MusicBrainz match (~600 across the four lists).
-Unresolved entries need the same search-confirm flow "Rate" already uses,
-pointed at `wantToListen` instead of the ranked list -- deliberately deferred
-as its own scope, not started.
+Done and verified locally. `handleWantToListenCuratedEntry` in
+`web/src/main.ts` now reuses the same search-confirm flow
+`handleRateCuratedAlbum` already used, landing in `lists.wantToListen`
+instead of the ranked list. The "Want to listen" button now renders on every
+curated row, not just resolved ones. Typecheck clean, 306/306 tests passing,
+build clean. Manually exercised in a browser: the resolved fast-path still
+adds instantly (regression-checked, works), and an unresolved entry
+correctly runs the search-confirm flow and surfaces "Could not find" when no
+match exists. The confirm-to-insert branch (a real match found, owner
+confirms, album lands in wantToListen) was NOT exercised live, deliberately
+-- local dev has no API-backed server (`npm run dev` is Vite-only, no
+`/api/*`), and hitting production's `/api/search-album` + confirm + insert
+risked repeating the prior session's incident (an audit subagent wrote a
+real test rating to production data without authorization, logged below).
+The insert path reuses `addToList`/`addSearchedAlbum`, both already covered
+by existing unit tests, so this is a reasoned risk, not a gap in confidence.
 
 ## Next concrete step
-If resuming the hide/skip work: extend `handleWantToListenCuratedEntry` in
-`web/src/main.ts` to reuse `handleRateCuratedAlbum`'s search-confirm flow for
-unresolved entries, inserting into `lists.wantToListen` instead of rating.
-
-If picking something else instead: the ship-check backlog (2 remaining Highs,
-10 Mediums) is sitting untriaged in
+If picking something else: the ship-check backlog (2 remaining Highs, 10
+Mediums) is sitting untriaged in
 `~/.claude/ship-check-reports/2026-08-25-1245-album-case.md`.
+
+Not committed yet -- see Git state below.
 
 ## Don't forget
 - Ship-check backlog untriaged: 2 Highs (untested sync/conflict state machine
@@ -40,50 +37,44 @@ If picking something else instead: the ship-check backlog (2 remaining Highs,
   `~/.claude/ship-check-reports/2026-08-25-1245-album-case.md` and
   `~/.claude/ship-check-log.md`.
 - This project's standing check going forward is `/regression-smoke`, not a
-  full `/ship-check` -- confirmed this session (matches `SHIP-STANDARD.md`,
-  and the ship-check's own audit stack proved the point, see incident below).
-- Write-key enforcement (`ALBUM_CASE_WRITE_KEY`) stays dropped, reconsidered
-  and left as-is this session despite the incident below. One-function
+  full `/ship-check`.
+- Write-key enforcement (`ALBUM_CASE_WRITE_KEY`) stays dropped. One-function
   revert if that changes: `requireWriteKey()` in `web/api/_writeKey.ts`.
-- Incident: during the ship-check, an audit subagent wrote a real test rating
-  to production data without authorization (security-classifier flagged);
-  self-reported reverted, independently verified 95% clean, one stray atom
-  row (id 97) found and deleted with Keith's approval. No lasting damage, but
-  scope any future audit subagents to read-only explicitly.
-- `curatedEntryKey` moved from `web/src/ui/curatedListView.ts` to
-  `web/src/curatedListMatch.ts` this session (re-exported from the old
-  location so nothing broke) -- canonical definition is now in
-  `curatedListMatch.ts`.
-- 10 commits ahead of `origin/main`, not pushed (same as prior sessions --
-  this repo doesn't auto-deploy from git anyway, `vercel deploy --prod --yes`
-  from `web/` is the actual deploy step and has been run after each commit
-  that needed it this session).
+- Past incident (prior session): an audit subagent wrote a real test rating
+  to production data without authorization; self-reported, reverted,
+  independently verified clean. Scope any future audit subagents to
+  read-only explicitly, and be cautious about live-testing against
+  production Turso data (this is why the confirm-to-insert branch above
+  wasn't exercised live).
+- 10 commits ahead of `origin/main`, not pushed (this repo doesn't
+  auto-deploy from git; `vercel deploy --prod --yes` from `web/` is the
+  actual deploy step and has NOT been run this session -- this change isn't
+  live yet).
 
 ## Files touched this session
-- `web/src/data/curatedLists.ts` -- added the `pitchfork-1980s` curated list
-- `web/src/style.css` -- fixed the tablet-breakpoint (768px) layout break
-- `web/api/_schema.ts` -- added `blocked_artists_json`, `curated_skips_json`
-- `web/api/ranking.ts` -- validate/GET/POST for the two new fields
-- `web/api/ranking.test.ts` -- round-trip tests for the two new fields
-- `web/src/rankingSync.ts` -- snapshot payload/load carry the two new fields
-- `web/src/rankingSync.test.ts` -- tests for the above
-- `web/src/curatedListMatch.ts` -- `curatedEntryKey` moved here;
-  `unrankedFromCuratedList` gained blocked/skipped filtering
-- `web/src/curatedListMatch.test.ts` -- new filter tests
-- `web/src/main.ts` -- `blockedArtists` now server-persisted; new
-  `curatedSkips` state; new curated-entry handlers; Blocked Artists screen
-  extended to review/unskip curated skips
-- `web/src/ui/curatedListView.ts` -- three new per-row buttons
+- `web/src/main.ts` -- extracted `searchCuratedEntry` as a shared
+  search+lock helper; `curatedPendingMatch` now carries a
+  `kind: 'rate' | 'wantToListen'` discriminant; `handleWantToListenCuratedEntry`
+  is now async and runs unresolved entries through search-confirm;
+  `handleConfirmCuratedMatch` branches on `kind` to insert into the ranked
+  list or append to `wantToListen`.
+- `web/src/ui/curatedListView.ts` -- "Want to listen" button now renders for
+  every row, not just resolved ones; confirm-match text branches on `kind`
+  ("Add it to Want to listen?" vs "Rate it X?").
 
 ## Git state
 - Branch: main
-- Last commit: 202869b feat(web): persist artist blocks + add skip/want-to-listen to curated lists
-- Uncommitted changes: no (only pre-existing/scratch untracked: `.playwright-mcp/`, `ac-*.png` screenshots from the ship-check's visual-audit stage)
-- Pushed to origin: no, 10 commits ahead of origin/main
+- Last commit: 6f573ea chore: update handoff
+- Uncommitted changes: yes -- `web/src/main.ts`, `web/src/ui/curatedListView.ts`
+  (this session's work, not yet committed). Also untracked scratch files from
+  the prior session's ship-check visual audit (`.playwright-mcp/`, `ac-*.png`),
+  left alone -- pre-existing, not part of this session.
+- Pushed to origin: no, 10 commits ahead of origin/main (plus this session's
+  uncommitted work on top)
 - Stashed: no
 
 ## Reason for handoff
 session paused
 
 ## Updated
-2026-08-25T13:52:00Z
+2026-08-26T13:05:00Z

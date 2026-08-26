@@ -25,16 +25,21 @@ export type CuratedListViewOptions = {
   /** Blocks the entry's artist entirely, same mechanism as the main
    *  discovery pool's "No more X albums". */
   onHideArtist: (entry: CuratedAlbumEntry) => void;
-  /** Adds a *resolved* entry straight to the owner's wantToListen list, no
-   *  search needed. A no-op (button hidden) for unresolved entries. */
+  /** Adds this entry to the owner's wantToListen list. A resolved entry adds
+   *  straight in; an unresolved entry goes through the same search-confirm
+   *  flow as `onRateAlbum` first (see `pendingMatch`). */
   onWantToListen: (entry: CuratedAlbumEntry) => void;
   /** curatedEntryKey() of the row currently resolving/awaiting confirmation, if any. */
   ratingEntryKey: string | null;
   /** A one-shot message tied to a specific row (e.g. "couldn't find X"),
    *  shown only next to that row. */
   rateMessage: { key: string; text: string } | null;
-  /** A search match awaiting owner confirmation before it's inserted. */
-  pendingMatch: { key: string; album: Album; rating: number } | null;
+  /** A search match awaiting owner confirmation before it's inserted --
+   *  `kind` picks the destination (a rating insert or a plain wantToListen add). */
+  pendingMatch:
+    | { key: string; album: Album; kind: 'rate'; rating: number }
+    | { key: string; album: Album; kind: 'wantToListen' }
+    | null;
   /** Owner confirmed `pendingMatch` is the right album -- insert it now. */
   onConfirmMatch: () => void;
   /** Owner rejected `pendingMatch` -- discard it, row goes back to the rating form. */
@@ -117,11 +122,14 @@ export function renderCuratedListView(container: HTMLElement, opts: CuratedListV
     item.append(meta);
 
     if (opts.pendingMatch?.key === entryKey) {
-      const { album, rating } = opts.pendingMatch;
+      const match = opts.pendingMatch;
+      const { album } = match;
       const year = album.release_year ?? '?';
+      const question =
+        match.kind === 'rate' ? `Rate it ${match.rating}?` : 'Add it to Want to listen?';
       const found = document.createElement('p');
       found.className = 'curated-list-match-text';
-      found.textContent = `Found: ${album.title} by ${album.primary_artist_name} (${year}). Rate it ${rating}?`;
+      found.textContent = `Found: ${album.title} by ${album.primary_artist_name} (${year}). ${question}`;
 
       const confirmForm = document.createElement('div');
       confirmForm.className = 'candidate-place';
@@ -193,15 +201,13 @@ export function renderCuratedListView(container: HTMLElement, opts: CuratedListV
     const actions = document.createElement('div');
     actions.className = 'candidate-place';
 
-    if (entry.resolved) {
-      const wantBtn = document.createElement('button');
-      wantBtn.type = 'button';
-      wantBtn.className = 'candidate-place-button';
-      wantBtn.textContent = 'Want to listen';
-      wantBtn.disabled = opts.ratingEntryKey !== null;
-      wantBtn.addEventListener('click', () => opts.onWantToListen(entry));
-      actions.append(wantBtn);
-    }
+    const wantBtn = document.createElement('button');
+    wantBtn.type = 'button';
+    wantBtn.className = 'candidate-place-button';
+    wantBtn.textContent = 'Want to listen';
+    wantBtn.disabled = opts.ratingEntryKey !== null;
+    wantBtn.addEventListener('click', () => opts.onWantToListen(entry));
+    actions.append(wantBtn);
 
     const skipBtn = document.createElement('button');
     skipBtn.type = 'button';

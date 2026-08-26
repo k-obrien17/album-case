@@ -408,8 +408,12 @@ async function main(): Promise<void> {
   let curatedRateMessage: { key: string; text: string } | null = null;
   // A search match awaiting owner confirmation before it's inserted -- see
   // handleRateCuratedAlbum's doc comment for why nothing gets inserted
-  // sight-unseen.
-  let curatedPendingMatch: { key: string; album: Album; rating: number } | null = null;
+  // sight-unseen. `kind` picks the destination: a rating insert (ranked
+  // list) or a plain wantToListen add.
+  let curatedPendingMatch:
+    | { key: string; album: Album; kind: 'rate'; rating: number }
+    | { key: string; album: Album; kind: 'wantToListen' }
+    | null = null;
 
   const shell = document.createElement('div');
   shell.className = 'app-shell';
@@ -1177,6 +1181,52 @@ async function main(): Promise<void> {
    *  album silently landed instead, and since its title/artist didn't match
    *  the curated entry's text, unrankedFromCuratedList kept showing the
    *  entry as unrated too, masking the corruption). */
+  type CuratedSearchOutcome = { status: 'found'; album: Album } | { status: 'not-found' } | { status: 'stale' };
+
+  /** Shared MusicBrainz search + in-flight row lock for an unresolved
+   *  curated entry, used by both the rate flow and the want-to-listen flow
+   *  -- see handleRateCuratedAlbum's doc comment for why a raw search
+   *  result can't be inserted without owner confirmation. Sets/clears
+   *  curatedRatingEntryKey; callers own curatedPendingMatch and rendering. */
+  async function searchCuratedEntry(
+    entry: CuratedAlbumEntry,
+    listId: string,
+    entryKey: string,
+  ): Promise<CuratedSearchOutcome> {
+    curatedRatingEntryKey = entryKey;
+    renderCuratedListsView();
+
+    let album: Album | null = null;
+    try {
+      const q = `${entry.artist} ${entry.title}`;
+      const res = await fetch(`/api/search-album?q=${encodeURIComponent(q)}`);
+      if (res.ok) {
+        const body = (await res.json()) as { albums?: Album[] };
+        album = body.albums?.[0] ?? null;
+      }
+    } catch {
+      album = null;
+    }
+
+    // The owner may have switched to a different curated list while this
+    // was in flight -- discard a response that no longer applies, same
+    // stale-response convention used elsewhere in this file. Still clear the
+    // lock: leaving it set would strand every row disabled for the rest of
+    // the session.
+    if (selectedCuratedListId !== listId) {
+      curatedRatingEntryKey = null;
+      return { status: 'stale' };
+    }
+    if (!album) {
+      curatedRatingEntryKey = null;
+      return { status: 'not-found' };
+    }
+    // Keep curatedRatingEntryKey set (locks other rows) until the owner
+    // confirms or cancels -- resolved in handleConfirmCuratedMatch /
+    // handleCancelCuratedMatch.
+    return { status: 'found', album };
+  }
+
   async function handleRateCuratedAlbum(entry: CuratedAlbumEntry, rating: number): Promise<void> {
     if (!selectedCuratedListId || curatedRatingEntryKey) return;
     const listId = selectedCuratedListId;
@@ -1201,60 +1251,40 @@ async function main(): Promise<void> {
       return;
     }
 
-    curatedRatingEntryKey = entryKey;
-    renderCuratedListsView();
-
-    let album: Album | null = null;
-    try {
-      const q = `${entry.artist} ${entry.title}`;
-      const res = await fetch(`/api/search-album?q=${encodeURIComponent(q)}`);
-      if (res.ok) {
-        const body = (await res.json()) as { albums?: Album[] };
-        album = body.albums?.[0] ?? null;
-      }
-    } catch {
-      album = null;
-    }
-
-    // The owner may have switched to a different curated list while this
-    // was in flight -- discard a response that no longer applies, same
-    // stale-response convention used elsewhere in this file. Still clear the
-    // lock: leaving it set would strand every row disabled for the rest of
-    // the session.
-    if (selectedCuratedListId !== listId) {
-      curatedRatingEntryKey = null;
-      return;
-    }
-
-    if (!album) {
-      curatedRatingEntryKey = null;
+    const outcome = await searchCuratedEntry(entry, listId, entryKey);
+    if (outcome.status === 'stale') return;
+    if (outcome.status === 'not-found') {
       curatedRateMessage = { key: entryKey, text: `Could not find "${entry.title}" by ${entry.artist}.` };
       renderCuratedListsView();
       return;
     }
-
-    // Keep curatedRatingEntryKey set (locks other rows) until the owner
-    // confirms or cancels -- resolved in handleConfirmCuratedMatch /
-    // handleCancelCuratedMatch.
-    curatedPendingMatch = { key: entryKey, album, rating };
+    curatedPendingMatch = { key: entryKey, album: outcome.album, kind: 'rate', rating };
     renderCuratedListsView();
   }
 
-  /** Owner confirmed `curatedPendingMatch` is the right album. Same
-   *  insertion path as the main search box's onRateSearchResult
-   *  (addSearchedAlbum). */
+  /** Owner confirmed `curatedPendingMatch` is the right album. Rate matches
+   *  use the same insertion path as the main search box's onRateSearchResult
+   *  (addSearchedAlbum); wantToListen matches just append to that list. */
   function handleConfirmCuratedMatch(): void {
     if (!curatedPendingMatch) return;
-    const { album, rating } = curatedPendingMatch;
-    const added = addSearchedAlbum(state.ranked, lists, album, rating);
-    state = { ranked: added.ranked, pending: null };
-    lists = added.lists;
-    persistRankingState();
+    const match = curatedPendingMatch;
+    if (match.kind === 'rate') {
+      const added = addSearchedAlbum(state.ranked, lists, match.album, match.rating);
+      state = { ranked: added.ranked, pending: null };
+      lists = added.lists;
+      persistRankingState();
+      persistLists();
+      curatedPendingMatch = null;
+      curatedRatingEntryKey = null;
+      reselectCandidate();
+      renderNav();
+      renderCuratedListsView();
+      return;
+    }
+    lists = addToList(lists, match.album, 'wantToListen');
     persistLists();
     curatedPendingMatch = null;
     curatedRatingEntryKey = null;
-    reselectCandidate();
-    renderNav();
     renderCuratedListsView();
   }
 
@@ -1285,13 +1315,31 @@ async function main(): Promise<void> {
 
   /** Resolved entries (pre-vetted offline, see handleRateCuratedAlbum's
    *  comment) add straight to wantToListen -- no search needed. Unresolved
-   *  entries don't offer this button yet (see curatedListView.ts): reusing
-   *  the search-confirm flow for a non-rating destination is real scope,
-   *  deliberately deferred rather than rushed. */
-  function handleWantToListenCuratedEntry(entry: CuratedAlbumEntry): void {
-    if (!entry.resolved) return;
-    lists = addToList(lists, entry.resolved, 'wantToListen');
-    persistLists();
+   *  entries go through the same search-confirm flow as handleRateCuratedAlbum,
+   *  landing in `lists.wantToListen` instead of the ranked list once the
+   *  owner confirms the match (see handleConfirmCuratedMatch). */
+  async function handleWantToListenCuratedEntry(entry: CuratedAlbumEntry): Promise<void> {
+    if (!selectedCuratedListId || curatedRatingEntryKey) return;
+    const listId = selectedCuratedListId;
+    const entryKey = curatedEntryKey(listId, entry);
+    curatedRateMessage = null;
+    curatedPendingMatch = null;
+
+    if (entry.resolved) {
+      lists = addToList(lists, entry.resolved, 'wantToListen');
+      persistLists();
+      renderCuratedListsView();
+      return;
+    }
+
+    const outcome = await searchCuratedEntry(entry, listId, entryKey);
+    if (outcome.status === 'stale') return;
+    if (outcome.status === 'not-found') {
+      curatedRateMessage = { key: entryKey, text: `Could not find "${entry.title}" by ${entry.artist}.` };
+      renderCuratedListsView();
+      return;
+    }
+    curatedPendingMatch = { key: entryKey, album: outcome.album, kind: 'wantToListen' };
     renderCuratedListsView();
   }
 
@@ -1315,7 +1363,9 @@ async function main(): Promise<void> {
         if (selectedCuratedListId) handleSkipCuratedEntry(selectedCuratedListId, entry);
       },
       onHideArtist: handleHideCuratedArtist,
-      onWantToListen: handleWantToListenCuratedEntry,
+      onWantToListen: (entry) => {
+        void handleWantToListenCuratedEntry(entry);
+      },
       ratingEntryKey: curatedRatingEntryKey,
       rateMessage: curatedRateMessage,
       pendingMatch: curatedPendingMatch,
