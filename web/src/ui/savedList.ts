@@ -1,17 +1,17 @@
 import type { Album } from '../ranking/types';
 
 /**
- * Render a set-aside list (Want to listen / Haven't heard) into `container`,
- * replacing prior content. Each row shows a cover thumbnail, title, and
- * artist, plus a "Mark as heard" button that returns the album to the
- * ranking pool via `onMarkHeard`, and a "Remove" button that discards it
- * from the app entirely via `onRemove`. Empty state shows a short message
- * rather than a blank screen.
+ * Render a set-aside list (Want to listen / Haven't heard / Don't care) into
+ * `container`, replacing prior content. Each row shows a cover thumbnail,
+ * title, and artist, plus an inline 0-10 rate form that places the album
+ * directly into the ranked list via `onRate`, and a "Remove" button that
+ * discards it from the app entirely via `onRemove`. Empty state shows a
+ * short message rather than a blank screen.
  */
 export function renderSavedList(
   container: HTMLElement,
   albums: Album[],
-  onMarkHeard: (album: Album) => void,
+  onRate: (album: Album, rating: number) => void,
   onRemove: (album: Album) => void
 ): void {
   container.textContent = '';
@@ -52,11 +52,48 @@ export function renderSavedList(
 
     meta.append(title, artist);
 
-    const markBtn = document.createElement('button');
-    markBtn.type = 'button';
-    markBtn.className = 'saved-mark';
-    markBtn.textContent = 'Mark as heard';
-    markBtn.addEventListener('click', () => onMarkHeard(album));
+    const actions = document.createElement('div');
+    actions.className = 'saved-actions';
+
+    // Same markup/validation shape as the candidate card's "Or rate it
+    // directly" control (rankList.ts's buildDirectRate), reused here rather
+    // than duplicated logic.
+    const form = document.createElement('form');
+    form.className = 'candidate-place';
+    form.noValidate = true;
+
+    const input = document.createElement('input');
+    input.className = 'candidate-place-input';
+    input.type = 'number';
+    input.inputMode = 'decimal';
+    input.min = '0';
+    input.max = '10';
+    input.step = '0.01';
+    input.placeholder = '0-10';
+    input.setAttribute('aria-label', `Rating for ${album.title}`);
+
+    const rateBtn = document.createElement('button');
+    rateBtn.type = 'submit';
+    rateBtn.className = 'candidate-place-button';
+    rateBtn.textContent = 'Rate';
+
+    const status = document.createElement('p');
+    status.className = 'saved-rate-status';
+    status.hidden = true;
+
+    form.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      const raw = input.value.trim();
+      const rating = Number(raw);
+      if (raw === '' || !Number.isFinite(rating) || rating < 0 || rating > 10) {
+        status.hidden = false;
+        status.textContent = 'Enter 0-10.';
+        return;
+      }
+      onRate(album, rating);
+    });
+
+    form.append(input, rateBtn);
 
     const removeBtn = document.createElement('button');
     removeBtn.type = 'button';
@@ -64,7 +101,8 @@ export function renderSavedList(
     removeBtn.textContent = 'Remove';
     removeBtn.addEventListener('click', () => onRemove(album));
 
-    item.append(thumb, meta, markBtn, removeBtn);
+    actions.append(form, removeBtn, status);
+    item.append(thumb, meta, actions);
     list.append(item);
   }
 

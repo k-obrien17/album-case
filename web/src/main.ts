@@ -1103,11 +1103,13 @@ async function main(): Promise<void> {
     },
   });
 
-  function markAsHeard(album: Album, which: ListName): void {
-    lists = removeFromList(lists, album.mbid, which);
+  function rateFromSavedList(album: Album, which: ListName, rating: number): void {
+    const added = addSearchedAlbum(state.ranked, lists, album, rating);
+    state = { ranked: added.ranked, pending: null };
+    lists = added.lists;
+    persistRankingState();
     persistLists();
-    // Eligible again: if the pool was exhausted (no candidate), offer it now.
-    if (!candidate) reselectCandidate();
+    reselectCandidate();
     renderNav();
     renderCurrentSavedList(which);
   }
@@ -1115,8 +1117,8 @@ async function main(): Promise<void> {
   function removeFromSavedList(album: Album, which: ListName): void {
     lists = removeFromList(lists, album.mbid, which);
     persistLists();
-    // Unlike markAsHeard, this is a permanent discard, not a return to the
-    // pool -- skippedAlbums already keeps it out of candidate selection
+    // Unlike rateFromSavedList, this is a permanent discard, not a ranked
+    // placement -- skippedAlbums already keeps it out of candidate selection
     // (see reselectCandidate), so there's nothing new to offer.
     skippedAlbums.add(album.mbid);
     saveSkippedAlbums(skippedAlbums);
@@ -1128,7 +1130,7 @@ async function main(): Promise<void> {
     renderSavedList(
       stage,
       lists[which],
-      (album) => markAsHeard(album, which),
+      (album, rating) => rateFromSavedList(album, which, rating),
       (album) => removeFromSavedList(album, which)
     );
   }
