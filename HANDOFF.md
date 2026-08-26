@@ -1,46 +1,66 @@
 # Handoff
 
 ## Current task
-Close the last 2 Highs from the 2026-08-25 ship-check backlog: unit-test the
-sync/conflict-resolution state machine, and add a delete affordance on saved
-lists.
+Triage and close mediums from the 2026-08-25 ship-check backlog's 10-item
+Medium list.
 
 ## Status
-Done, committed, and deployed to production.
+Done for a first batch of 5, committed, and deployed to production. Triaged
+all 10 mediums into a table first (fix now / defer / accept-as-is), user
+approved the recommended batch.
 
-- **Sync state machine**: extracted `performRankingSync` as a top-level,
-  dependency-injectable async function in `web/src/main.ts` (mirrors the
-  existing `resolveInitialState`/`restoreFromCode` testable-export pattern).
-  `syncRankingSnapshot` is now a thin wrapper that calls it and applies the
-  result to closure state. Added 6 unit tests in `web/src/main.test.ts`
-  covering: success, 409-conflict-refetch, two-tab-race, first-ever-save
-  (missing snapshot), refetch failure, and the error-vs-conflict distinction
-  (a plain save error leaves the base version unchanged; a conflict clears it
-  to force a refetch).
-- **Saved-list Remove**: added a "Remove" button next to "Mark as heard" on
-  Want to listen / Haven't heard / Don't care rows (`web/src/ui/savedList.ts`
-  + `.saved-remove` in `style.css`). Wired to a new `removeFromSavedList` in
-  `main.ts` that reuses the existing `skippedAlbums` persistent-exclusion set
-  (already used by `reselectCandidate`) so a removed album never resurfaces
-  as a ranking candidate -- unlike "Mark as heard", which intentionally
-  re-queues it.
+Fixed this session:
+- **`ensureSchema()` empty `catch{}`** — narrowed to only swallow
+  "duplicate column name" errors instead of any ALTER TABLE failure. New
+  shared `alterTableAddColumnIfMissing()` helper in `web/api/_schema.ts`,
+  used by `web/api/ranking.ts` and `web/api/discover-artist.ts`.
+- **No progress indicator during assisted this-or-that placement** — added
+  a "Step N of ~M" line above the two choice buttons in
+  `web/src/ui/rankList.ts` (new `assistStep`/`assistTotal` closure state,
+  reset on new candidate and in `teardown()`), styled via new
+  `.assist-progress` in `style.css`. Confirmed live: ranked 8 albums to
+  trigger assist mode, watched the counter advance from "Step 1 of ~4" to
+  "Step 2 of ~4" after answering.
+- **Tap-to-edit rank/rating weak signal** — added a dotted underline
+  (was solid) plus a small pencil glyph (`\270E`) via `::after` on
+  `button.rank-overall`/`button.rank-rating` in `style.css`.
+- **No `:active`/`:focus-visible` states on any button** — added global
+  `button:focus-visible` (accent outline) and `button:active` (scale)
+  rules near the top of `style.css`, covering all 13+ separately-declared
+  button classes at once rather than retrofitting each one. Confirmed live
+  via keyboard Tab: accent-colored focus ring renders correctly.
+- **Icon-only buttons with no text fallback** — investigated, found already
+  fixed: every icon-only glyph button (×, ▶, ⚷, ⇅, mic) already has an
+  `aria-label`. No code change needed for this one.
 
-Typecheck clean, build clean, 312/312 tests passing (306 + 6 new). Manually
-verified in a browser (`npm run dev`): added an album to Don't care, clicked
-Remove, confirmed the row disappeared and the album did NOT reappear as the
-next ranking candidate; separately confirmed Mark as heard still works
-unchanged (regression check).
+Typecheck clean, build clean, 312/312 tests passing (no new tests needed,
+these were CSS/markup/error-handling fixes, not new logic branches).
 
-Committed as `915b2eb`. Deployed via `vercel deploy --prod --yes` from
-`web/`; production bundle hash (`assets/index-C90-0qdq.js`) confirmed to
+Committed as `1a56e65`. Deployed via `vercel deploy --prod --yes` from
+`web/`; production bundle hash (`assets/index-BGMknyir.js`) confirmed to
 match the local build via `curl -s https://album-case.vercel.app/`.
 
+Deferred (with reasoning, see full triage table in conversation transcript):
+- `Album`/`RankedAlbum` types hand-duplicated client/server — real but not
+  urgent, bundle with a future schema touch.
+- No migrations tool, schema idempotent-inline across 3 files — report
+  itself called this "functionally safe today."
+- `main.ts`/`rankList.ts` god-files (25+ closure vars, over the project's
+  own 300-line cap) — large refactor, needs its own plan-mode session per
+  this project's conventions (3+ file refactors require plan mode), doesn't
+  belong riding along with a medium-cleanup batch.
+- Artist-lock system (~220 lines, zero live call sites) — accepted as-is;
+  CLAUDE.md already documents this as intentionally paused, not accidental
+  dead code.
+
 ## Next concrete step
-The ship-check backlog's 10 Mediums are still untriaged. Full report at
-`~/.claude/ship-check-reports/2026-08-25-1245-album-case.md`. Also still
-open from the original 5 Highs (explicitly deferred, not part of this
-session's 2): confirm/undo on the ranked-row "×" remove button, primary
-comparison card buried below nav chrome, unvirtualized 769-row ranked list.
+Still open from the original 5 Highs (explicitly deferred across sessions,
+not part of any Medium-batch work): confirm/undo on the ranked-row "×"
+remove button, primary comparison card buried below nav chrome, unvirtualized
+769-row ranked list. The god-file refactor (main.ts/rankList.ts) also still
+needs its own plan-mode session whenever picked up.
+
+Full original report: `~/.claude/ship-check-reports/2026-08-25-1245-album-case.md`.
 
 ## Don't forget
 - This project's standing check going forward is `/regression-smoke`, not a
@@ -52,30 +72,30 @@ comparison card buried below nav chrome, unvirtualized 769-row ranked list.
   independently verified clean. Scope any future audit subagents to
   read-only explicitly, and be cautious about live-testing against
   production Turso data.
-- 13 commits ahead of `origin/main`, not pushed (not asked to this session --
+- 14 commits ahead of `origin/main`, not pushed (not asked to this session --
   this repo doesn't auto-deploy from git anyway; `vercel deploy --prod --yes`
   from `web/` is the actual deploy step and WAS run this session, so
   production is current with `main` regardless of the push status).
 
 ## Files touched this session
-- `web/src/main.ts` -- new exported `performRankingSync` (+ `SyncSnapshotInput`/
-  `SyncSnapshotResult`/`SyncSnapshotDeps` types); `syncRankingSnapshot` rewired
-  to call it; new `removeFromSavedList`; `renderCurrentSavedList` passes the
-  new `onRemove` callback.
-- `web/src/main.test.ts` -- 6 new tests under `describe('performRankingSync ...')`.
-- `web/src/ui/savedList.ts` -- `renderSavedList` takes a new `onRemove` param;
-  renders a "Remove" button per row.
-- `web/src/style.css` -- new `.saved-remove` / `.saved-remove:hover` (mirrors
-  `.saved-mark`).
+- `web/api/_schema.ts` -- new exported `alterTableAddColumnIfMissing()` helper.
+- `web/api/ranking.ts` -- 3-column ALTER loop now uses the shared helper.
+- `web/api/discover-artist.ts` -- single-column ALTER now uses the shared helper.
+- `web/src/ui/rankList.ts` -- new `assistStep`/`assistTotal` closure state;
+  `buildAssisted()` renders a new `.assist-progress` element; `answerAssist()`
+  increments the step counter; `teardown()` resets both.
+- `web/src/style.css` -- new global `button:focus-visible`/`button:active`;
+  `.assist-progress`; pencil-glyph `::after` + dotted underline on
+  `button.rank-overall`/`button.rank-rating`.
 
 ## Git state
 - Branch: main
-- Last commit: 915b2eb fix(web): add saved-list remove affordance, test sync state machine
+- Last commit: 1a56e65 fix(web): close 5 mediums from ship-check backlog
 - Uncommitted changes: no (this session's work is committed)
 - Untracked: pre-existing scratch files from an earlier session's ship-check
   visual audit (`.playwright-mcp/`, `ac-*.png`), left alone -- not part of
   this session
-- Pushed to origin: no, 13 commits ahead of origin/main
+- Pushed to origin: no, 14 commits ahead of origin/main
 - Deployed to production: yes, this session, bundle hash verified
 - Stashed: no
 
@@ -83,4 +103,4 @@ comparison card buried below nav chrome, unvirtualized 769-row ranked list.
 session paused
 
 ## Updated
-2026-08-26T14:10:00Z
+2026-08-26T15:20:00Z
