@@ -880,7 +880,7 @@ async function main(): Promise<void> {
       }
     }
     // Pool just grew: if every existing album was already placed, candidate
-    // was null -- same reselect-if-exhausted convention as markAsHeard /
+    // was null -- same reselect-if-exhausted convention as rateFromSavedList /
     // restoreArtist / the old artist-search flow this replaces.
     if (!candidate) reselectCandidate();
 
