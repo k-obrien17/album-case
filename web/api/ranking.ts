@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@libsql/client';
 import allowlist from './_allowlist.json' with { type: 'json' };
-import { SCHEMA_STATEMENTS } from './_schema.js';
+import { SCHEMA_STATEMENTS, alterTableAddColumnIfMissing } from './_schema.js';
 import { requireWriteKey } from './_writeKey.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -61,11 +61,10 @@ function ensureSchema(): Promise<void> {
       await client.execute(sql);
     }
     for (const column of ['artist_locks_json', 'blocked_artists_json', 'curated_skips_json']) {
-      try {
-        await client.execute(`ALTER TABLE ranking_snapshots ADD COLUMN ${column} TEXT`);
-      } catch {
-        // Existing deployments may already have this nullable column.
-      }
+      await alterTableAddColumnIfMissing(
+        client,
+        `ALTER TABLE ranking_snapshots ADD COLUMN ${column} TEXT`,
+      );
     }
   })();
   return schemaReady;

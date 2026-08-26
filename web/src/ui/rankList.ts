@@ -199,6 +199,12 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
   // Active assisted this-or-that placement (long lists only). Reset whenever
   // the candidate changes or the list drops below the assist threshold.
   let assist: AssistPlacement | null = null;
+  // Comparisons answered / estimated total for the current `assist` run, for
+  // the "Step N of ~M" progress line. `assistTotal` is the binary-search
+  // upper bound (ceil(log2(n+1))) computed once when the run starts against
+  // the window size at that point; it stays fixed even as `lo`/`hi` narrow.
+  let assistStep = 0;
+  let assistTotal = 0;
   // mbid of the row whose "Overall" rank is being typed, if any. Only one
   // row can be in edit mode at a time.
   let editingOverallMbid: string | null = null;
@@ -857,6 +863,7 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     if (opponent) {
       const loserMbid = winnerMbid === assist.album.mbid ? opponent.mbid : assist.album.mbid;
       opts.onCompare?.(winnerMbid, loserMbid);
+      assistStep += 1;
     }
     assist = assistPick(assist, winnerMbid);
     if (assistResolved(assist)) {
@@ -903,6 +910,10 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
 
     choose.append(preferCandidate, preferOpponent);
 
+    const progress = document.createElement('p');
+    progress.className = 'assist-progress';
+    progress.textContent = `Step ${assistStep + 1} of ~${assistTotal}`;
+
     const hint = document.createElement('p');
     hint.className = 'assist-hint';
     hint.textContent = 'or drag to place';
@@ -910,6 +921,7 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     const directRate = buildDirectRate(album);
     card.append(
       label,
+      progress,
       choose,
       buildDragBody(album),
       hint,
@@ -1249,6 +1261,8 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
         if (ranked.length >= ASSIST_THRESHOLD) {
           if (!assist || assist.album.mbid !== candidate.mbid) {
             assist = startAssist(ranked, candidate);
+            assistStep = 0;
+            assistTotal = Math.max(1, Math.ceil(Math.log2(ranked.length + 1)));
           }
           candidateCol.append(buildAssisted(candidate));
         } else {
@@ -1290,6 +1304,8 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
       drag = null;
     }
     assist = null;
+    assistStep = 0;
+    assistTotal = 0;
     indicator.remove();
   }
 

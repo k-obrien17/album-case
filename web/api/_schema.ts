@@ -64,3 +64,21 @@ export const SCHEMA_STATEMENTS = [
   CREATE_RANKING_SNAPSHOTS_TABLE,
   CREATE_DISCOVERED_ALBUMS_TABLE,
 ];
+
+// Runs an additive ALTER TABLE ADD COLUMN migration, swallowing only the
+// "duplicate column" error a deployment that already has the column will
+// hit. Any other failure (bad SQL, connection error, wrong table) rethrows
+// instead of vanishing into an empty catch.
+export async function alterTableAddColumnIfMissing(
+  client: { execute(sql: string): Promise<unknown> },
+  sql: string,
+): Promise<void> {
+  try {
+    await client.execute(sql);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (!/duplicate column name/i.test(message)) {
+      throw err;
+    }
+  }
+}

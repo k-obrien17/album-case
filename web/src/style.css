@@ -26,6 +26,19 @@ body {
   margin: 0;
 }
 
+/* Global tap/focus feedback for every button in the app. Individual button
+   classes below set their own color/border/background, but none of them
+   define :active or :focus-visible, so this covers all of them at once
+   instead of duplicating the rule per component. */
+button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
 .sync-banner {
   margin: 0;
   padding: 8px 12px;
@@ -322,6 +335,12 @@ body {
 }
 
 /* Assisted this-or-that placement (long lists): two large prefer buttons. */
+.assist-progress {
+  margin: 0 0 4px;
+  color: var(--color-faint);
+  font-size: 0.72rem;
+}
+
 .assist-choose {
   display: flex;
   flex-wrap: wrap;
@@ -556,10 +575,18 @@ body {
 
 button.rank-overall,
 button.rank-rating {
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
   cursor: pointer;
   min-height: 44px;
+}
+
+button.rank-overall::after,
+button.rank-rating::after {
+  content: '\270E';
+  margin-left: 5px;
+  font-size: 0.75em;
+  opacity: 0.55;
 }
 
 button.rank-overall:hover,

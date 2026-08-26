@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@libsql/client';
-import { SCHEMA_STATEMENTS } from './_schema.js';
+import { SCHEMA_STATEMENTS, alterTableAddColumnIfMissing } from './_schema.js';
 import { mergeDiscovered, browseArtistLps, type DiscoveredAlbum } from './_lp.js';
 import { requireWriteKey } from './_writeKey.js';
 
@@ -28,12 +28,10 @@ function ensureSchema(): Promise<void> {
     for (const sql of SCHEMA_STATEMENTS) {
       await client.execute(sql);
     }
-    try {
-      await client.execute('ALTER TABLE discovered_albums ADD COLUMN primary_artist_mbid TEXT');
-    } catch {
-      // Existing deployments may already have this nullable column. libSQL
-      // does not need a hard failure for a duplicate-column migration.
-    }
+    await alterTableAddColumnIfMissing(
+      client,
+      'ALTER TABLE discovered_albums ADD COLUMN primary_artist_mbid TEXT',
+    );
   })();
   return schemaReady;
 }
