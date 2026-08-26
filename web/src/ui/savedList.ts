@@ -4,13 +4,15 @@ import type { Album } from '../ranking/types';
  * Render a set-aside list (Want to listen / Haven't heard) into `container`,
  * replacing prior content. Each row shows a cover thumbnail, title, and
  * artist, plus a "Mark as heard" button that returns the album to the
- * ranking pool via `onMarkHeard`. Empty state shows a short message rather
- * than a blank screen.
+ * ranking pool via `onMarkHeard`, and a "Remove" button that discards it
+ * from the app entirely via `onRemove`. Empty state shows a short message
+ * rather than a blank screen.
  */
 export function renderSavedList(
   container: HTMLElement,
   albums: Album[],
-  onMarkHeard: (album: Album) => void
+  onMarkHeard: (album: Album) => void,
+  onRemove: (album: Album) => void
 ): void {
   container.textContent = '';
 
@@ -56,7 +58,13 @@ export function renderSavedList(
     markBtn.textContent = 'Mark as heard';
     markBtn.addEventListener('click', () => onMarkHeard(album));
 
-    item.append(thumb, meta, markBtn);
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'saved-remove';
+    removeBtn.textContent = 'Remove';
+    removeBtn.addEventListener('click', () => onRemove(album));
+
+    item.append(thumb, meta, markBtn, removeBtn);
     list.append(item);
   }
 

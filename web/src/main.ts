@@ -253,6 +253,78 @@ export function setRating(ranked: RankedAlbum[], from: number, rating: number): 
   return insertAtRating(without, album, rating);
 }
 
+export interface SyncSnapshotInput {
+  sessionId: string;
+  state: RankingState;
+  lists: SavedLists;
+  artistLocks: ArtistLock[];
+  blockedArtists: string[];
+  curatedSkips: string[];
+  baseUpdatedAt: number | null | undefined;
+}
+
+export type SyncSnapshotResult =
+  | { outcome: 'saved'; updatedAt: number }
+  | { outcome: 'pending'; nextBaseUpdatedAt: number | null | undefined };
+
+export interface SyncSnapshotDeps {
+  loadFresh: typeof loadRankingSnapshotDetailed;
+  save: typeof saveRankingSnapshot;
+}
+
+const defaultSyncSnapshotDeps: SyncSnapshotDeps = {
+  loadFresh: loadRankingSnapshotDetailed,
+  save: saveRankingSnapshot,
+};
+
+/** Pure transition logic for the ranking-snapshot sync/conflict-resolution
+ *  state machine, extracted for direct unit testing -- see HANDOFF.md's
+ *  ship-check backlog. `syncRankingSnapshot` below is a thin side-effecting
+ *  wrapper that applies the result to closure state. */
+export async function performRankingSync(
+  input: SyncSnapshotInput,
+  deps: SyncSnapshotDeps = defaultSyncSnapshotDeps
+): Promise<SyncSnapshotResult> {
+  let resolvedBase = input.baseUpdatedAt;
+
+  if (resolvedBase === undefined) {
+    // A prior version conflict cleared the base. Refetch the server's
+    // current version so saving can resume -- previously this disabled
+    // sync for the rest of the page load while the banner kept claiming
+    // "Retrying...", which was never true.
+    const fresh = await deps.loadFresh(input.sessionId);
+    if (fresh.status === 'found') {
+      resolvedBase = fresh.updatedAt;
+    } else if (fresh.status === 'missing') {
+      resolvedBase = null;
+    } else {
+      return { outcome: 'pending', nextBaseUpdatedAt: undefined };
+    }
+  }
+
+  const result = await deps.save(
+    input.sessionId,
+    input.state,
+    input.lists,
+    input.artistLocks,
+    input.blockedArtists,
+    input.curatedSkips,
+    resolvedBase
+  );
+
+  if (result.status === 'saved') {
+    return { outcome: 'saved', updatedAt: result.updatedAt };
+  }
+  // 'error' (network/server): the base we resolved is still presumed valid,
+  // so it carries forward unchanged for the next retry.
+  // 'conflict': the server copy changed under us, so the base is cleared to
+  // force a refetch next attempt.
+  return {
+    outcome: 'pending',
+    nextBaseUpdatedAt: result.status === 'conflict' ? undefined : resolvedBase,
+  };
+}
+
 async function main(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>('#app');
   if (!app) {
@@ -480,44 +552,28 @@ async function main(): Promise<void> {
     // call in the chain already resolved things. Skip the redundant round-trip.
     if (!hasPendingSync()) return;
 
-    if (snapshotBaseUpdatedAt === undefined) {
-      // A prior version conflict cleared the base. Refetch the server's
-      // current version so saving can resume -- previously this disabled
-      // sync for the rest of the page load while the banner kept claiming
-      // "Retrying...", which was never true.
-      const fresh = await loadRankingSnapshotDetailed(session.session_id);
-      if (fresh.status === 'found') {
-        snapshotBaseUpdatedAt = fresh.updatedAt;
-      } else if (fresh.status === 'missing') {
-        snapshotBaseUpdatedAt = null;
-      } else {
-        scheduleSyncRetry();
-        updateSyncBanner();
-        return;
-      }
-    }
-
-    const result = await saveRankingSnapshot(
-      session.session_id,
+    const result = await performRankingSync({
+      sessionId: session.session_id,
       state,
       lists,
       artistLocks,
       blockedArtists,
-      [...curatedSkips],
-      snapshotBaseUpdatedAt
-    );
-    if (result.status === 'saved') {
+      curatedSkips: [...curatedSkips],
+      baseUpdatedAt: snapshotBaseUpdatedAt,
+    });
+
+    if (result.outcome === 'saved') {
       snapshotBaseUpdatedAt = result.updatedAt;
       clearPendingSync();
     } else {
-      // 'error' (network/server) or 'conflict': neither means the local
-      // edit made it to the server, so keep the pending flag set and retry,
-      // since the banner promises it will.
-      markPendingSync();
-      if (result.status === 'conflict') {
-        snapshotBaseUpdatedAt = undefined;
+      // 'pending': neither a refetch failure nor a save (error/conflict)
+      // got the local edit to the server, so keep the pending flag set and
+      // retry, since the banner promises it will.
+      if (result.nextBaseUpdatedAt === undefined && snapshotBaseUpdatedAt !== undefined) {
         console.warn('albumcase: ranking snapshot save skipped because the server copy changed');
       }
+      snapshotBaseUpdatedAt = result.nextBaseUpdatedAt;
+      markPendingSync();
       scheduleSyncRetry();
     }
     updateSyncBanner();
@@ -1056,8 +1112,25 @@ async function main(): Promise<void> {
     renderCurrentSavedList(which);
   }
 
+  function removeFromSavedList(album: Album, which: ListName): void {
+    lists = removeFromList(lists, album.mbid, which);
+    persistLists();
+    // Unlike markAsHeard, this is a permanent discard, not a return to the
+    // pool -- skippedAlbums already keeps it out of candidate selection
+    // (see reselectCandidate), so there's nothing new to offer.
+    skippedAlbums.add(album.mbid);
+    saveSkippedAlbums(skippedAlbums);
+    renderNav();
+    renderCurrentSavedList(which);
+  }
+
   function renderCurrentSavedList(which: ListName): void {
-    renderSavedList(stage, lists[which], (album) => markAsHeard(album, which));
+    renderSavedList(
+      stage,
+      lists[which],
+      (album) => markAsHeard(album, which),
+      (album) => removeFromSavedList(album, which)
+    );
   }
 
   function restoreArtist(artistName: string): void {

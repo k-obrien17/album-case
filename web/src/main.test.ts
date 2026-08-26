@@ -3,6 +3,7 @@ import {
   addSearchedAlbum,
   hydrateAlbums,
   insertAtRating,
+  performRankingSync,
   reRate,
   resolveInitialState,
   restoreFromCode,
@@ -10,7 +11,8 @@ import {
   setRating,
 } from './main';
 import type { SavedLists } from './lists';
-import type { Album, RankedAlbum, RankingState } from './ranking/types';
+import type { Album, ArtistLock, RankedAlbum, RankingState } from './ranking/types';
+import type { RankingSnapshotLoad, RankingSnapshotSave } from './rankingSync';
 
 function album(mbid: string): Album {
   return {
@@ -311,5 +313,107 @@ describe('restoreFromCode', () => {
 
     expect(outcome).toEqual({ status: 'error' });
     expect(setSession).not.toHaveBeenCalled();
+  });
+});
+
+describe('performRankingSync (sync/conflict-resolution state machine)', () => {
+  const baseInput = {
+    sessionId: 'session-1',
+    state: { ranked: [rankedAlbum('a')], pending: null } as RankingState,
+    lists: { wantToListen: [], notHeard: [], dontCare: [] } as SavedLists,
+    artistLocks: [] as ArtistLock[],
+    blockedArtists: [] as string[],
+    curatedSkips: [] as string[],
+  };
+
+  it('saves directly when the base version is already known', async () => {
+    const loadFresh = vi.fn();
+    const save = vi.fn().mockResolvedValue({ status: 'saved', updatedAt: 42 } as RankingSnapshotSave);
+
+    const result = await performRankingSync({ ...baseInput, baseUpdatedAt: 10 }, { loadFresh, save });
+
+    expect(loadFresh).not.toHaveBeenCalled();
+    expect(save).toHaveBeenCalledWith(
+      baseInput.sessionId,
+      baseInput.state,
+      baseInput.lists,
+      baseInput.artistLocks,
+      baseInput.blockedArtists,
+      baseInput.curatedSkips,
+      10
+    );
+    expect(result).toEqual({ outcome: 'saved', updatedAt: 42 });
+  });
+
+  it('refetches the current version before saving when the base is unknown (409-conflict-refetch)', async () => {
+    const loadFresh = vi
+      .fn()
+      .mockResolvedValue({ status: 'found', updatedAt: 99 } as unknown as RankingSnapshotLoad);
+    const save = vi.fn().mockResolvedValue({ status: 'saved', updatedAt: 100 } as RankingSnapshotSave);
+
+    const result = await performRankingSync(
+      { ...baseInput, baseUpdatedAt: undefined },
+      { loadFresh, save }
+    );
+
+    expect(loadFresh).toHaveBeenCalledWith(baseInput.sessionId);
+    expect(save).toHaveBeenCalledWith(
+      baseInput.sessionId,
+      baseInput.state,
+      baseInput.lists,
+      baseInput.artistLocks,
+      baseInput.blockedArtists,
+      baseInput.curatedSkips,
+      99
+    );
+    expect(result).toEqual({ outcome: 'saved', updatedAt: 100 });
+  });
+
+  it('clears the base to force a refetch when another tab/device wins the write (two-tab-race)', async () => {
+    const loadFresh = vi.fn();
+    const save = vi.fn().mockResolvedValue({ status: 'conflict' } as RankingSnapshotSave);
+
+    const result = await performRankingSync({ ...baseInput, baseUpdatedAt: 10 }, { loadFresh, save });
+
+    expect(result).toEqual({ outcome: 'pending', nextBaseUpdatedAt: undefined });
+  });
+
+  it('treats a missing snapshot as a first-ever save with a null base', async () => {
+    const loadFresh = vi.fn().mockResolvedValue({ status: 'missing' } as RankingSnapshotLoad);
+    const save = vi.fn().mockResolvedValue({ status: 'saved', updatedAt: 1 } as RankingSnapshotSave);
+
+    await performRankingSync({ ...baseInput, baseUpdatedAt: undefined }, { loadFresh, save });
+
+    expect(save).toHaveBeenCalledWith(
+      baseInput.sessionId,
+      baseInput.state,
+      baseInput.lists,
+      baseInput.artistLocks,
+      baseInput.blockedArtists,
+      baseInput.curatedSkips,
+      null
+    );
+  });
+
+  it('stays pending without attempting a save when the refetch itself fails', async () => {
+    const loadFresh = vi.fn().mockResolvedValue({ status: 'error' } as RankingSnapshotLoad);
+    const save = vi.fn();
+
+    const result = await performRankingSync(
+      { ...baseInput, baseUpdatedAt: undefined },
+      { loadFresh, save }
+    );
+
+    expect(save).not.toHaveBeenCalled();
+    expect(result).toEqual({ outcome: 'pending', nextBaseUpdatedAt: undefined });
+  });
+
+  it('keeps the known base unchanged on a plain network/server save error (not cleared like a conflict)', async () => {
+    const loadFresh = vi.fn();
+    const save = vi.fn().mockResolvedValue({ status: 'error' } as RankingSnapshotSave);
+
+    const result = await performRankingSync({ ...baseInput, baseUpdatedAt: 10 }, { loadFresh, save });
+
+    expect(result).toEqual({ outcome: 'pending', nextBaseUpdatedAt: 10 });
   });
 });

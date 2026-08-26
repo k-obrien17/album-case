@@ -808,6 +808,24 @@ button.rank-rating:hover {
   color: var(--color-fg);
 }
 
+.saved-remove {
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border-btn);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.saved-remove:hover {
+  background: var(--color-bg-alt);
+  color: var(--color-fg);
+}
+
 .saved-empty {
   color: var(--color-muted);
 }
