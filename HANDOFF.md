@@ -1,95 +1,90 @@
 # Handoff
 
 ## Current task
-Deploy-gap catch-up: a separate session shipped a "want-to-listen nudge"
-feature (6 commits, `eb5ced1`..`a9929ae`) after the last ship-check-mediums
-handoff was written, but never ran `vercel deploy --prod --yes`. This
-session found the gap on resume (bundle hash mismatch), redeployed, and
-re-verified.
+Build a "novel way to get Keith to listen to Want to listen albums" (his
+framing). Brainstormed to a two-part design: inline rating on saved lists
+(so listening leads straight to a ranked placement) plus a plain reminder
+in his `/today` command. Executed via Subagent-Driven Development.
 
 ## Status
-Deployed. `vercel deploy --prod --yes` run from `web/`; local build hash
-(`assets/index-KiqEEdZB.js`) confirmed matching production via
-`curl -s https://album-case.vercel.app/`. No code changes this session,
-deploy-only.
+Done, reviewed, and deployed to production.
 
-Feature that's now actually live (was merged but undeployed since
-2026-08-26): "Mark as heard" on saved lists (Want to listen / Haven't heard
-/ Don't care) replaced with inline rating, rating directly into the ranked
-list instead of re-queuing to the candidate pool. Plus a new
-`web/scripts/want-to-listen-pick.mjs` for a `/today` reminder integration.
-See `f63cb3b`/`3a49f0c`/`a9929ae` for details.
+**Part A -- inline rating replaces "Mark as heard" (all three saved lists):**
+`web/src/ui/savedList.ts` rows now show a `0-10` rate form (reusing the
+candidate card's `buildDirectRate` pattern) instead of "Mark as heard".
+Rating calls the existing `addSearchedAlbum` (no new mutation logic),
+placing the album straight into the ranked list. "Remove" (shipped
+earlier this session) is unchanged.
 
----
+**Part B -- `/today` reminder:** new `web/scripts/want-to-listen-pick.mjs`
+(Turso-direct, matches the `web/scripts/*.mjs` convention) prints 3 random
+Want to listen picks as JSON. `~/.claude/commands/today.md` (a separate
+git repo from album-case) got a new step 6 that runs it and renders a
+plain, non-interactive "Want to listen" section -- omitted entirely when
+the pile is empty. No reply-to-act interaction; rating always happens
+later, in-app, via Part A.
 
-## Prior task (2026-08-26, still relevant)
-Triage and close mediums from the 2026-08-25 ship-check backlog's 10-item
-Medium list.
+Design doc: `docs/superpowers/specs/2026-08-26-want-to-listen-nudge-design.md`
+Plan: `docs/superpowers/plans/2026-08-26-want-to-listen-nudge.md`
 
-### Status
-Done for a first batch of 5, committed, and deployed to production (at the
-time, before the gap above opened). Triaged all 10 mediums into a table
-first (fix now / defer / accept-as-is), user approved the recommended batch.
+**Execution:** subagent-driven-development, continuing directly on `main`
+(Keith's explicit choice -- matches how this whole session ran). 3 tasks,
+each with a fresh implementer + independent task reviewer, then one
+whole-branch final review on the most capable model.
 
-Fixed this session:
-- **`ensureSchema()` empty `catch{}`** — narrowed to only swallow
-  "duplicate column name" errors instead of any ALTER TABLE failure. New
-  shared `alterTableAddColumnIfMissing()` helper in `web/api/_schema.ts`,
-  used by `web/api/ranking.ts` and `web/api/discover-artist.ts`.
-- **No progress indicator during assisted this-or-that placement** — added
-  a "Step N of ~M" line above the two choice buttons in
-  `web/src/ui/rankList.ts` (new `assistStep`/`assistTotal` closure state,
-  reset on new candidate and in `teardown()`), styled via new
-  `.assist-progress` in `style.css`. Confirmed live: ranked 8 albums to
-  trigger assist mode, watched the counter advance from "Step 1 of ~4" to
-  "Step 2 of ~4" after answering.
-- **Tap-to-edit rank/rating weak signal** — added a dotted underline
-  (was solid) plus a small pencil glyph (`\270E`) via `::after` on
-  `button.rank-overall`/`button.rank-rating` in `style.css`.
-- **No `:active`/`:focus-visible` states on any button** — added global
-  `button:focus-visible` (accent outline) and `button:active` (scale)
-  rules near the top of `style.css`, covering all 13+ separately-declared
-  button classes at once rather than retrofitting each one. Confirmed live
-  via keyboard Tab: accent-colored focus ring renders correctly.
-- **Icon-only buttons with no text fallback** — investigated, found already
-  fixed: every icon-only glyph button (×, ▶, ⚷, ⇅, mic) already has an
-  `aria-label`. No code change needed for this one.
+**Notable finding during execution:** Task 1's manual-verification step
+(a 360px mobile viewport check) took 4 fix rounds to genuinely verify --
+the first 3 rounds' "browser observations" turned out to be CSS source
+values restated as if measured, and one implementer's claimed
+`mcp__claude-in-chrome__resize_window` call was independently reproduced by
+a re-reviewer and proven to silently no-op in this environment (doesn't
+actually shrink Keith's real desktop Chrome window). Round 4 switched to
+Playwright's independent browser instance, which genuinely resizes, and a
+second reviewer independently reproduced the same numbers. Worth
+remembering for any future browser-verification task in this environment:
+prefer Playwright MCP tools over `mcp__claude-in-chrome__resize_window`
+for viewport-size-dependent checks.
 
-Typecheck clean, build clean, 312/312 tests passing (no new tests needed,
-these were CSS/markup/error-handling fixes, not new logic branches).
+**Final whole-branch review caught 1 Critical + 2 Important, all three
+traced to the PLAN TEXT itself, not implementer drift** (all task-scoped
+reviews had passed because the implementers faithfully transcribed a
+flawed plan):
+1. (Critical) The plan's literal `--env-file=~/...` command in `today.md`
+   never tilde-expands inside a `--flag=value` shell word (verified
+   empirically in zsh/bash) -- the whole `/today` half of this feature was
+   inert until fixed. Now uses `$HOME`.
+2. (Important) The plan asserted `.saved-mark` CSS was "dead, nothing
+   renders it" -- false. Two unrelated buttons (Blocked-artists "Restore",
+   skipped-curated "Unskip") still used that class and lost their 44px tap
+   target when the CSS was deleted. Now grouped with `.saved-remove`'s
+   identical rule.
+3. (Important) The plan's Task 1 code omitted the 2-decimal rounding every
+   other rating entry point applies (`buildDirectRate` et al). Now rounds.
 
-Committed as `1a56e65`. Deployed via `vercel deploy --prod --yes` from
-`web/`; production bundle hash (`assets/index-BGMknyir.js`) confirmed to
-match the local build via `curl -s https://album-case.vercel.app/`.
+All three fixed in one follow-up commit per repo, independently
+re-reviewed (including an independent re-run of the literal shell command
+for finding 1), verified clean.
 
-Deferred (with reasoning, see full triage table in conversation transcript):
-- `Album`/`RankedAlbum` types hand-duplicated client/server — real but not
-  urgent, bundle with a future schema touch.
-- No migrations tool, schema idempotent-inline across 3 files — report
-  itself called this "functionally safe today."
-- `main.ts`/`rankList.ts` god-files (25+ closure vars, over the project's
-  own 300-line cap) — large refactor, needs its own plan-mode session per
-  this project's conventions (3+ file refactors require plan mode), doesn't
-  belong riding along with a medium-cleanup batch.
-- Artist-lock system (~220 lines, zero live call sites) — accepted as-is;
-  CLAUDE.md already documents this as intentionally paused, not accidental
-  dead code.
+Typecheck clean, build clean, 312/312 tests passing throughout (no new
+tests -- matches this project's existing zero-test convention for
+`web/src/ui/*` and `web/scripts/*.mjs`).
+
+Deployed via `vercel deploy --prod --yes` from `web/`; production bundle
+hash (`assets/index-KiqEEdZB.js`) confirmed to match the local build via
+`curl -s https://album-case.vercel.app/`. Note: the Vercel CLI session had
+lost auth mid-deploy attempt (`vercel whoami` -> "Not authorized") -- Keith
+re-ran `vercel login resume` himself to fix it before the deploy succeeded.
+A peer session running concurrently on this same repo also independently
+ran a deploy around the same time after noticing the same undeployed
+commits on its own resume -- both deploys are harmless/idempotent (same
+source, same resulting bundle hash), no conflict, nothing to reconcile.
 
 ## Next concrete step
-Still open from the original 5 Highs (explicitly deferred across sessions,
-not part of any Medium-batch work): confirm/undo on the ranked-row "×"
-remove button, primary comparison card buried below nav chrome, unvirtualized
-769-row ranked list. The god-file refactor (main.ts/rankList.ts) also still
-needs its own plan-mode session whenever picked up.
-
-Also worth doing next resume: re-check the bundle-hash-match step as a
-matter of course, since this project has now hit the stale-production gap
-twice (once documented as the original past incident, once again this
-session) despite the standing rule already being written down. Consider
-whether it belongs as an explicit first step in `/regression-smoke` rather
-than something each session has to remember to check.
-
-Full original report: `~/.claude/ship-check-reports/2026-08-25-1245-album-case.md`.
+Nothing queued from this feature. Still open from prior sessions (see
+`~/.claude/ship-check-reports/2026-08-25-1245-album-case.md`): confirm/undo
+on the ranked-row "×" remove button, primary comparison card buried below
+nav chrome, unvirtualized 769-row ranked list, and the `main.ts`/`rankList.ts`
+god-file refactor (needs its own plan-mode session).
 
 ## Don't forget
 - This project's standing check going forward is `/regression-smoke`, not a
@@ -101,34 +96,61 @@ Full original report: `~/.claude/ship-check-reports/2026-08-25-1245-album-case.m
   independently verified clean. Scope any future audit subagents to
   read-only explicitly, and be cautious about live-testing against
   production Turso data.
-- 14 commits ahead of `origin/main`, not pushed (not asked to this session --
-  this repo doesn't auto-deploy from git anyway; `vercel deploy --prod --yes`
-  from `web/` is the actual deploy step and WAS run this session, so
-  production is current with `main` regardless of the push status).
+- Prefer Playwright MCP tools over `mcp__claude-in-chrome__resize_window`
+  for any future viewport-size-dependent browser check in this
+  environment -- see the 4-round finding above.
+- Multiple interactive sessions have been active on this repo concurrently
+  (this session plus at least one peer). Both worked directly on `main` in
+  the same checkout -- fine for this personal single-owner project so far,
+  but re-read HANDOFF.md fresh before writing to it (it changed mid-session
+  here) and expect git state to occasionally have moved since you last
+  checked.
+- 22 commits ahead of `origin/main`, not pushed (explicitly declined this
+  session -- matches the pattern throughout this project's history; no
+  auto-deploy from git regardless, and production IS current via the
+  explicit `vercel deploy --prod --yes` step above).
+- `~/.claude` (a separate repo from album-case) also has 1 unpushed commit
+  on `main` from this session (`2dc695e`) -- it has no remote configured at
+  all, so "push" doesn't apply there; it's genuinely local-only.
+- The tenex-labs `daily-brief` skill (`~/.claude/skills/daily-brief/`) was
+  explicitly considered and ruled out for this feature -- never configured
+  for Keith (no `PROFILE.md`/delivery/scheduling), standing it up is its
+  own separate project, not something to fold into future Album Case work
+  without Keith explicitly asking for it.
 
-## Files touched this session (2026-08-26, ship-check mediums batch)
-- `web/api/_schema.ts` -- new exported `alterTableAddColumnIfMissing()` helper.
-- `web/api/ranking.ts` -- 3-column ALTER loop now uses the shared helper.
-- `web/api/discover-artist.ts` -- single-column ALTER now uses the shared helper.
-- `web/src/ui/rankList.ts` -- new `assistStep`/`assistTotal` closure state;
-  `buildAssisted()` renders a new `.assist-progress` element; `answerAssist()`
-  increments the step counter; `teardown()` resets both.
-- `web/src/style.css` -- new global `button:focus-visible`/`button:active`;
-  `.assist-progress`; pencil-glyph `::after` + dotted underline on
-  `button.rank-overall`/`button.rank-rating`.
-
-## Files touched this session (2026-08-27, deploy-gap catch-up)
-None. Deploy-only session: `vercel deploy --prod --yes` from `web/`, then
-re-verified the bundle hash. No source edits.
+## Files touched this session
+- `web/src/ui/savedList.ts` -- `renderSavedList`'s second callback changed
+  from `onMarkHeard: (album) => void` to `onRate: (album, rating) => void`;
+  renders an inline rate form (reusing `candidate-place*` CSS) instead of
+  "Mark as heard"; rating rounds to 2dp before calling `onRate`.
+- `web/src/main.ts` -- new `rateFromSavedList` (calls `addSearchedAlbum`,
+  mirrors `onRateSearchResult`); `markAsHeard` deleted; stale comment
+  reference fixed.
+- `web/src/style.css` -- `.saved-item` gained `flex-wrap: wrap`; new
+  `.saved-actions`/`.saved-rate-status`; `.saved-mark` grouped with
+  `.saved-remove` (both needed -- see finding 2 above).
+- `web/scripts/want-to-listen-pick.mjs` -- new, Turso-direct, prints 3
+  random Want to listen picks as JSON, always exits 0.
+- `~/.claude/commands/today.md` (separate repo) -- new step 6, new "Want
+  to listen" output section, `$HOME`-based path (not `~`, see finding 1
+  above).
+- `docs/superpowers/specs/2026-08-26-want-to-listen-nudge-design.md`,
+  `docs/superpowers/plans/2026-08-26-want-to-listen-nudge.md` -- new.
 
 ## Git state
-- Branch: main
-- Last commit: a9929ae fix(web): restore saved-mark styling, round inline saved-list ratings
-- Uncommitted changes: no
-- Untracked: pre-existing scratch files from an earlier session's ship-check
-  visual audit (`.playwright-mcp/`, `ac-*.png`), left alone -- not part of
-  this session
-- Pushed to origin: no, 15+ commits ahead of origin/main
+- Branch: main (both repos -- no feature branch, per Keith's explicit
+  choice to continue directly on main for this session)
+- Last commit (album-case): `a9929ae` fix(web): restore saved-mark
+  styling, round inline saved-list ratings
+- Last commit (~/.claude): `2dc695e` fix(today): fix broken tilde
+  expansion in want-to-listen command
+- Uncommitted changes: no (both repos clean except pre-existing untracked
+  scratch files)
+- Untracked (album-case): pre-existing scratch files from an earlier
+  session's ship-check visual audit (`.playwright-mcp/`, `ac-*.png`), left
+  alone -- not part of this session
+- Pushed to origin: no (album-case, 22 ahead, declined this session);
+  ~/.claude has no remote at all
 - Deployed to production: yes, this session, bundle hash verified
   (`assets/index-KiqEEdZB.js` local == production)
 - Stashed: no
@@ -137,4 +159,4 @@ re-verified the bundle hash. No source edits.
 session paused
 
 ## Updated
-2026-08-27T15:06:55Z
+2026-08-27T15:10:00Z
