@@ -97,6 +97,8 @@ npm run build
 vercel deploy --prod --yes   # from web/, required after every commit -- no auto-deploy
 ```
 
+The deploy line is a reminder that nothing reaches production on its own, not standing authorization to run it. Ask before deploying, per the global rule.
+
 ## Conventions
 
 - Prefer README, SECURITY.md, HANDOFF.md, and this file over stale `.planning/`
