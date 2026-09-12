@@ -1418,6 +1418,42 @@ async function main(): Promise<void> {
     renderCuratedListsView();
   }
 
+  /** "All {artist} albums" button on curated rows -- opens the same
+   *  artist-batch view the rest of the app uses (renderArtistBatchView).
+   *  A curated entry the owner hasn't touched yet won't be in `pool`, so
+   *  this pushes the resolved album in directly (the batch view always has
+   *  at least that one to show) and discovers the rest, best-effort. */
+  async function handleViewArtistFromCurated(entry: CuratedAlbumEntry): Promise<void> {
+    const album = entry.resolved;
+    if (!album?.primary_artist_mbid) return;
+    const artistMbid = album.primary_artist_mbid;
+
+    const poolIds = new Set(pool.map((a) => a.mbid));
+    if (!poolIds.has(album.mbid)) pool.push(album);
+
+    const knownMbids = pool
+      .filter((a) => a.primary_artist_mbid === artistMbid)
+      .map((a) => a.mbid);
+    const result = await discoverArtistDetailed(
+      session.session_id,
+      album.primary_artist_name,
+      artistMbid,
+      knownMbids
+    );
+    if (result.status === 'found') {
+      const ids = new Set(pool.map((a) => a.mbid));
+      for (const found of result.albums) {
+        if (!ids.has(found.mbid)) {
+          pool.push(found);
+          ids.add(found.mbid);
+        }
+      }
+    }
+
+    batchArtistMbid = artistMbid;
+    showView('artistBatch');
+  }
+
   function renderCuratedListsView(): void {
     const unranked = selectedCuratedListId
       ? unrankedFromCuratedList(CURATED_LISTS[selectedCuratedListId].albums, state.ranked, {
@@ -1440,6 +1476,9 @@ async function main(): Promise<void> {
       onHideArtist: handleHideCuratedArtist,
       onWantToListen: (entry) => {
         void handleWantToListenCuratedEntry(entry);
+      },
+      onViewArtist: (entry) => {
+        void handleViewArtistFromCurated(entry);
       },
       ratingEntryKey: curatedRatingEntryKey,
       rateMessage: curatedRateMessage,

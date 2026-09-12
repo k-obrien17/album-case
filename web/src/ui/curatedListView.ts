@@ -29,6 +29,11 @@ export type CuratedListViewOptions = {
    *  straight in; an unresolved entry goes through the same search-confirm
    *  flow as `onRateAlbum` first (see `pendingMatch`). */
   onWantToListen: (entry: CuratedAlbumEntry) => void;
+  /** Opens the artist-batch view for this entry's artist (reorder/rate/
+   *  discover, same view used elsewhere in the app). Only offered for
+   *  entries with a `resolved` MBID -- there's no artist to look up
+   *  without one. */
+  onViewArtist: (entry: CuratedAlbumEntry) => void;
   /** curatedEntryKey() of the row currently resolving/awaiting confirmation, if any. */
   ratingEntryKey: string | null;
   /** A one-shot message tied to a specific row (e.g. "couldn't find X"),
@@ -224,6 +229,16 @@ export function renderCuratedListView(container: HTMLElement, opts: CuratedListV
     hideBtn.disabled = opts.ratingEntryKey !== null;
     hideBtn.addEventListener('click', () => opts.onHideArtist(entry));
     actions.append(hideBtn);
+
+    if (entry.resolved) {
+      const viewArtistBtn = document.createElement('button');
+      viewArtistBtn.type = 'button';
+      viewArtistBtn.className = 'candidate-place-button';
+      viewArtistBtn.textContent = `All ${entry.artist} albums`;
+      viewArtistBtn.disabled = opts.ratingEntryKey !== null;
+      viewArtistBtn.addEventListener('click', () => opts.onViewArtist(entry));
+      actions.append(viewArtistBtn);
+    }
 
     item.append(actions);
     list.append(item);
