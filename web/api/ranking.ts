@@ -3,6 +3,7 @@ import { createClient } from '@libsql/client';
 import allowlist from './_allowlist.json' with { type: 'json' };
 import { SCHEMA_STATEMENTS, alterTableAddColumnIfMissing } from './_schema.js';
 import { requireWriteKey } from './_writeKey.js';
+import { parseBacklog, type Backlog } from '../shared/backlog.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // The allowlist gates /api/atom only. Ranking snapshots deliberately do NOT
@@ -28,6 +29,7 @@ type SnapshotLists = {
   wantToListen: Album[];
   notHeard: Album[];
   dontCare: Album[];
+  backlog?: Backlog<Album>;
 };
 
 type ArtistLock = {
@@ -161,7 +163,9 @@ function parseLists(value: unknown): SnapshotLists | null {
   const notHeard = parseAlbumList(value.notHeard);
   const dontCare = parseAlbumList(value.dontCare);
   if (!wantToListen || !notHeard || !dontCare) return null;
-  return { wantToListen, notHeard, dontCare };
+  const backlog = value.backlog === undefined ? undefined : parseBacklog(value.backlog, parseAlbumList);
+  if (backlog === null) return null;
+  return { wantToListen, notHeard, dontCare, ...(backlog && { backlog }) };
 }
 
 function parseArtistLocks(value: unknown): ArtistLock[] | null {
@@ -225,7 +229,8 @@ function validate(body: RankingBody | null):
   }
 
   const rankedIds = new Set(ranked.map((album) => album.mbid));
-  const saved = [...lists.wantToListen, ...lists.notHeard, ...lists.dontCare];
+  const saved = [...lists.wantToListen, ...lists.notHeard, ...lists.dontCare,
+    ...(lists.backlog?.readyToRank ?? []), ...(lists.backlog?.needsRefresher ?? []), ...(lists.backlog?.pendingReview ?? [])];
   if (saved.some((album) => rankedIds.has(album.mbid))) {
     return { ok: false, message: 'ranked_album_in_saved_list' };
   }
@@ -282,6 +287,7 @@ WHERE session_id = ?
         wantToListen: lists.wantToListen ?? [],
         notHeard: lists.notHeard ?? [],
         dontCare: lists.dontCare ?? [],
+        ...(lists.backlog && { backlog: lists.backlog }),
       },
       artist_locks: artistLocks,
       blocked_artists: blockedArtists,
@@ -329,6 +335,8 @@ ON CONFLICT(session_id) DO UPDATE SET
   blocked_artists_json = excluded.blocked_artists_json,
   curated_skips_json = excluded.curated_skips_json,
   updated_at = excluded.updated_at
+WHERE json_type(ranking_snapshots.lists_json, '$.backlog') IS NULL
+   OR json_type(excluded.lists_json, '$.backlog') IS NOT NULL
 `
         : `
 INSERT INTO ranking_snapshots (session_id, ranking_json, lists_json, artist_locks_json, blocked_artists_json, curated_skips_json, updated_at)
@@ -341,6 +349,8 @@ ON CONFLICT(session_id) DO UPDATE SET
   curated_skips_json = excluded.curated_skips_json,
   updated_at = excluded.updated_at
 WHERE ranking_snapshots.updated_at = ?
+  AND (json_type(ranking_snapshots.lists_json, '$.backlog') IS NULL
+    OR json_type(excluded.lists_json, '$.backlog') IS NOT NULL)
 `;
 
   const results = await db().batch([

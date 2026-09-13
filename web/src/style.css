@@ -9,6 +9,52 @@ body {
   font-family: var(--font-mono);
 }
 
+/* Artist review keeps one finite catalogue and its decisions in view. */
+.backlog-view { max-width: 1040px; margin: 24px auto; }
+.backlog-view h2 { font-size: clamp(1.5rem, 4vw, 2.2rem); letter-spacing: -0.04em; margin: 8px 0 12px; color: var(--color-fg); }
+.backlog-intro { max-width: 650px; line-height: 1.7; }
+.backlog-progress, .backlog-hint, .backlog-year, .backlog-artist-name { color: var(--color-muted); font-size: 0.75rem; line-height: 1.6; }
+.backlog-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 24px 0 8px; }
+.backlog-button { min-height: 44px; border: 1px solid var(--color-border-btn); border-radius: var(--radius-md); padding: 10px 12px; color: var(--color-fg); background: var(--color-bg); font: inherit; font-size: 0.75rem; cursor: pointer; line-height: 1.4; }
+.backlog-button:hover { background: var(--color-bg-alt); }
+.backlog-primary, .backlog-button[aria-pressed="true"] { border-color: var(--color-accent); color: var(--color-accent); }
+.backlog-status { display: flex; align-items: center; gap: 12px; min-height: 48px; font-size: 0.8rem; flex-wrap: wrap; }
+.backlog-picker { display: grid; gap: 8px; font-size: 0.75rem; margin: 12px 0 24px; }
+.backlog-picker select { width: 100%; max-width: 100%; min-width: 0; min-height: 48px; padding: 10px; border: 1px solid var(--color-border-btn); border-radius: var(--radius-md); color: var(--color-fg); background: var(--color-bg); font: inherit; }
+.backlog-artist-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.backlog-artist-heading h3 { margin: 0; font-size: 1.3rem; overflow-wrap: anywhere; }
+.backlog-artist-heading button { flex-shrink: 0; }
+.backlog-toggle { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 0.75rem; cursor: pointer; }
+.backlog-toggle input { width: 20px; height: 20px; accent-color: var(--color-accent); }
+.backlog-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; padding: 0; margin: 20px 0 28px; list-style: none; }
+.backlog-card { min-width: 0; display: flex; flex-direction: column; padding: 12px; border: 1px solid var(--color-border-btn); border-radius: var(--radius-md); background: var(--color-bg); }
+.backlog-cover { aspect-ratio: 1; background: var(--color-bg-alt); overflow: hidden; border-radius: var(--radius-md); }
+.backlog-cover img { width: 100%; height: 100%; object-fit: cover; }
+.backlog-card h3 { font-size: 0.9rem; line-height: 1.45; margin: 0 0 4px; overflow-wrap: anywhere; }
+.backlog-card p { margin: 6px 0; }
+.backlog-card-actions { display: grid; gap: 6px; margin-top: auto; padding-top: 12px; }
+.backlog-card-actions button { width: 100%; }
+.backlog-rate { display: flex; gap: 6px; }
+.backlog-rate input { width: 100%; min-width: 0; min-height: 44px; box-sizing: border-box; padding: 6px; font: inherit; font-size: 16px; background: var(--color-bg); color: var(--color-fg); border: 1px solid var(--color-border-btn); border-radius: var(--radius-md); }
+.backlog-rate button { width: auto; }
+.backlog-reviewed { margin: 28px 0; border-top: 1px solid var(--color-border-btn); padding-top: 12px; font-size: 0.8rem; }
+.backlog-reviewed summary { min-height: 44px; line-height: 44px; cursor: pointer; }
+.backlog-reviewed ul { padding-left: 20px; }
+.backlog-reviewed li { padding: 8px 0; line-height: 1.6; }
+.backlog-view input:focus-visible, .backlog-view select:focus-visible, .backlog-view summary:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.nav-more summary { display: flex; align-items: center; box-sizing: border-box; list-style: none; }
+.nav-more summary::after { content: ' +'; margin-left: 8px; }
+.nav-more[open] summary::after { content: ' −'; }
+.nav-more-items { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 8px; }
+.nav-more[open] { flex-basis: 100%; }
+@media (max-width: 480px) {
+  .backlog-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .backlog-card { padding: 8px; }
+  .backlog-card-actions .backlog-button { padding: 8px 5px; font-size: 0.7rem; }
+  .backlog-artist-heading { align-items: flex-start; }
+  .backlog-artist-heading h3 { font-size: 1.1rem; }
+}
+
 #app {
   max-width: var(--content-width);
   margin: 0 auto;
@@ -19,6 +65,13 @@ body {
   flex-direction: column;
   gap: 16px;
 }
+
+.backlog-grid.suggestion-grid { grid-template-columns: minmax(0, 420px); }
+.suggestion-grid .backlog-cover { max-width: 260px; width: 100%; align-self: center; }
+.suggestion-grid .backlog-card { padding: 16px; }
+.suggestion-grid .backlog-card h3 { font-size: 1.15rem; }
+.suggestion-grid .suggestion-reason { font-size: 0.85rem; line-height: 1.65; }
+.suggestion-grid .backlog-card-actions .backlog-button { font-size: 0.8rem; }
 
 .app-heading {
   color: var(--color-fg);
@@ -48,6 +101,7 @@ button:active {
   font-family: var(--font-mono);
   font-size: 0.8rem;
 }
+.sync-banner button { margin: 8px 8px 0 0; max-width: 100%; }
 
 /* View switcher (Ranked list / Want to listen / Haven't heard) */
 

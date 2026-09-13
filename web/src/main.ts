@@ -21,6 +21,9 @@ import {
   addToList,
   removeFromList,
   excludedMbids,
+  allSavedAlbums,
+  removeFromAllLists,
+  mergeRefresherIntoWantToListen,
   type ListName,
   type SavedLists,
 } from './lists';
@@ -44,7 +47,7 @@ import { loadRankingSnapshotDetailed, saveRankingSnapshot } from './rankingSync'
 import { discoverArtistDetailed, loadDiscoveredAlbums } from './discovery';
 import { runBulkDiscovery, runSimilarExpansion, TOP_ARTIST_DISCOVERY_COUNT } from './bulkDiscovery';
 import type { SimilarArtist } from './bulkDiscovery';
-import { clearPendingSync, hasPendingSync, markPendingSync } from './syncStatus';
+import { clearPendingSync, hasPendingSync, markPendingSync, clearSyncConflict, hasSyncConflict, markSyncConflict, loadSyncBase, saveSyncBase, pendingBaseConflicts } from './syncStatus';
 import {
   addBlockedArtist,
   blockedArtistMbids,
@@ -64,8 +67,13 @@ import { CURATED_LISTS } from './data/curatedLists';
 import { curatedEntryKey, unrankedFromCuratedList } from './curatedListMatch';
 import { renderCuratedListView } from './ui/curatedListView';
 import type { CuratedAlbumEntry } from './data/curatedLists';
+import { buildArtistGaps, decideAlbum, albumKey } from './backlog';
+import { emptyBacklog } from '../shared/backlog';
+import { renderBacklogView, type BacklogShelf } from './ui/backlogView';
+import { suggestAlbum, loadSuggestionConnections, type Suggestion, type RelatedArtist } from './suggestions';
+import { normalize } from './curatedListMatch';
 
-type ViewMode = 'ranked' | ListName | 'blockedArtists' | 'artistBatch' | 'speedRound' | 'curatedLists';
+type ViewMode = 'ranked' | ListName | 'blockedArtists' | 'artistBatch' | 'speedRound' | 'curatedLists' | 'backlog';
 
 type RestoreSnapshot = { state: RankingState; lists: SavedLists };
 
@@ -121,20 +129,18 @@ export function resolveInitialState(
   if (serverSnapshot) {
     return {
       state: { ranked: serverSnapshot.ranked, pending: null },
-      lists: serverSnapshot.lists,
+      lists: mergeRefresherIntoWantToListen(serverSnapshot.lists),
       artistLocks: serverSnapshot.artistLocks,
       fromServer: true,
     };
   }
-  return { state: cached.state, lists: cached.lists, artistLocks: cached.artistLocks, fromServer: false };
+  return { state: cached.state, lists: mergeRefresherIntoWantToListen(cached.lists), artistLocks: cached.artistLocks, fromServer: false };
 }
 
 function snapshotAlbumCount(snapshot: { ranked: Album[]; lists: SavedLists }): number {
   return (
     snapshot.ranked.length +
-    snapshot.lists.wantToListen.length +
-    snapshot.lists.notHeard.length +
-    snapshot.lists.dontCare.length
+    allSavedAlbums(snapshot.lists).length + (snapshot.lists.backlog?.pendingReview?.length ?? 0)
   );
 }
 
@@ -164,9 +170,16 @@ export function hydrateAlbums<T extends Album>(albums: T[], byId: Map<string, Al
 
 export function hydrateLists(lists: SavedLists, byId: Map<string, Album>): SavedLists {
   return {
+    ...lists,
     wantToListen: hydrateAlbums(lists.wantToListen, byId),
     notHeard: hydrateAlbums(lists.notHeard, byId),
     dontCare: hydrateAlbums(lists.dontCare, byId),
+    ...(lists.backlog && { backlog: {
+      ...lists.backlog,
+      readyToRank: hydrateAlbums(lists.backlog.readyToRank, byId),
+      needsRefresher: hydrateAlbums(lists.backlog.needsRefresher, byId),
+      ...(lists.backlog.pendingReview && { pendingReview: hydrateAlbums(lists.backlog.pendingReview, byId) }),
+    } }),
   };
 }
 
@@ -231,9 +244,7 @@ export function addSearchedAlbum(
   rating: number
 ): { ranked: RankedAlbum[]; lists: SavedLists } {
   const newRanked = insertAtRating(ranked, album, rating);
-  let newLists = removeFromList(lists, album.mbid, 'wantToListen');
-  newLists = removeFromList(newLists, album.mbid, 'notHeard');
-  newLists = removeFromList(newLists, album.mbid, 'dontCare');
+  const newLists = removeFromAllLists(lists, album);
   return { ranked: newRanked, lists: newLists };
 }
 
@@ -265,6 +276,7 @@ export interface SyncSnapshotInput {
 
 export type SyncSnapshotResult =
   | { outcome: 'saved'; updatedAt: number }
+  | { outcome: 'conflict' }
   | { outcome: 'pending'; nextBaseUpdatedAt: number | null | undefined };
 
 export interface SyncSnapshotDeps {
@@ -288,13 +300,11 @@ export async function performRankingSync(
   let resolvedBase = input.baseUpdatedAt;
 
   if (resolvedBase === undefined) {
-    // A prior version conflict cleared the base. Refetch the server's
-    // current version so saving can resume -- previously this disabled
-    // sync for the rest of the page load while the banner kept claiming
-    // "Retrying...", which was never true.
+    // With no known base, only a missing snapshot is safe to create. A
+    // fresh version number does not make stale local content safe to save.
     const fresh = await deps.loadFresh(input.sessionId);
     if (fresh.status === 'found') {
-      resolvedBase = fresh.updatedAt;
+      return { outcome: 'conflict' };
     } else if (fresh.status === 'missing') {
       resolvedBase = null;
     } else {
@@ -315,13 +325,12 @@ export async function performRankingSync(
   if (result.status === 'saved') {
     return { outcome: 'saved', updatedAt: result.updatedAt };
   }
+  if (result.status === 'conflict') return { outcome: 'conflict' };
   // 'error' (network/server): the base we resolved is still presumed valid,
   // so it carries forward unchanged for the next retry.
-  // 'conflict': the server copy changed under us, so the base is cleared to
-  // force a refetch next attempt.
   return {
     outcome: 'pending',
-    nextBaseUpdatedAt: result.status === 'conflict' ? undefined : resolvedBase,
+    nextBaseUpdatedAt: resolvedBase,
   };
 }
 
@@ -386,8 +395,9 @@ async function main(): Promise<void> {
       ? serverLoad.updatedAt
       : serverLoad.status === 'missing'
         ? null
-        : undefined;
+        : loadSyncBase();
   let snapshotSaveChain: Promise<void> = Promise.resolve();
+  let saveRevision = 0;
   let syncRetryTimer: ReturnType<typeof setTimeout> | null = null;
   const SYNC_RETRY_MS = 4000;
   const discovered = await loadDiscoveredAlbums(OWNER_ID);
@@ -424,29 +434,41 @@ async function main(): Promise<void> {
   // server snapshot is stale by definition -- prefer the local cache instead
   // of letting it clobber the unsynced edits, and retry the save below.
   const pendingSync = hasPendingSync();
+  // Pending edits retain the revision they were actually made against. Never
+  // borrow the just-fetched server revision to save an older cached snapshot.
+  if (pendingSync) {
+    snapshotBaseUpdatedAt = loadSyncBase();
+    if (serverLoad.status !== 'error' && pendingBaseConflicts(
+      true, snapshotBaseUpdatedAt, serverLoad.status === 'found' ? serverLoad.updatedAt : null,
+    )) markSyncConflict();
+  } else if (snapshotBaseUpdatedAt !== undefined) {
+    saveSyncBase(snapshotBaseUpdatedAt);
+  }
   const cached = {
     state: cachedState,
     lists: cachedLists,
     artistLocks: cachedArtistLocks,
   };
-  const recoverServerSnapshot =
-    pendingSync && !!serverSnapshot && serverSnapshotIsRicher(serverSnapshot, cached);
-  const initial = resolveInitialState(pendingSync && !recoverServerSnapshot ? null : serverSnapshot, cached);
+  // A pending removal or Undo can legitimately leave fewer albums locally.
+  // Revision checks above decide conflicts; album counts cannot decide which
+  // user's changes to keep.
+  const initial = resolveInitialState(pendingSync ? null : serverSnapshot, cached);
   let state: RankingState = initial.state;
-  let lists: SavedLists = initial.lists;
+  // Even an empty review state must travel with new-client writes. This also
+  // lets Undo restore the first review action without resembling an old client.
+  let lists: SavedLists = { ...initial.lists, backlog: initial.lists.backlog ?? emptyBacklog<Album>() };
   let artistLocks: ArtistLock[] = initial.artistLocks;
   if (initial.fromServer) {
     saveRanking(state);
     saveLists(lists);
     saveArtistLocks(artistLocks);
-    if (recoverServerSnapshot) clearPendingSync();
   } else if (
     pendingSync ||
     (serverLoad.status === 'missing' &&
       (state.ranked.length > 0 ||
         lists.wantToListen.length > 0 ||
         lists.notHeard.length > 0 ||
-        lists.dontCare.length > 0))
+        lists.dontCare.length > 0 || !!lists.backlog))
   ) {
     markPendingSync();
     queueRankingSnapshotSync();
@@ -522,6 +544,37 @@ async function main(): Promise<void> {
       return;
     }
     syncBanner.hidden = false;
+    if (hasSyncConflict()) {
+      syncBanner.textContent = 'The saved copy changed in another tab or device. Your unsaved work is kept here. Export it before discarding it.';
+      const backup = document.createElement('button');
+      backup.className = 'view-tab';
+      backup.textContent = 'Export unsaved backup';
+      backup.addEventListener('click', handleExportBackup);
+      const reload = document.createElement('button');
+      reload.className = 'view-tab';
+      reload.textContent = 'Discard unsaved changes & load saved copy';
+      reload.addEventListener('click', () => {
+        void (async () => {
+          reload.disabled = true;
+          const fresh = await loadRankingSnapshotDetailed(OWNER_ID);
+          if (fresh.status !== 'found') {
+            reload.disabled = false;
+            reload.textContent = 'Could not load saved copy. Try again';
+            return;
+          }
+          saveRanking({ ranked: fresh.ranked, pending: null });
+          saveLists(fresh.lists);
+          saveArtistLocks(fresh.artistLocks);
+          saveBlockedArtists(fresh.blockedArtists);
+          saveSyncBase(fresh.updatedAt);
+          clearSyncConflict();
+          clearPendingSync();
+          window.location.reload();
+        })();
+      });
+      syncBanner.append(backup, reload);
+      return;
+    }
     syncBanner.textContent = 'Not saved to the server yet. Retrying...';
   }
 
@@ -550,7 +603,8 @@ async function main(): Promise<void> {
   async function syncRankingSnapshot(): Promise<void> {
     // Nothing outstanding -- e.g. a queued retry fired after an earlier
     // call in the chain already resolved things. Skip the redundant round-trip.
-    if (!hasPendingSync()) return;
+    if (!hasPendingSync() || hasSyncConflict()) return;
+    const revision = saveRevision;
 
     const result = await performRankingSync({
       sessionId: session.session_id,
@@ -564,7 +618,13 @@ async function main(): Promise<void> {
 
     if (result.outcome === 'saved') {
       snapshotBaseUpdatedAt = result.updatedAt;
-      clearPendingSync();
+      saveSyncBase(result.updatedAt);
+      // Another decision may have arrived while this request was in flight.
+      // Its queued save must still run against the newly acknowledged version.
+      if (revision === saveRevision) clearPendingSync();
+    } else if (result.outcome === 'conflict') {
+      markSyncConflict();
+      markPendingSync();
     } else {
       // 'pending': neither a refetch failure nor a save (error/conflict)
       // got the local edit to the server, so keep the pending flag set and
@@ -588,6 +648,7 @@ async function main(): Promise<void> {
   }
 
   function queueRankingSnapshotSync(): void {
+    saveRevision += 1;
     snapshotSaveChain = snapshotSaveChain.then(syncRankingSnapshot, syncRankingSnapshot);
     void snapshotSaveChain;
   }
@@ -731,7 +792,7 @@ async function main(): Promise<void> {
   function findAlbumByArtist(artistMbid: string): Album | null {
     return (
       state.ranked.find((a) => a.primary_artist_mbid === artistMbid) ??
-      [...lists.wantToListen, ...lists.notHeard, ...lists.dontCare].find(
+      allSavedAlbums(lists).find(
         (a) => a.primary_artist_mbid === artistMbid
       ) ??
       pool.find((a) => a.primary_artist_mbid === artistMbid) ??
@@ -785,10 +846,9 @@ async function main(): Promise<void> {
         renderArtistBatchView();
       },
       onRate: (album, rating) => {
-        state = { ranked: insertAtRating(state.ranked, album, rating), pending: null };
-        lists = removeFromList(lists, album.mbid, 'wantToListen');
-        lists = removeFromList(lists, album.mbid, 'notHeard');
-        lists = removeFromList(lists, album.mbid, 'dontCare');
+        const added = addSearchedAlbum(state.ranked, lists, album, rating);
+        state = { ranked: added.ranked, pending: null };
+        lists = added.lists;
         persistRankingState();
         persistLists();
         renderArtistBatchView();
@@ -904,6 +964,8 @@ async function main(): Promise<void> {
       // happened, just a direct rating.
       onRate: (album, rating) => {
         state = { ranked: insertAtRating(state.ranked, album, rating), pending: null };
+        lists = removeFromAllLists(lists, album);
+        persistLists();
         persistRankingState();
         reselectCandidate();
         renderSpeedRound();
@@ -1018,6 +1080,8 @@ async function main(): Promise<void> {
       }
 
       state = { ranked: reRate(before, placed, clamped), pending: null };
+      lists = removeFromAllLists(lists, placed);
+      persistLists();
       persistRankingState();
       reselectCandidate();
       rankList.render();
@@ -1056,6 +1120,8 @@ async function main(): Promise<void> {
     onDirectRate: (rating) => {
       if (!candidate) return;
       state = { ranked: insertAtRating(state.ranked, candidate, rating), pending: null };
+      lists = removeFromAllLists(lists, candidate);
+      persistLists();
       persistRankingState();
       reselectCandidate();
       rankList.render();
@@ -1488,7 +1554,151 @@ async function main(): Promise<void> {
     });
   }
 
+  let backlogShelf: BacklogShelf = 'artists';
+  let backlogShowOther = false;
+  let backlogMessage = '';
+  let suggestionState: { current: Suggestion | null; seen: Album[]; recent: string[]; count: number } = { current: null, seen: [], recent: [], count: 0 };
+  let suggestionRelated: RelatedArtist[] = [];
+  let suggestionAlbums: Album[] = [];
+  const suggestionCurated = Object.values(CURATED_LISTS).flatMap(list => list.albums.map(entry => ({
+    artist: entry.resolved?.primary_artist_name ?? entry.artist,
+    title: entry.resolved?.title ?? entry.title, source: list.name,
+  })));
+  const suggestionCuratedAlbums = Object.values(CURATED_LISTS).flatMap(list => list.albums.flatMap(entry => entry.resolved ? [entry.resolved] : []));
+  let suggestionLoading = false;
+  let suggestionLoaded = false;
+  let suggestionUnavailable = false;
+  let backlogUndo: { state: RankingState; lists: SavedLists; suggestions: typeof suggestionState; persist: boolean } | null = null;
+
+  function chooseSuggestion(): void {
+    suggestionState = { ...suggestionState, current: suggestAlbum({
+      pool: [...pool, ...suggestionAlbums, ...suggestionCuratedAlbums], ranked: state.ranked, lists, preferred,
+      blocked: blockedArtists, skipped: skippedAlbums, seen: suggestionState.seen,
+      recentArtists: suggestionState.recent, related: suggestionRelated,
+      discoveryTurn: suggestionState.count % 4 === 3,
+      curated: suggestionCurated,
+    }) };
+  }
+
+  function advanceSuggestion(): void {
+    const current = suggestionState.current;
+    if (current) suggestionState = {
+      current: null, seen: [...suggestionState.seen, current.album],
+      recent: [...suggestionState.recent, normalize(current.album.primary_artist_name)].slice(-3),
+      count: suggestionState.count + 1,
+    };
+    chooseSuggestion();
+  }
+
+  async function enrichSuggestions(): Promise<void> {
+    if (suggestionLoaded || suggestionLoading) return;
+    suggestionLoading = true;
+    const result = await loadSuggestionConnections(state.ranked, blockedArtists, pool);
+    suggestionRelated = result.related;
+    suggestionAlbums = result.albums;
+    suggestionUnavailable = result.unavailable;
+    suggestionLoading = false;
+    suggestionLoaded = true;
+    // Never replace a visible card or erase a score being typed when the
+    // background lookup finishes. Its results apply to the next suggestion.
+    if (!suggestionState.current && view === 'backlog' && backlogShelf === 'suggestions') {
+      chooseSuggestion();
+      renderBacklog();
+    }
+  }
+
+  function renderBacklog(): void {
+    const suggested = suggestionState.current?.album;
+    if (backlogShelf === 'suggestions' && suggested && (
+      [...state.ranked, ...allSavedAlbums(lists)].some(a => a.mbid === suggested.mbid || albumKey(a) === albumKey(suggested)) ||
+      skippedAlbums.has(suggested.mbid) || blockedArtists.some(name => normalize(name) === normalize(suggested.primary_artist_name))
+    )) chooseSuggestion();
+    const artists = buildArtistGaps(pool, state.ranked, lists, preferred, blockedArtists, skippedAlbums);
+    const selectedArtistId = lists.backlog?.currentArtistId ?? artists[0]?.id ?? null;
+    const remember = (persist = true) => { backlogUndo = { state, lists, suggestions: suggestionState, persist }; };
+    const commit = () => {
+      persistLists();
+      reselectCandidate();
+      renderBacklog();
+      renderNav();
+    };
+    renderBacklogView(stage, {
+      artists, lists, selectedArtistId, shelf: backlogShelf, showOther: backlogShowOther,
+      message: backlogMessage, canUndo: !!backlogUndo,
+      suggestion: suggestionState.current, suggestionLoading, suggestionUnavailable,
+      onShelf: (shelf) => {
+        backlogShelf = shelf;
+        if (shelf === 'suggestions') {
+          chooseSuggestion();
+          if (suggestionUnavailable) suggestionLoaded = false;
+          void enrichSuggestions();
+        }
+        renderBacklog();
+      },
+      onSkipSuggestion: () => {
+        remember(false);
+        advanceSuggestion();
+        backlogMessage = 'Skipped for this visit.';
+        renderBacklog();
+      },
+      onArtist: (id) => {
+        lists = { ...lists, backlog: { ...(lists.backlog ?? emptyBacklog<Album>()), currentArtistId: id } };
+        backlogShowOther = false;
+        backlogMessage = '';
+        persistLists();
+        renderBacklog();
+      },
+      onShowOther: (show) => { backlogShowOther = show; renderBacklog(); },
+      onDecide: (album, decision) => {
+        remember();
+        lists = decideAlbum(lists, album, decision);
+        // Keep the same artist visible when its remaining count changes.
+        lists = { ...lists, backlog: { ...(lists.backlog ?? emptyBacklog<Album>()), currentArtistId: selectedArtistId } };
+        backlogMessage = decision === 'readyToRank' ? `${album.title} is ready to rank.`
+          : decision === 'wantToListen' ? `${album.title} is saved to Want to listen.`
+          : decision === null ? `${album.title} is back in artist review.` : `${album.title} reviewed.`;
+        if (backlogShelf === 'suggestions') advanceSuggestion();
+        commit();
+      },
+      onRate: (album, rating) => {
+        remember();
+        const added = addSearchedAlbum(state.ranked, lists, album, rating);
+        state = { ranked: added.ranked, pending: null };
+        lists = added.lists;
+        backlogMessage = `${album.title} rated ${rating.toFixed(2)}.`;
+        if (backlogShelf === 'suggestions') advanceSuggestion();
+        persistRankingState();
+        commit();
+      },
+      onFinish: (id) => {
+        remember();
+        const backlog = lists.backlog ?? emptyBacklog<Album>();
+        const reviewed = [...new Set([...backlog.reviewedArtistIds, id])];
+        const next = artists.find((a) => !reviewed.includes(a.id));
+        lists = { ...lists, backlog: { ...backlog, reviewedArtistIds: reviewed, currentArtistId: next?.id ?? id } };
+        backlogShowOther = false;
+        backlogMessage = next ? 'Artist reviewed. Here’s the next one.' : 'You’ve reviewed every artist in this pass. Your familiar albums are waiting in Ready to rank.';
+        commit();
+      },
+      onUndo: () => {
+        if (!backlogUndo) return;
+        state = backlogUndo.state;
+        lists = backlogUndo.lists;
+        suggestionState = backlogUndo.suggestions;
+        const persist = backlogUndo.persist;
+        backlogUndo = null;
+        backlogMessage = 'Last change undone.';
+        if (persist) {
+          persistRankingState();
+          commit();
+        } else renderBacklog();
+      },
+      onRankings: handleOpenArtistBatch,
+    });
+  }
+
   function showView(next: ViewMode): void {
+    if (view === 'backlog' && next !== 'backlog') backlogUndo = null;
     // Leaving the drag view: cancel any in-flight drag / listeners.
     if (view === 'ranked' && next !== 'ranked') {
       rankList.teardown();
@@ -1503,6 +1713,8 @@ async function main(): Promise<void> {
 
     if (view === 'ranked') {
       rankList.render();
+    } else if (view === 'backlog') {
+      renderBacklog();
     } else if (view === 'blockedArtists') {
       renderBlockedArtists();
     } else if (view === 'artistBatch') {
@@ -1537,7 +1749,16 @@ async function main(): Promise<void> {
 
   function renderNav(): void {
     nav.textContent = '';
+    const more = document.createElement('details');
+    more.className = 'nav-more';
+    const moreLabel = document.createElement('summary');
+    moreLabel.className = 'view-tab';
+    moreLabel.textContent = 'More';
+    const moreItems = document.createElement('div');
+    moreItems.className = 'nav-more-items';
+    more.append(moreLabel, moreItems);
     const items: Array<{ mode: ViewMode; label: string }> = [
+      { mode: 'backlog', label: 'Find missing albums' },
       { mode: 'ranked', label: `Ranked list (${state.ranked.length})` },
       { mode: 'wantToListen', label: `Want to listen (${lists.wantToListen.length})` },
       { mode: 'notHeard', label: `Haven't heard (${lists.notHeard.length})` },
@@ -1553,7 +1774,8 @@ async function main(): Promise<void> {
       btn.className = mode === view ? 'view-tab view-tab-active' : 'view-tab';
       btn.textContent = label;
       btn.addEventListener('click', () => showView(mode));
-      nav.append(btn);
+      if (mode === 'backlog' || mode === 'ranked' || view !== 'backlog') nav.append(btn);
+      else moreItems.append(btn);
     }
 
     const bulkDiscoverBtn = document.createElement('button');
@@ -1565,7 +1787,8 @@ async function main(): Promise<void> {
     bulkDiscoverBtn.addEventListener('click', () => {
       void handleBulkDiscover();
     });
-    nav.append(bulkDiscoverBtn);
+    if (view === 'backlog') moreItems.append(bulkDiscoverBtn);
+    else nav.append(bulkDiscoverBtn);
 
     const exportBtn = document.createElement('button');
     exportBtn.type = 'button';
@@ -1573,10 +1796,13 @@ async function main(): Promise<void> {
     exportBtn.textContent = 'Export backup';
     exportBtn.title = 'Download your ranking and lists as a JSON file';
     exportBtn.addEventListener('click', handleExportBackup);
-    nav.append(exportBtn);
+    if (view === 'backlog') {
+      moreItems.append(exportBtn);
+      nav.append(more);
+    } else nav.append(exportBtn);
   }
 
-  renderNav();
+  showView('backlog');
 }
 
 if (typeof document !== 'undefined') {

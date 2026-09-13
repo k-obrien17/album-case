@@ -2,6 +2,7 @@ import type { SavedLists } from './lists';
 import type { Album, ArtistLock, RankedAlbum, RankingState } from './ranking/types';
 import { writeKeyHeaders } from './writeKey';
 import { parseAlbumArray, parseRankedAlbumArray } from './album';
+import { parseBacklog, type Backlog } from '../shared/backlog';
 
 /**
  * The snapshot carries FULL album records (not just mbids). The server is the
@@ -13,6 +14,7 @@ type SnapshotLists = {
   wantToListen: Album[];
   notHeard: Album[];
   dontCare: Album[];
+  backlog?: Backlog<Album>;
 };
 
 type SnapshotPayload = {
@@ -33,6 +35,7 @@ type SnapshotResponse = {
       notHeard: Album[];
       // Older snapshots predate dontCare; a missing bucket is an empty list.
       dontCare?: Album[];
+      backlog?: Backlog<Album>;
     };
     // Older snapshots predate artist locks/blocked artists/curated skips; a
     // missing field is empty.
@@ -77,6 +80,7 @@ export function snapshotPayload(
       wantToListen: lists.wantToListen,
       notHeard: lists.notHeard,
       dontCare: lists.dontCare,
+      ...(lists.backlog && { backlog: lists.backlog }),
     },
     artist_locks: artistLocks,
     blocked_artists: blockedArtists,
@@ -155,6 +159,9 @@ export async function loadRankingSnapshotDetailed(sessionId: string): Promise<Ra
       wantToListen: parseAlbumArray(body.snapshot.lists?.wantToListen),
       notHeard: parseAlbumArray(body.snapshot.lists?.notHeard),
       dontCare: parseAlbumArray(body.snapshot.lists?.dontCare),
+      ...(body.snapshot.lists?.backlog && {
+        backlog: parseBacklog(body.snapshot.lists.backlog, parseAlbumArray) ?? undefined,
+      }),
     },
     artistLocks: Array.isArray(body.snapshot.artist_locks) ? body.snapshot.artist_locks : [],
     blockedArtists: Array.isArray(body.snapshot.blocked_artists) ? body.snapshot.blocked_artists : [],

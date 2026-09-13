@@ -345,7 +345,7 @@ describe('performRankingSync (sync/conflict-resolution state machine)', () => {
     expect(result).toEqual({ outcome: 'saved', updatedAt: 42 });
   });
 
-  it('refetches the current version before saving when the base is unknown (409-conflict-refetch)', async () => {
+  it('does not overwrite an existing snapshot when the local base is unknown', async () => {
     const loadFresh = vi
       .fn()
       .mockResolvedValue({ status: 'found', updatedAt: 99 } as unknown as RankingSnapshotLoad);
@@ -357,25 +357,17 @@ describe('performRankingSync (sync/conflict-resolution state machine)', () => {
     );
 
     expect(loadFresh).toHaveBeenCalledWith(baseInput.sessionId);
-    expect(save).toHaveBeenCalledWith(
-      baseInput.sessionId,
-      baseInput.state,
-      baseInput.lists,
-      baseInput.artistLocks,
-      baseInput.blockedArtists,
-      baseInput.curatedSkips,
-      99
-    );
-    expect(result).toEqual({ outcome: 'saved', updatedAt: 100 });
+    expect(save).not.toHaveBeenCalled();
+    expect(result).toEqual({ outcome: 'conflict' });
   });
 
-  it('clears the base to force a refetch when another tab/device wins the write (two-tab-race)', async () => {
+  it('requires conflict resolution when another tab/device wins the write', async () => {
     const loadFresh = vi.fn();
     const save = vi.fn().mockResolvedValue({ status: 'conflict' } as RankingSnapshotSave);
 
     const result = await performRankingSync({ ...baseInput, baseUpdatedAt: 10 }, { loadFresh, save });
 
-    expect(result).toEqual({ outcome: 'pending', nextBaseUpdatedAt: undefined });
+    expect(result).toEqual({ outcome: 'conflict' });
   });
 
   it('treats a missing snapshot as a first-ever save with a null base', async () => {

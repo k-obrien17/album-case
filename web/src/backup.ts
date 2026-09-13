@@ -2,6 +2,7 @@ import type { SavedLists } from './lists';
 import type { Album, RankedAlbum, RankingState } from './ranking/types';
 import { parseAlbum } from './album';
 import { ratingForDropIndex } from './ranking/rating';
+import { parseBacklog } from '../shared/backlog';
 
 type BackupBundle = {
   version: 1;
@@ -91,7 +92,9 @@ function parseLists(value: unknown, pool: Album[]): SavedLists | null {
   // older file, so default to an empty list rather than rejecting the import.
   const dontCare = value.dontCare === undefined ? [] : canonicalAlbums(value.dontCare, pool);
   if (!wantToListen || !notHeard || !dontCare) return null;
-  return { wantToListen, notHeard, dontCare };
+  const backlog = value.backlog === undefined ? undefined : parseBacklog(value.backlog, (albums) => canonicalAlbums(albums, pool));
+  if (backlog === null) return null;
+  return { wantToListen, notHeard, dontCare, ...(backlog && { backlog }) };
 }
 
 export function createRankingBackup(state: RankingState, lists: SavedLists): string {

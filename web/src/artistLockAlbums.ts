@@ -1,5 +1,6 @@
 import type { Album } from './ranking/types';
 import type { SavedLists } from './lists';
+import { allSavedAlbums } from './lists';
 
 export type ArtistLockAlbums<T extends Album = Album> = {
   /** This artist's albums currently in the global ranked list, in current
@@ -26,7 +27,7 @@ export function artistAlbumsFor<T extends Album>(
   const rankedAlbums = ranked.filter(byArtist);
   const rankedIds = new Set(rankedAlbums.map((a) => a.mbid));
 
-  const savedAlbums = [...lists.wantToListen, ...lists.notHeard, ...lists.dontCare].filter(byArtist);
+  const savedAlbums = allSavedAlbums(lists).filter(byArtist);
   const poolAlbums = pool.filter(byArtist);
 
   const seen = new Set<string>();
