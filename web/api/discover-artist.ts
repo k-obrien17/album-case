@@ -32,6 +32,10 @@ function ensureSchema(): Promise<void> {
       client,
       'ALTER TABLE discovered_albums ADD COLUMN primary_artist_mbid TEXT',
     );
+    await alterTableAddColumnIfMissing(
+      client,
+      'ALTER TABLE discovered_albums ADD COLUMN genres_json TEXT',
+    );
   })();
   return schemaReady;
 }
@@ -81,7 +85,18 @@ function validatePost(body: DiscoverBody | null):
   };
 }
 
+function parseGenresJson(value: unknown): string[] | undefined {
+  if (typeof value !== 'string' || !value) return undefined;
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) && parsed.every((g) => typeof g === 'string') ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function rowToAlbum(row: Record<string, unknown>): DiscoveredAlbum {
+  const genres = parseGenresJson(row.genres_json);
   return {
     mbid: String(row.mbid),
     title: String(row.title),
@@ -90,6 +105,7 @@ function rowToAlbum(row: Record<string, unknown>): DiscoveredAlbum {
       typeof row.primary_artist_mbid === 'string' ? String(row.primary_artist_mbid) : undefined,
     release_year: row.release_year == null ? null : Number(row.release_year),
     cover_url: String(row.cover_url),
+    ...(genres ? { genres } : {}),
   };
 }
 
@@ -99,7 +115,7 @@ async function discoveredForSession(
 ): Promise<DiscoveredAlbum[]> {
   const rows = await client.execute({
     sql: `
-SELECT mbid, title, primary_artist_name, primary_artist_mbid, release_year, cover_url
+SELECT mbid, title, primary_artist_name, primary_artist_mbid, release_year, cover_url, genres_json
 FROM discovered_albums
 WHERE session_id = ?
 `,
@@ -115,7 +131,7 @@ async function discoveredForArtist(
 ): Promise<DiscoveredAlbum[]> {
   const rows = await client.execute({
     sql: `
-SELECT mbid, title, primary_artist_name, primary_artist_mbid, release_year, cover_url
+SELECT mbid, title, primary_artist_name, primary_artist_mbid, release_year, cover_url, genres_json
 FROM discovered_albums
 WHERE session_id = ? AND primary_artist_mbid = ?
 `,
@@ -163,8 +179,8 @@ async function handlePost(req: VercelRequest, res: VercelResponse): Promise<void
       newlyDiscovered.map((album) => ({
         sql: `
 INSERT INTO discovered_albums
-  (session_id, mbid, title, primary_artist_name, primary_artist_mbid, release_year, cover_url, discovered_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  (session_id, mbid, title, primary_artist_name, primary_artist_mbid, release_year, cover_url, genres_json, discovered_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(session_id, mbid) DO NOTHING
 `,
         args: [
@@ -175,6 +191,7 @@ ON CONFLICT(session_id, mbid) DO NOTHING
           album.primary_artist_mbid ?? null,
           album.release_year,
           album.cover_url,
+          album.genres?.length ? JSON.stringify(album.genres) : null,
           now,
         ],
       }))

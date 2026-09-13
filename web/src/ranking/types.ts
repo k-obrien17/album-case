@@ -9,6 +9,7 @@ export type Album = {
   primary_artist_mbid?: string;
   release_year: number | null;
   cover_url: string;
+  genres?: string[];
 };
 
 /** An album that's actually in the ranked list — carries a rating, the

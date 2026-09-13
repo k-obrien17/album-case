@@ -19,6 +19,7 @@ type Album = {
   primary_artist_mbid?: string;
   release_year: number | null;
   cover_url: string;
+  genres?: string[];
 };
 
 // A ranked-list entry additionally requires a rating (the single source of
@@ -103,12 +104,15 @@ function parseAlbum(value: unknown): Album | null {
     primary_artist_mbid: artistMbid,
     release_year: year,
     cover_url: cover,
+    genres,
   } = value;
   if (typeof mbid !== 'string' || !UUID_RE.test(mbid)) return null;
   if (typeof title !== 'string' || typeof artist !== 'string') return null;
   if (artistMbid !== undefined && (typeof artistMbid !== 'string' || !UUID_RE.test(artistMbid))) {
     return null;
   }
+  const genresList =
+    Array.isArray(genres) && genres.every((g) => typeof g === 'string') ? genres : undefined;
   return {
     mbid,
     title,
@@ -116,6 +120,7 @@ function parseAlbum(value: unknown): Album | null {
     ...(artistMbid ? { primary_artist_mbid: artistMbid } : {}),
     release_year: typeof year === 'number' ? year : null,
     cover_url: typeof cover === 'string' ? cover : '',
+    ...(genresList?.length ? { genres: genresList } : {}),
   };
 }
 

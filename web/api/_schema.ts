@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS discovered_albums (
     primary_artist_mbid TEXT,
     release_year INTEGER,
     cover_url TEXT NOT NULL,
+    genres_json TEXT,
     discovered_at INTEGER NOT NULL,
     PRIMARY KEY (session_id, mbid)
 );

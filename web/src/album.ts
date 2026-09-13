@@ -8,12 +8,14 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 export function parseAlbum(value: unknown): Album | null {
   if (!isObject(value)) return null;
-  const { mbid, title, primary_artist_name: artist, primary_artist_mbid: artistMbid } = value;
+  const { mbid, title, primary_artist_name: artist, primary_artist_mbid: artistMbid, genres } = value;
   if (typeof mbid !== 'string' || !mbid.trim()) return null;
   if (typeof title !== 'string' || typeof artist !== 'string') return null;
   if (artistMbid !== undefined && (typeof artistMbid !== 'string' || !UUID_RE.test(artistMbid))) {
     return null;
   }
+  const genresList =
+    Array.isArray(genres) && genres.every((g) => typeof g === 'string') ? genres : undefined;
 
   return {
     mbid,
@@ -22,6 +24,7 @@ export function parseAlbum(value: unknown): Album | null {
     ...(artistMbid ? { primary_artist_mbid: artistMbid } : {}),
     release_year: typeof value.release_year === 'number' ? value.release_year : null,
     cover_url: typeof value.cover_url === 'string' ? value.cover_url : '',
+    ...(genresList?.length ? { genres: genresList } : {}),
   };
 }
 

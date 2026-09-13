@@ -4,7 +4,20 @@ export type ReleaseGroup = {
   'first-release-date'?: string;
   'primary-type'?: string;
   'secondary-types'?: string[];
+  genres?: { name: string; count: number }[];
 };
+
+// MusicBrainz genres are crowd-tagged and can be sparse or noisy -- take the
+// top few by vote count rather than storing the whole (sometimes long) list.
+const MAX_GENRES = 3;
+
+export function topGenres(group: ReleaseGroup): string[] {
+  if (!group.genres?.length) return [];
+  return [...group.genres]
+    .sort((a, b) => b.count - a.count)
+    .slice(0, MAX_GENRES)
+    .map((g) => g.name.toLowerCase());
+}
 
 // Matches the seed builder's LP rule: MusicBrainz Album, excluding secondary
 // categories such as Compilation, Live, Remix, and Soundtrack.
@@ -26,6 +39,7 @@ export type DiscoveredAlbum = {
   primary_artist_mbid?: string;
   release_year: number | null;
   cover_url: string;
+  genres?: string[];
 };
 
 export const USER_AGENT = 'AlbumCase/0.1 (keith@totalemphasis.com)';
@@ -55,21 +69,31 @@ export async function browseArtistLps(
   const timeout = setTimeout(() => controller.abort(), MB_TIMEOUT_MS);
 
   try {
-    const params = new URLSearchParams({ artist: artistMbid, type: 'album', limit: '100', fmt: 'json' });
+    const params = new URLSearchParams({
+      artist: artistMbid,
+      type: 'album',
+      limit: '100',
+      fmt: 'json',
+      inc: 'genres',
+    });
     const res = await fetch(`${MB_BASE}/release-group?${params.toString()}`, {
       headers: { 'User-Agent': USER_AGENT },
       signal: controller.signal,
     });
     if (!res.ok) throw new Error(`musicbrainz_browse_${res.status}`);
     const data = (await res.json()) as { 'release-groups'?: ReleaseGroup[] };
-    return (data['release-groups'] ?? []).filter(isLpReleaseGroup).map((group) => ({
-      mbid: group.id,
-      title: group.title,
-      primary_artist_name: artistName,
-      primary_artist_mbid: artistMbid,
-      release_year: releaseYear(group),
-      cover_url: coverUrlFor(group.id),
-    }));
+    return (data['release-groups'] ?? []).filter(isLpReleaseGroup).map((group) => {
+      const genres = topGenres(group);
+      return {
+        mbid: group.id,
+        title: group.title,
+        primary_artist_name: artistName,
+        primary_artist_mbid: artistMbid,
+        release_year: releaseYear(group),
+        cover_url: coverUrlFor(group.id),
+        ...(genres.length ? { genres } : {}),
+      };
+    });
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
       throw new Error('musicbrainz_browse_timeout');
