@@ -76,7 +76,7 @@ web/
   src/           client app and tests
   public/seed/   curated album seed data
 pipeline/        offline data pipeline experiments
-poc/             exploratory scripts and reports
+archive/         retired demos, POC scripts, and superseded product docs (not part of the product or CI)
 ```
 
 ## Data Notes

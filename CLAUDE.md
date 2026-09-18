@@ -76,6 +76,7 @@ Defined in `web/api/_schema.ts`:
 | `web/scripts/` | Operational scripts: bulk album imports, curated-list MBID resolution, exports (see each script's header for usage) |
 | `pipeline/` | Offline seed-generation pipeline (see "Codebases in this repo") |
 | `scoring/` | Legacy calibration scoring module + pytest tests |
+| `archive/` | Retired demos (`elo-demo.html`, `pairwise-demo.html`), the `poc/` exploratory scripts, and `PRODUCT.md` — dead weight, not part of the product or CI |
 
 ## Commands (legacy tool)
 
@@ -164,7 +165,7 @@ not a full `/ship-check` (see that skill's own Don'ts).
 | `.planning/ROADMAP.md` | Phase structure |
 | `DATA-SOURCES.md` | Data source matrix + the store-everything architecture rule |
 | `SHIP-STANDARD.md` | The bar this project builds to |
-| `PRODUCT.md` | Older product definition (historical; see `PROJECT.md` for current) |
+| `archive/PRODUCT.md` | Older product definition (historical; see `PROJECT.md` for current) |
 | `CALIBRATION_GAME.md` | Legacy calibration-tool spec |
 | `scoring/CALIBRATION_INTEGRATION.md` | How the legacy export plugs into the parked Best-of-Years pipeline |
 | `README.md` | Legacy run/play/export instructions |

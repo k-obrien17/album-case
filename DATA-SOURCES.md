@@ -2,7 +2,7 @@
 
 The database map for Album Case's data foundation. Verified July 2026. Two research passes (open-license datasets + commercial APIs) confirmed current status, licensing, and recent changes.
 
-This doc feeds the **data-foundation** build phase (see `PRODUCT.md` "Subsystems"). It answers: what powers the app, what each source provides, what may be stored vs only rendered live, and the one architecture rule that follows from "everything I reference ends up in my database."
+This doc feeds the **data-foundation** build phase (see `archive/PRODUCT.md` "Subsystems"). It answers: what powers the app, what each source provides, what may be stored vs only rendered live, and the one architecture rule that follows from "everything I reference ends up in my database."
 
 ## Architecture principle (decided)
 
@@ -49,7 +49,7 @@ Used live to decorate rows you already own. None may be stored as a database per
 
 ## Decisions and changes from the prior plan
 
-- **Spotify is dropped entirely.** `PRODUCT.md` had "Spotify only at the edges." As of Feb 11, 2026, new dev-mode apps require a Premium account, are capped at one client ID / 5 users, lost all batch endpoints, and the ToS forbids "aggregating metadata/artwork to create databases." It can't be stored, now needs a backend to search, and under the architecture rule above it has no discovery role. No role remains. **Deezer replaces it** for search, autocomplete, images, and previews, with no key and no backend.
+- **Spotify is dropped entirely.** `archive/PRODUCT.md` had "Spotify only at the edges." As of Feb 11, 2026, new dev-mode apps require a Premium account, are capped at one client ID / 5 users, lost all batch endpoints, and the ToS forbids "aggregating metadata/artwork to create databases." It can't be stored, now needs a backend to search, and under the architecture rule above it has no discovery role. No role remains. **Deezer replaces it** for search, autocomplete, images, and previews, with no key and no backend.
 - **AcousticBrainz is dead.** Frozen June 2022, disavowed by its own team, site offline. Do not build on it.
 - **Audio features (BPM, key, mood) have no open source anymore.** AcousticBrainz is frozen and Spotify killed its audio-features endpoint (Nov 27, 2024). If a future functionality needs audio features, they must be computed in-house or bought. Out of scope for the current design.
 
