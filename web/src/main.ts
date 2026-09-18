@@ -11,7 +11,6 @@ import {
 } from './seed';
 import type { ArtistPlays } from './seed';
 import { loadRanking, saveRanking } from './storage';
-import { createRankingBackup } from './backup';
 import { filterAlbums } from './search';
 import { getOrCreateSession, isValidSessionId } from './session';
 import { OWNER_ID } from './owner';
@@ -23,7 +22,6 @@ import {
   excludedMbids,
   allSavedAlbums,
   removeFromAllLists,
-  mergeRefresherIntoWantToListen,
   type ListName,
   type SavedLists,
 } from './lists';
@@ -43,11 +41,11 @@ import {
   savePriorityQueue,
   savePriorityPlanVersion,
 } from './priority';
-import { loadRankingSnapshotDetailed, saveRankingSnapshot } from './rankingSync';
+import { loadRankingSnapshotDetailed } from './rankingSync';
 import { discoverArtistDetailed, loadDiscoveredAlbums } from './discovery';
 import { runBulkDiscovery, runSimilarExpansion, TOP_ARTIST_DISCOVERY_COUNT } from './bulkDiscovery';
 import type { SimilarArtist } from './bulkDiscovery';
-import { clearPendingSync, hasPendingSync, markPendingSync, clearSyncConflict, hasSyncConflict, markSyncConflict, loadSyncBase, saveSyncBase, pendingBaseConflicts } from './syncStatus';
+import { hasPendingSync, markPendingSync, markSyncConflict, loadSyncBase, saveSyncBase, pendingBaseConflicts } from './syncStatus';
 import {
   addBlockedArtist,
   blockedArtistMbids,
@@ -72,6 +70,13 @@ import { emptyBacklog } from '../shared/backlog';
 import { renderBacklogView, type BacklogShelf } from './ui/backlogView';
 import { suggestAlbum, loadSuggestionConnections, type Suggestion, type RelatedArtist } from './suggestions';
 import { normalize } from './curatedListMatch';
+import { createSyncEngine, hydrateAlbums, hydrateLists, resolveInitialState } from './syncEngine';
+
+// Re-exported for main.test.ts, which imports these pure functions directly
+// from './main'. They now live in syncEngine.ts alongside the rest of the
+// sync/bootstrap-resolution logic; main.ts keeps re-exporting them so the
+// test's import path doesn't need to change.
+export { hydrateAlbums, hydrateLists, resolveInitialState, serverSnapshotIsRicher, performRankingSync } from './syncEngine';
 
 type ViewMode = 'ranked' | ListName | 'blockedArtists' | 'artistBatch' | 'speedRound' | 'curatedLists' | 'backlog';
 
@@ -115,72 +120,6 @@ export async function restoreFromCode(
 
   deps.setSession(id);
   return { status: 'restored', state: snapshot.state, lists: snapshot.lists };
-}
-
-/**
- * Decide the source of truth on open. The server snapshot wins whenever it
- * exists (its records are full and authoritative); otherwise fall back to the
- * localStorage cache. Pure so load-on-open precedence is unit-testable.
- */
-export function resolveInitialState(
-  serverSnapshot: { ranked: RankedAlbum[]; lists: SavedLists; artistLocks: ArtistLock[] } | null,
-  cached: { state: RankingState; lists: SavedLists; artistLocks: ArtistLock[] }
-): { state: RankingState; lists: SavedLists; artistLocks: ArtistLock[]; fromServer: boolean } {
-  if (serverSnapshot) {
-    return {
-      state: { ranked: serverSnapshot.ranked, pending: null },
-      lists: mergeRefresherIntoWantToListen(serverSnapshot.lists),
-      artistLocks: serverSnapshot.artistLocks,
-      fromServer: true,
-    };
-  }
-  return { state: cached.state, lists: mergeRefresherIntoWantToListen(cached.lists), artistLocks: cached.artistLocks, fromServer: false };
-}
-
-function snapshotAlbumCount(snapshot: { ranked: Album[]; lists: SavedLists }): number {
-  return (
-    snapshot.ranked.length +
-    allSavedAlbums(snapshot.lists).length + (snapshot.lists.backlog?.pendingReview?.length ?? 0)
-  );
-}
-
-function lockWeight(locks: ArtistLock[]): number {
-  return locks.reduce((total, lock) => total + 1 + lock.order.length, 0);
-}
-
-/**
- * A stale pending-sync flag can trap a browser on an old local copy forever
- * when writes are locked. If the server clearly has a richer snapshot, prefer
- * it; otherwise keep protecting the local unsynced edits.
- */
-export function serverSnapshotIsRicher(
-  serverSnapshot: { ranked: Album[]; lists: SavedLists; artistLocks: ArtistLock[] },
-  cached: { state: RankingState; lists: SavedLists; artistLocks: ArtistLock[] }
-): boolean {
-  const cachedSnapshot = { ranked: cached.state.ranked, lists: cached.lists };
-  return (
-    snapshotAlbumCount(serverSnapshot) > snapshotAlbumCount(cachedSnapshot) ||
-    lockWeight(serverSnapshot.artistLocks) > lockWeight(cached.artistLocks)
-  );
-}
-
-export function hydrateAlbums<T extends Album>(albums: T[], byId: Map<string, Album>): T[] {
-  return albums.map((album) => ({ ...(byId.get(album.mbid) ?? {}), ...album }));
-}
-
-export function hydrateLists(lists: SavedLists, byId: Map<string, Album>): SavedLists {
-  return {
-    ...lists,
-    wantToListen: hydrateAlbums(lists.wantToListen, byId),
-    notHeard: hydrateAlbums(lists.notHeard, byId),
-    dontCare: hydrateAlbums(lists.dontCare, byId),
-    ...(lists.backlog && { backlog: {
-      ...lists.backlog,
-      readyToRank: hydrateAlbums(lists.backlog.readyToRank, byId),
-      needsRefresher: hydrateAlbums(lists.backlog.needsRefresher, byId),
-      ...(lists.backlog.pendingReview && { pendingReview: hydrateAlbums(lists.backlog.pendingReview, byId) }),
-    } }),
-  };
 }
 
 /**
@@ -264,76 +203,6 @@ export function setRating(ranked: RankedAlbum[], from: number, rating: number): 
   return insertAtRating(without, album, rating);
 }
 
-export interface SyncSnapshotInput {
-  sessionId: string;
-  state: RankingState;
-  lists: SavedLists;
-  artistLocks: ArtistLock[];
-  blockedArtists: string[];
-  curatedSkips: string[];
-  baseUpdatedAt: number | null | undefined;
-}
-
-export type SyncSnapshotResult =
-  | { outcome: 'saved'; updatedAt: number }
-  | { outcome: 'conflict' }
-  | { outcome: 'pending'; nextBaseUpdatedAt: number | null | undefined };
-
-export interface SyncSnapshotDeps {
-  loadFresh: typeof loadRankingSnapshotDetailed;
-  save: typeof saveRankingSnapshot;
-}
-
-const defaultSyncSnapshotDeps: SyncSnapshotDeps = {
-  loadFresh: loadRankingSnapshotDetailed,
-  save: saveRankingSnapshot,
-};
-
-/** Pure transition logic for the ranking-snapshot sync/conflict-resolution
- *  state machine, extracted for direct unit testing -- see HANDOFF.md's
- *  ship-check backlog. `syncRankingSnapshot` below is a thin side-effecting
- *  wrapper that applies the result to closure state. */
-export async function performRankingSync(
-  input: SyncSnapshotInput,
-  deps: SyncSnapshotDeps = defaultSyncSnapshotDeps
-): Promise<SyncSnapshotResult> {
-  let resolvedBase = input.baseUpdatedAt;
-
-  if (resolvedBase === undefined) {
-    // With no known base, only a missing snapshot is safe to create. A
-    // fresh version number does not make stale local content safe to save.
-    const fresh = await deps.loadFresh(input.sessionId);
-    if (fresh.status === 'found') {
-      return { outcome: 'conflict' };
-    } else if (fresh.status === 'missing') {
-      resolvedBase = null;
-    } else {
-      return { outcome: 'pending', nextBaseUpdatedAt: undefined };
-    }
-  }
-
-  const result = await deps.save(
-    input.sessionId,
-    input.state,
-    input.lists,
-    input.artistLocks,
-    input.blockedArtists,
-    input.curatedSkips,
-    resolvedBase
-  );
-
-  if (result.status === 'saved') {
-    return { outcome: 'saved', updatedAt: result.updatedAt };
-  }
-  if (result.status === 'conflict') return { outcome: 'conflict' };
-  // 'error' (network/server): the base we resolved is still presumed valid,
-  // so it carries forward unchanged for the next retry.
-  return {
-    outcome: 'pending',
-    nextBaseUpdatedAt: resolvedBase,
-  };
-}
-
 async function main(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>('#app');
   if (!app) {
@@ -396,10 +265,6 @@ async function main(): Promise<void> {
       : serverLoad.status === 'missing'
         ? null
         : loadSyncBase();
-  let snapshotSaveChain: Promise<void> = Promise.resolve();
-  let saveRevision = 0;
-  let syncRetryTimer: ReturnType<typeof setTimeout> | null = null;
-  const SYNC_RETRY_MS = 4000;
   const discovered = await loadDiscoveredAlbums(OWNER_ID);
   const knownPoolIds = new Set(pool.map((album) => album.mbid));
   for (const album of discovered) {
@@ -458,6 +323,21 @@ async function main(): Promise<void> {
   // lets Undo restore the first review action without resembling an old client.
   let lists: SavedLists = { ...initial.lists, backlog: initial.lists.backlog ?? emptyBacklog<Album>() };
   let artistLocks: ArtistLock[] = initial.artistLocks;
+
+  // Owns the steady-state save/retry/banner engine (was closure locals here
+  // in main()); bootstrap above stays inline since it's tangled with the
+  // priority-queue/discovery bootstrap above in a way that isn't safe to
+  // pull out in one pass -- see syncEngine.ts's module doc comment.
+  const syncEngine = createSyncEngine({
+    session,
+    getState: () => state,
+    getLists: () => lists,
+    getArtistLocks: () => artistLocks,
+    getBlockedArtists: () => blockedArtists,
+    getCuratedSkips: () => curatedSkips,
+    baseUpdatedAt: snapshotBaseUpdatedAt,
+  });
+
   if (initial.fromServer) {
     saveRanking(state);
     saveLists(lists);
@@ -471,7 +351,7 @@ async function main(): Promise<void> {
         lists.dontCare.length > 0 || !!lists.backlog))
   ) {
     markPendingSync();
-    queueRankingSnapshotSync();
+    syncEngine.queueSave();
   }
 
   // First-visit correctness: an empty list plus a first candidate, never a
@@ -516,69 +396,19 @@ async function main(): Promise<void> {
   heading.className = 'app-heading';
   heading.textContent = 'Album Case';
 
-  // Visible, persistent (not a transient rankList.showStatus toast) warning
-  // for a save that hasn't reached the server yet -- e.g. a network hiccup.
-  const syncBanner = document.createElement('p');
-  syncBanner.className = 'sync-banner';
-  syncBanner.hidden = true;
-
   const nav = document.createElement('nav');
   nav.className = 'view-switcher';
 
   const stage = document.createElement('div');
   stage.className = 'app-stage';
 
-  shell.append(heading, syncBanner, nav, stage);
+  shell.append(heading, syncEngine.bannerElement, nav, stage);
   app.textContent = '';
   app.append(shell);
 
   let view: ViewMode = 'ranked';
 
-  // Write-key enforcement is dropped for now, so the only thing left to
-  // warn about is a genuine save failure (network/server), not a locked
-  // session -- there's no more "locked" state.
-  function updateSyncBanner(): void {
-    if (!hasPendingSync()) {
-      syncBanner.hidden = true;
-      syncBanner.textContent = '';
-      return;
-    }
-    syncBanner.hidden = false;
-    if (hasSyncConflict()) {
-      syncBanner.textContent = 'The saved copy changed in another tab or device. Your unsaved work is kept here. Export it before discarding it.';
-      const backup = document.createElement('button');
-      backup.className = 'view-tab';
-      backup.textContent = 'Export unsaved backup';
-      backup.addEventListener('click', handleExportBackup);
-      const reload = document.createElement('button');
-      reload.className = 'view-tab';
-      reload.textContent = 'Discard unsaved changes & load saved copy';
-      reload.addEventListener('click', () => {
-        void (async () => {
-          reload.disabled = true;
-          const fresh = await loadRankingSnapshotDetailed(OWNER_ID);
-          if (fresh.status !== 'found') {
-            reload.disabled = false;
-            reload.textContent = 'Could not load saved copy. Try again';
-            return;
-          }
-          saveRanking({ ranked: fresh.ranked, pending: null });
-          saveLists(fresh.lists);
-          saveArtistLocks(fresh.artistLocks);
-          saveBlockedArtists(fresh.blockedArtists);
-          saveSyncBase(fresh.updatedAt);
-          clearSyncConflict();
-          clearPendingSync();
-          window.location.reload();
-        })();
-      });
-      syncBanner.append(backup, reload);
-      return;
-    }
-    syncBanner.textContent = 'Not saved to the server yet. Retrying...';
-  }
-
-  updateSyncBanner();
+  syncEngine.updateSyncBanner();
 
   function pickFrom(excluded: Set<string>): Album | null {
     const priority = nextPriorityCandidate(priorityQueue, pool, state.ranked, excluded);
@@ -600,84 +430,22 @@ async function main(): Promise<void> {
     saveCandidateArtistCooldown(candidateArtistCooldown);
   }
 
-  async function syncRankingSnapshot(): Promise<void> {
-    // Nothing outstanding -- e.g. a queued retry fired after an earlier
-    // call in the chain already resolved things. Skip the redundant round-trip.
-    if (!hasPendingSync() || hasSyncConflict()) return;
-    const revision = saveRevision;
-
-    const result = await performRankingSync({
-      sessionId: session.session_id,
-      state,
-      lists,
-      artistLocks,
-      blockedArtists,
-      curatedSkips: [...curatedSkips],
-      baseUpdatedAt: snapshotBaseUpdatedAt,
-    });
-
-    if (result.outcome === 'saved') {
-      snapshotBaseUpdatedAt = result.updatedAt;
-      saveSyncBase(result.updatedAt);
-      // Another decision may have arrived while this request was in flight.
-      // Its queued save must still run against the newly acknowledged version.
-      if (revision === saveRevision) clearPendingSync();
-    } else if (result.outcome === 'conflict') {
-      markSyncConflict();
-      markPendingSync();
-    } else {
-      // 'pending': neither a refetch failure nor a save (error/conflict)
-      // got the local edit to the server, so keep the pending flag set and
-      // retry, since the banner promises it will.
-      if (result.nextBaseUpdatedAt === undefined && snapshotBaseUpdatedAt !== undefined) {
-        console.warn('albumcase: ranking snapshot save skipped because the server copy changed');
-      }
-      snapshotBaseUpdatedAt = result.nextBaseUpdatedAt;
-      markPendingSync();
-      scheduleSyncRetry();
-    }
-    updateSyncBanner();
-  }
-
-  function scheduleSyncRetry(): void {
-    if (syncRetryTimer !== null) return;
-    syncRetryTimer = setTimeout(() => {
-      syncRetryTimer = null;
-      queueRankingSnapshotSync();
-    }, SYNC_RETRY_MS);
-  }
-
-  function queueRankingSnapshotSync(): void {
-    saveRevision += 1;
-    snapshotSaveChain = snapshotSaveChain.then(syncRankingSnapshot, syncRankingSnapshot);
-    void snapshotSaveChain;
-  }
-
+  // Thin delegates so none of this file's ~30 mutation call sites need to
+  // change -- the actual save/retry/banner logic now lives in syncEngine.ts.
   function persistRankingState(): void {
-    saveRanking(state);
-    markPendingSync();
-    updateSyncBanner();
-    queueRankingSnapshotSync();
+    syncEngine.persistRankingState();
   }
 
   function persistLists(): void {
-    saveLists(lists);
-    markPendingSync();
-    updateSyncBanner();
-    queueRankingSnapshotSync();
+    syncEngine.persistLists();
   }
 
   function persistBlockedArtists(): void {
-    saveBlockedArtists(blockedArtists);
-    markPendingSync();
-    updateSyncBanner();
-    queueRankingSnapshotSync();
+    syncEngine.persistBlockedArtists();
   }
 
   function persistCuratedSkips(): void {
-    markPendingSync();
-    updateSyncBanner();
-    queueRankingSnapshotSync();
+    syncEngine.persistCuratedSkips();
   }
 
   function removeBlockedFromPriorityQueue(): void {
@@ -1729,22 +1497,8 @@ async function main(): Promise<void> {
     renderNav();
   }
 
-  /** Download the current ranking + lists as a standalone JSON file --
-   *  createRankingBackup/parseRankingBackup already existed (backup.ts,
-   *  fully tested) from the old restore-code flow but had nothing wiring
-   *  them into the UI. An independent recovery point outside whatever
-   *  browser/device this session is in, doesn't depend on server sync. */
   function handleExportBackup(): void {
-    const json = createRankingBackup(state, lists);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `album-case-backup-${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.append(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    syncEngine.exportBackup();
   }
 
   function renderNav(): void {
