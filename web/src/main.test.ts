@@ -1,15 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   addSearchedAlbum,
-  hydrateAlbums,
   insertAtRating,
-  performRankingSync,
   reRate,
-  resolveInitialState,
   restoreFromCode,
-  serverSnapshotIsRicher,
   setRating,
 } from './main';
+import {
+  hydrateAlbums,
+  performRankingSync,
+  resolveInitialState,
+  serverSnapshotIsRicher,
+} from './syncEngine';
 import type { SavedLists } from './lists';
 import type { Album, ArtistLock, RankedAlbum, RankingState } from './ranking/types';
 import type { RankingSnapshotLoad, RankingSnapshotSave } from './rankingSync';

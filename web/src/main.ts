@@ -72,12 +72,6 @@ import { suggestAlbum, loadSuggestionConnections, type Suggestion, type RelatedA
 import { normalize } from './curatedListMatch';
 import { createSyncEngine, hydrateAlbums, hydrateLists, resolveInitialState } from './syncEngine';
 
-// Re-exported for main.test.ts, which imports these pure functions directly
-// from './main'. They now live in syncEngine.ts alongside the rest of the
-// sync/bootstrap-resolution logic; main.ts keeps re-exporting them so the
-// test's import path doesn't need to change.
-export { hydrateAlbums, hydrateLists, resolveInitialState, serverSnapshotIsRicher, performRankingSync } from './syncEngine';
-
 type ViewMode = 'ranked' | ListName | 'blockedArtists' | 'artistBatch' | 'speedRound' | 'curatedLists' | 'backlog';
 
 type RestoreSnapshot = { state: RankingState; lists: SavedLists };

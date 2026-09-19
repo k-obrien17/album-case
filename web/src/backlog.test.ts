@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildArtistGaps, decideAlbum, otherReleaseReason } from './backlog';
 import { addToList, excludedMbids, loadLists, saveLists, mergeRefresherIntoWantToListen, type SavedLists } from './lists';
-import { addSearchedAlbum, hydrateLists, resolveInitialState } from './main';
+import { addSearchedAlbum } from './main';
+import { hydrateLists, resolveInitialState } from './syncEngine';
 import { createRankingBackup, parseRankingBackup } from './backup';
 import { loadRankingSnapshotDetailed, snapshotPayload } from './rankingSync';
 import { emptyBacklog } from '../shared/backlog';

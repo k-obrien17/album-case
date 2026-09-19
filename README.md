@@ -38,12 +38,25 @@ npm install
 npm run dev
 ```
 
-For API-backed features, create `web/.env.local`:
+`npm run dev` runs plain Vite and does not execute the Vercel serverless
+functions in `web/api/`. A request to `/api/ranking` (or any other API route)
+gets served back as the raw source file instead of running as a handler, so
+the app falls back to an empty local state, not a bug, just nothing behind
+the API in this mode.
+
+To exercise API-backed features locally, use `vercel dev` instead, and
+create `web/.env.local`:
 
 ```bash
 TURSO_DATABASE_URL=
 TURSO_AUTH_TOKEN=
 ```
+
+There is no separate dev/staging database: this project uses one fixed
+owner id across every environment (see `web/src/owner.ts`), so `vercel dev`
+with a real `.env.local` reads and writes the same production data as the
+deployed app. Treat local API-backed testing with the same care as testing
+against production.
 
 ## Public Repo Notes
 
