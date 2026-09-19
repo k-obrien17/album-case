@@ -39,3 +39,7 @@ scripts/curated-mbid-report.json
 # spotify import scratch report (import-spotify-albums.mjs dry-run output,
 # includes owner's ranked-list matches -- never commit)
 scripts/spotify-import-report.json
+
+# Playwright e2e output
+test-results/
+playwright-report/
