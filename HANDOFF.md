@@ -1,42 +1,38 @@
 # Handoff
 
 ## Current task
-Ship the backlog/suggestions feature that had been sitting uncommitted, then debug and fix a reported "album not showing up" bug (Spacemen 3's "The Perfect Prescription").
+Simplify Album Case (clear state ownership, deduplicated ranking-action logic, targeted `rankList.ts` split) per the owner's revised 6-stage plan, ahead of a separate future multi-tenant project (a second person's own ranked list, explicitly out of scope for now).
 
 ## Status
-Backlog/suggestions feature + genre support + an unrelated export script are committed and deployed to production (bundle hash verified). The Spacemen 3 bug is fixed and committed (`53b5940`) but **not yet deployed**: the Vercel CLI session expired mid-session and Keith needs to log back in before the deploy can go out.
-
-Root cause of the bug: the curated list "Pitchfork: The 200 Best Albums of the 1980s" had a Spacemen 3 entry ("Playing With Fire") with no resolved MusicBrainz mbid, so the "All Spacemen 3 albums" button never rendered and Spacemen 3 had no other path into discovery. Fixed that one entry by hand after confirming the mbid and cover art. While investigating, the project's `resolve-curated-list-mbids.mjs` script surfaced that ~275-362 of 830 curated entries across all lists are unresolved the same way (two dry runs gave inconsistent confident-match counts, 588 vs 468, on identical input, worth investigating before trusting a bulk `--write`). Not acted on beyond the one entry.
+Stage 1 (repo/docs cleanup) is complete, committed, and verified (`tsc --noEmit` clean, 337/337 tests, build bundle hash unchanged). Stage 2 (isolated, fixture-backed, API-intercepting Playwright verification harness, required before any interaction-touching work) was designed and proposed in chat but not yet approved. No stage-2 dependency or test code has been added. The session paused on an unresolved clarifying question before stage 2 could start.
 
 ## Next concrete step
-Once Keith confirms he's logged back into Vercel (`vercel login`), run `vercel deploy --prod --yes` from `web/` to ship commit `53b5940`, then verify with `curl -s https://album-case.vercel.app/ | grep -o 'assets/index-[^"]*\.js'` against the local build hash.
+Resolve the open question below with Keith, then get explicit approval on the stage-2 design before adding `@playwright/test` or writing any test code.
 
 ## Open questions
-- Does Keith want the broader curated-list MBID gap (~275-362 unresolved entries) addressed as its own task, or left alone?
-- `resolve-curated-list-mbids.mjs` gave different confident-match counts between two back-to-back dry runs on the same data (588 vs 468), worth a closer look at its matching logic before running `--write` in bulk.
+- Keith said "I think it just started from a faulty premise, and I am not sure if I ever corrected it" in response to a discussion of the app's candidate-selection priorities (smart recommendation, artist-hiding, LP-prioritization). What "it" refers to is unresolved, the app's candidate-selection design, the simplification plan itself, or something else. Ask directly before proceeding; don't guess.
+- Has Keith approved the stage-2 verification design (Playwright, `web/e2e/`, route interception with a catch-all that fails unexpected requests, coverage for placement/reorder/rating-across-views/stale-search/sync-retry-conflict)?
 
 ## Don't forget
-- Standing regression check for this project is `/regression-smoke`, not a full `/ship-check`.
-- Write-key enforcement (`ALBUM_CASE_WRITE_KEY`) stays dropped. One-function revert if that changes: `requireWriteKey()` in `web/api/_writeKey.ts`.
-- Earlier open items (confirm/undo on the ranked-row remove button, primary comparison card buried below nav chrome, unvirtualized 779+-row ranked list, the `main.ts`/`rankList.ts` god-file refactor) are still open and untouched; no new information on them this session.
-- `vercel deploy` for this project needs whichever Vercel account/team actually owns `album-case` (`keith-obriens-projects`, user `k-obrien17`). A different logged-in account (e.g. `eighthchair-8983`) will fail with "Could not retrieve Project Settings" even though `.vercel/project.json` is present and correct.
+- `web/scripts/refresh-keithrobrien-collect.mjs` is untracked, pre-existing, and unrelated. Never sweep it into a commit for this task.
+- Stage 4 (candidate/discovery ownership + bootstrap) will hit the same `main()` bootstrap interleaving that limited the stage-1 sync-engine extraction, budget extra investigation time.
+- `blockedArtists`/`curatedSkips` already have a real owning concern (the moderation screen `renderBlockedArtists`), don't let a future candidate-selection extraction absorb ownership of them.
+- The full governing plan (owner's 6 numbered points + suggested stage sequence + success metric) and the three investigation findings behind it are recorded in this repo's git history (commit `235c568`'s predecessor conversation) — re-read the prior HANDOFF.md via `git log -p -- HANDOFF.md` if the summary above isn't enough detail.
 
 ## Files touched this session
-- `web/src/backlog.ts`, `suggestions.ts`, `ui/backlogView.ts`, `shared/backlog.ts` + tests, plus wiring in `main.ts`, `lists.ts`, `artistLockAlbums.ts`, `backup.ts`, `rankingSync.ts`, `syncStatus.ts`, `style.css`, and the backlog half of `api/ranking.ts`: committed `183740f`
-- `api/_lp.ts`, `_schema.ts`, `discover-artist.ts`, the genre half of `api/ranking.ts`, `src/album.ts`, `ranking/types.ts`, `scripts/backfill-genres-*.mjs`, `scripts/lib/musicbrainz.mjs`: committed `afa8d0a`
-- `scripts/export-album-of-year.mjs`: committed `f86aa76`
-- `src/data/curatedLists.ts` (Spacemen 3 "Playing With Fire" entry resolved): committed `53b5940`
-- Deleted untracked debris: `.playwright-mcp/`, 8 `ac-*.png` UX-audit screenshots
+- `archive/elo-demo.html`, `archive/pairwise-demo.html`, `archive/poc/`, `archive/PRODUCT.md`, `README.md`, `CLAUDE.md`, `DATA-SOURCES.md`, `.planning/PROJECT.md` — repo cleanup, commit `0bd5357`
+- `web/src/syncEngine.ts` (new), `web/src/main.ts` — sync-engine domain extraction, commit `baa1a5a`
+- `web/.gitignore`, `web/scripts/spotify-import-report.json` (untracked, kept on disk), `README.md`, `web/src/main.ts`, `web/src/main.test.ts`, `web/src/backlog.test.ts` — stage-1 cleanup finish, commit `235c568`
+- `HANDOFF.md` — this file
 
 ## Git state
 - Branch: main
-- Last commit: `53b5940` fix(web): resolve Spacemen 3's Playing With Fire curated entry
-- Uncommitted changes: no
+- Last commit: `235c568` chore(web): finish repo/docs cleanup stage
+- Uncommitted changes: yes (`HANDOFF.md` only, about to be committed)
 - Stashed: no
-- Deployed to production: through `f86aa76` only. `53b5940` is committed locally but not yet deployed (blocked on Vercel login).
 
 ## Reason for handoff
 session paused
 
 ## Updated
-2026-09-17T12:12:08Z
+2026-09-19T20:54:52Z
