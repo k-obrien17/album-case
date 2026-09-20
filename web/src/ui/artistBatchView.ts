@@ -64,6 +64,12 @@ export function mountArtistBatchView(
   let ranklistController: ReturnType<typeof mountRankList> | null = null;
   let discovering = false;
   let discoverMessage: string | null = null;
+  // Guards discoverAlbums()'s post-await render() calls -- without it, a
+  // fetch that resolves after teardown() (the user navigated away) silently
+  // overwrites whatever view is now showing, since render() targets the
+  // same shared `container` every mounted view reuses. Same pattern as
+  // speedRound.ts's `active` flag.
+  let active = true;
 
   function buildUnrankedRow(album: Album): HTMLLIElement {
     const li = document.createElement('li');
@@ -252,6 +258,7 @@ export function mountArtistBatchView(
   }
 
   function teardown(): void {
+    active = false;
     ranklistController?.teardown();
     ranklistController = null;
   }
@@ -262,6 +269,7 @@ export function mountArtistBatchView(
     discoverMessage = null;
     render();
     const result = await opts.onDiscover();
+    if (!active) return; // torn down (view left) while discovery was in flight
     discovering = false;
     if (result.status === 'found') {
       discoverMessage =
