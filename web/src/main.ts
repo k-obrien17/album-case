@@ -1,7 +1,5 @@
 import './style.css';
-import type { Album, RankedAlbum, RankingState } from './ranking/types';
-import { setAsideAlbum } from './ranking/setAside';
-import { ratingForDropIndex } from './ranking/rating';
+import type { Album, RankingState } from './ranking/types';
 import {
   loadSeedPool,
   loadPreferredArtists,
@@ -21,7 +19,6 @@ import {
   removeFromList,
   excludedMbids,
   allSavedAlbums,
-  removeFromAllLists,
   type ListName,
   type SavedLists,
 } from './lists';
@@ -72,6 +69,7 @@ import { suggestAlbum, loadSuggestionConnections, type Suggestion, type RelatedA
 import { normalize } from './curatedListMatch';
 import { createSyncEngine, hydrateAlbums, hydrateLists, resolveInitialState } from './syncEngine';
 import { createRankingStore } from './rankingStore';
+import { rateAlbum, reRateAt, setRatingAt, directRate, setAside, placeAt } from './rankingActions';
 
 type ViewMode = 'ranked' | ListName | 'blockedArtists' | 'artistBatch' | 'speedRound' | 'curatedLists' | 'backlog';
 
@@ -117,86 +115,12 @@ export async function restoreFromCode(
   return { status: 'restored', state: snapshot.state, lists: snapshot.lists };
 }
 
-/**
- * Remove `album` from `ranked` if present (re-rating an existing album),
- * compute its new rating for landing at `targetIndex` in the resulting
- * array, then return the full list with `album` re-inserted at exactly
- * that position. `targetIndex` should already reflect any lock-safety
- * clamping (nearestValidDropIndex) the caller performed.
- *
- * Splices at `clampedIndex` directly instead of appending and re-sorting
- * by rating (mirrors insertion.ts's applyPick). `ratingForDropIndex`
- * computes `rating` specifically so this item belongs at `clampedIndex`,
- * so placing it there is always correct on its own -- sorting afterward
- * is not just redundant, it's actively wrong on ties: once the post-backfill
- * #1 album sits at rating 10.00, dropping anything else at index 0 also
- * computes 10.00, and Array.prototype.sort's stability would leave the
- * incumbent ahead of the new item, making position 0 unreachable.
- */
-export function reRate(ranked: RankedAlbum[], album: Album, targetIndex: number): RankedAlbum[] {
-  const without = ranked.filter((a) => a.mbid !== album.mbid);
-  const clampedIndex = Math.max(0, Math.min(targetIndex, without.length));
-  const rating = ratingForDropIndex(without, clampedIndex);
-  const rated: RankedAlbum = { ...album, rating };
-  return [...without.slice(0, clampedIndex), rated, ...without.slice(clampedIndex)];
-}
-
-/**
- * Insert `album` at `rating` into `ranked` by finding its correct position
- * directly, rather than appending and re-sorting (the same bug class fixed in
- * `reRate`). A directly-typed rating has no drop-position intent to preserve,
- * so ties resolve by placing the new entry immediately after any existing
- * entries at the same rating -- e.g. typing "10" when rank #1 is already the
- * 10.00 ceiling lands the new album at index 1, not scrambled elsewhere in
- * the list and not fighting the incumbent for index 0.
- */
-export function insertAtRating(ranked: RankedAlbum[], album: Album, rating: number): RankedAlbum[] {
-  // Guard against a duplicate mbid: a duplicate would fail the API's
-  // parseRankedAlbumList validation (400 invalid_snapshot), surfacing only
-  // as a sync failure in the banner. Mirrors what reRate already does.
-  const without = ranked.filter((a) => a.mbid !== album.mbid);
-  const rated: RankedAlbum = { ...album, rating };
-  const insertAt = without.findIndex((a) => a.rating < rating);
-  const index = insertAt === -1 ? without.length : insertAt;
-  return [...without.slice(0, index), rated, ...without.slice(index)];
-}
-
-/**
- * Add a searched (MusicBrainz-fallback) album to the ranked list at `rating`,
- * and strip it out of every saved list it might already be sitting in (e.g.
- * a prior "Want to listen"). HARD REQUIREMENT: api/ranking.ts rejects any
- * snapshot where an album is both ranked and in a saved list (400
- * ranked_album_in_saved_list) -- this exact bug class already blocked the
- * canon import once. Pure and exported so the regression is actually
- * guarded by a test that exercises this function directly, not a re-run of
- * the same sequence in the test body.
- */
-export function addSearchedAlbum(
-  ranked: RankedAlbum[],
-  lists: SavedLists,
-  album: Album,
-  rating: number
-): { ranked: RankedAlbum[]; lists: SavedLists } {
-  const newRanked = insertAtRating(ranked, album, rating);
-  const newLists = removeFromAllLists(lists, album);
-  return { ranked: newRanked, lists: newLists };
-}
-
-/**
- * Set the rating of the ranked album currently at global index `from` to
- * `rating`, re-inserting it at wherever that rating lands it. No lock
- * parameter -- artist locks are paused (see ranking/locks.ts). Removes the
- * album, then re-inserts via `insertAtRating`, which splices at the computed
- * index directly rather than appending and re-sorting -- append-then-sort
- * broke on rating ties (a stable sort strands the new album behind an
- * equal-rated incumbent). See insertAtRating's own doc comment.
- */
-export function setRating(ranked: RankedAlbum[], from: number, rating: number): RankedAlbum[] {
-  const album = ranked[from];
-  if (!album) return ranked;
-  const without = ranked.filter((a) => a.mbid !== album.mbid);
-  return insertAtRating(without, album, rating);
-}
+// reRate/insertAtRating/addSearchedAlbum/setRating now live in
+// rankingActions.ts alongside the store-aware action functions built on
+// top of them (rateAlbum/reRateAt/setRatingAt/directRate/setAside/
+// placeAt) -- re-exported here so existing test imports (main.test.ts,
+// backlog.test.ts) don't need to change.
+export { reRate, insertAtRating, addSearchedAlbum, setRating } from './rankingActions';
 
 async function main(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>('#app');
@@ -591,34 +515,29 @@ async function main(): Promise<void> {
       getLists: () => rankingStore.getLists(),
       getPool: () => pool,
       onReorder: (from, to) => {
-        const album = rankingStore.getState().ranked[from];
-        rankingStore.setState({ ranked: reRate(rankingStore.getState().ranked, album, to), pending: null });
+        reRateAt(rankingStore, from, to);
         persistRankingState();
         renderArtistBatchView();
       },
       onRemoveRanked: (album) => {
-        rankingStore.setLists(addToList(rankingStore.getLists(), album, 'dontCare'));
-        rankingStore.setState(setAsideAlbum(rankingStore.getState(), album.mbid));
+        setAside(rankingStore, album, 'dontCare');
         persistLists();
         persistRankingState();
         renderArtistBatchView();
         renderNav();
       },
       onSetOverallRank: (from, to) => {
-        const album = rankingStore.getState().ranked[from];
-        rankingStore.setState({ ranked: reRate(rankingStore.getState().ranked, album, to), pending: null });
+        reRateAt(rankingStore, from, to);
         persistRankingState();
         renderArtistBatchView();
       },
       onSetRating: (from, rating) => {
-        rankingStore.setState({ ranked: setRating(rankingStore.getState().ranked, from, rating), pending: null });
+        setRatingAt(rankingStore, from, rating);
         persistRankingState();
         renderArtistBatchView();
       },
       onRate: (album, rating) => {
-        const added = addSearchedAlbum(rankingStore.getState().ranked, rankingStore.getLists(), album, rating);
-        rankingStore.setState({ ranked: added.ranked, pending: null });
-        rankingStore.setLists(added.lists);
+        rateAlbum(rankingStore, album, rating);
         persistRankingState();
         persistLists();
         renderArtistBatchView();
@@ -733,8 +652,7 @@ async function main(): Promise<void> {
       // No pairwise atom, same precedent as onDirectRate -- no comparison
       // happened, just a direct rating.
       onRate: (album, rating) => {
-        rankingStore.setState({ ranked: insertAtRating(rankingStore.getState().ranked, album, rating), pending: null });
-        rankingStore.setLists(removeFromAllLists(rankingStore.getLists(), album));
+        directRate(rankingStore, album, rating);
         persistLists();
         persistRankingState();
         reselectCandidate();
@@ -806,9 +724,7 @@ async function main(): Promise<void> {
     onSearchMusicBrainz: runMusicBrainzSearch,
     getSearchResults: () => searchResults,
     onRateSearchResult: (album, rating) => {
-      const added = addSearchedAlbum(rankingStore.getState().ranked, rankingStore.getLists(), album, rating);
-      rankingStore.setState({ ranked: added.ranked, pending: null });
-      rankingStore.setLists(added.lists);
+      rateAlbum(rankingStore, album, rating);
 
       searchQuery = '';
       searchResults = { status: 'idle' };
@@ -849,8 +765,7 @@ async function main(): Promise<void> {
         });
       }
 
-      rankingStore.setState({ ranked: reRate(before, placed, clamped), pending: null });
-      rankingStore.setLists(removeFromAllLists(rankingStore.getLists(), placed));
+      placeAt(rankingStore, before, placed, clamped);
       persistLists();
       persistRankingState();
       reselectCandidate();
@@ -858,14 +773,12 @@ async function main(): Promise<void> {
       renderNav();
     },
     onReorder: (from, to) => {
-      const album = rankingStore.getState().ranked[from];
-      rankingStore.setState({ ranked: reRate(rankingStore.getState().ranked, album, to), pending: null });
+      reRateAt(rankingStore, from, to);
       persistRankingState();
       rankList.render();
     },
     onRemoveRanked: (album) => {
-      rankingStore.setLists(addToList(rankingStore.getLists(), album, 'dontCare'));
-      rankingStore.setState(setAsideAlbum(rankingStore.getState(), album.mbid));
+      setAside(rankingStore, album, 'dontCare');
       persistLists();
       persistRankingState();
       reselectCandidate();
@@ -875,13 +788,12 @@ async function main(): Promise<void> {
     // Artist locks are paused (not enforced) -- see ranking/locks.ts's header
     // comment. This just moves to the requested index, no clamping.
     onSetOverallRank: (from, to) => {
-      const album = rankingStore.getState().ranked[from];
-      rankingStore.setState({ ranked: reRate(rankingStore.getState().ranked, album, to), pending: null });
+      reRateAt(rankingStore, from, to);
       persistRankingState();
       rankList.render();
     },
     onSetRating: (from, rating) => {
-      rankingStore.setState({ ranked: setRating(rankingStore.getState().ranked, from, rating), pending: null });
+      setRatingAt(rankingStore, from, rating);
       persistRankingState();
       rankList.render();
     },
@@ -889,8 +801,7 @@ async function main(): Promise<void> {
     // comparison actually happened, so there's no winner/loser pair to log.
     onDirectRate: (rating) => {
       if (!candidate) return;
-      rankingStore.setState({ ranked: insertAtRating(rankingStore.getState().ranked, candidate, rating), pending: null });
-      rankingStore.setLists(removeFromAllLists(rankingStore.getLists(), candidate));
+      directRate(rankingStore, candidate, rating);
       persistLists();
       persistRankingState();
       reselectCandidate();
@@ -898,11 +809,9 @@ async function main(): Promise<void> {
       renderNav();
     },
     onSetAside: (album, which) => {
-      // Record to the saved list first (so it is excluded), then drop it from
-      // ranking state (setAsideAlbum also clears any stale placement), then
-      // pick the next candidate.
-      rankingStore.setLists(addToList(rankingStore.getLists(), album, which));
-      rankingStore.setState(setAsideAlbum(rankingStore.getState(), album.mbid));
+      // setAside records to the saved list first (so it is excluded), then
+      // drops it from ranking state, then this picks the next candidate.
+      setAside(rankingStore, album, which);
       persistLists();
       persistRankingState();
       reselectCandidate();
@@ -940,9 +849,7 @@ async function main(): Promise<void> {
   });
 
   function rateFromSavedList(album: Album, which: ListName, rating: number): void {
-    const added = addSearchedAlbum(rankingStore.getState().ranked, rankingStore.getLists(), album, rating);
-    rankingStore.setState({ ranked: added.ranked, pending: null });
-    rankingStore.setLists(added.lists);
+    rateAlbum(rankingStore, album, rating);
     persistRankingState();
     persistLists();
     reselectCandidate();
@@ -1151,9 +1058,7 @@ async function main(): Promise<void> {
     // of the confirm gate below is defending against an unscoped live text
     // search; a resolved entry already cleared a stricter bar than that.
     if (entry.resolved) {
-      const added = addSearchedAlbum(rankingStore.getState().ranked, rankingStore.getLists(), entry.resolved, rating);
-      rankingStore.setState({ ranked: added.ranked, pending: null });
-      rankingStore.setLists(added.lists);
+      rateAlbum(rankingStore, entry.resolved, rating);
       persistRankingState();
       persistLists();
       reselectCandidate();
@@ -1180,9 +1085,7 @@ async function main(): Promise<void> {
     if (!curatedPendingMatch) return;
     const match = curatedPendingMatch;
     if (match.kind === 'rate') {
-      const added = addSearchedAlbum(rankingStore.getState().ranked, rankingStore.getLists(), match.album, match.rating);
-      rankingStore.setState({ ranked: added.ranked, pending: null });
-      rankingStore.setLists(added.lists);
+      rateAlbum(rankingStore, match.album, match.rating);
       persistRankingState();
       persistLists();
       curatedPendingMatch = null;
@@ -1386,6 +1289,12 @@ async function main(): Promise<void> {
     const artists = buildArtistGaps(pool, rankingStore.getState().ranked, rankingStore.getLists(), preferred, rankingStore.getBlockedArtists(), skippedAlbums);
     const selectedArtistId = rankingStore.getLists().backlog?.currentArtistId ?? artists[0]?.id ?? null;
     const remember = (persist = true) => { backlogUndo = { state: rankingStore.getState(), lists: rankingStore.getLists(), suggestions: suggestionState, persist }; };
+    // Shared by onArtist and onDecide, both of which only ever change which
+    // artist is showing -- onFinish changes reviewedArtistIds at the same
+    // time, so it stays a direct setLists rather than reusing this.
+    const setCurrentArtistId = (id: string | null) => {
+      rankingStore.setLists({ ...rankingStore.getLists(), backlog: { ...(rankingStore.getLists().backlog ?? emptyBacklog<Album>()), currentArtistId: id } });
+    };
     const commit = () => {
       persistLists();
       reselectCandidate();
@@ -1412,7 +1321,7 @@ async function main(): Promise<void> {
         renderBacklog();
       },
       onArtist: (id) => {
-        rankingStore.setLists({ ...rankingStore.getLists(), backlog: { ...(rankingStore.getLists().backlog ?? emptyBacklog<Album>()), currentArtistId: id } });
+        setCurrentArtistId(id);
         backlogShowOther = false;
         backlogMessage = '';
         persistLists();
@@ -1423,7 +1332,7 @@ async function main(): Promise<void> {
         remember();
         rankingStore.setLists(decideAlbum(rankingStore.getLists(), album, decision));
         // Keep the same artist visible when its remaining count changes.
-        rankingStore.setLists({ ...rankingStore.getLists(), backlog: { ...(rankingStore.getLists().backlog ?? emptyBacklog<Album>()), currentArtistId: selectedArtistId } });
+        setCurrentArtistId(selectedArtistId);
         backlogMessage = decision === 'readyToRank' ? `${album.title} is ready to rank.`
           : decision === 'wantToListen' ? `${album.title} is saved to Want to listen.`
           : decision === null ? `${album.title} is back in artist review.` : `${album.title} reviewed.`;
@@ -1432,9 +1341,7 @@ async function main(): Promise<void> {
       },
       onRate: (album, rating) => {
         remember();
-        const added = addSearchedAlbum(rankingStore.getState().ranked, rankingStore.getLists(), album, rating);
-        rankingStore.setState({ ranked: added.ranked, pending: null });
-        rankingStore.setLists(added.lists);
+        rateAlbum(rankingStore, album, rating);
         backlogMessage = `${album.title} rated ${rating.toFixed(2)}.`;
         if (backlogShelf === 'suggestions') advanceSuggestion();
         persistRankingState();
