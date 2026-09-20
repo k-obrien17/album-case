@@ -146,6 +146,25 @@ export type RankListController = {
   showStatus: (message: string) => void;
 };
 
+/**
+ * Whether the active assist run must restart: a different candidate, or the
+ * ranked list mutated underneath it (another row edited/reordered/removed
+ * while a comparison was in flight). `assist.state.ranked` stays
+ * reference-equal to the array `startAssist` captured until the run
+ * resolves (insertion.ts never touches `ranked` mid-placement), so any real
+ * mutation produces a new array -- comparing references catches it. Without
+ * this check, a stale assist keeps comparing against a frozen snapshot and
+ * its binary-search indices silently misplace the candidate into the
+ * CURRENT list once resolved.
+ */
+export function assistNeedsRestart(
+  assist: AssistPlacement | null,
+  candidate: Album,
+  ranked: RankedAlbum[]
+): boolean {
+  return !assist || assist.album.mbid !== candidate.mbid || assist.state.ranked !== ranked;
+}
+
 function rankedSubtitle(album: Album, subRank: SubRank | undefined): string {
   const base = subtitle(album);
   if (!subRank) return base;
@@ -299,7 +318,14 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
       removeBtn.className = 'rank-remove';
       removeBtn.setAttribute('aria-label', `Remove ${album.title} from ranked list`);
       removeBtn.textContent = '×';
-      removeBtn.addEventListener('click', () => opts.onRemoveRanked?.(album));
+      // A single tap here used to remove-and-blacklist immediately with no
+      // way back short of hunting through the "Don't care" tab. Require
+      // confirmation so a mis-tap can't silently exile an album.
+      removeBtn.addEventListener('click', () => {
+        if (!window.confirm(`Remove "${album.title}" from your ranked list?`)) return;
+        opts.onRemoveRanked?.(album);
+        showStatus(`Removed "${album.title}". Find it under Don't care to rate it back in.`);
+      });
       li.append(removeBtn);
     }
 
@@ -851,7 +877,7 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
       if (candidate) {
         // Long list -> assisted this-or-that by default; short list -> drag/tap.
         if (ranked.length >= ASSIST_THRESHOLD) {
-          if (!assist || assist.album.mbid !== candidate.mbid) {
+          if (assistNeedsRestart(assist, candidate, ranked)) {
             assist = startAssist(ranked, candidate);
             assistStep = 0;
             assistTotal = Math.max(1, Math.ceil(Math.log2(ranked.length + 1)));
