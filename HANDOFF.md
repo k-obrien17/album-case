@@ -4,19 +4,18 @@
 Simplify Album Case (clear state ownership, deduplicated ranking-action logic, targeted `rankList.ts` split) per the owner's revised 6-stage plan, ahead of a separate future multi-tenant project (a second person's own ranked list, explicitly out of scope for now).
 
 ## Status
-Stages 1-5 are complete, verified, and committed: repo/docs cleanup + sync-engine extraction, Playwright e2e harness, ranking-snapshot state ownership (`rankingStore.ts`), deduplicated ranking-action logic (`rankingActions.ts`), and the first cut of the `rankList.ts` split (MusicBrainz search UI extracted into `rankListSearch.ts`). Working tree is clean, nothing uncommitted.
+Stages 1-6 are complete, verified, and committed: repo/docs cleanup + sync-engine extraction, Playwright e2e harness, ranking-snapshot state ownership (`rankingStore.ts`), deduplicated ranking-action logic (`rankingActions.ts`), the MusicBrainz search UI split (`rankListSearch.ts`), and now the drag mechanics split (`rankListDrag.ts`). Working tree is clean, nothing uncommitted.
 
-Stage 5's investigation (an Explore agent mapped every closure-scoped mutable variable and `RankListOptions` field's usage across the whole 1319-line `rankList.ts`) found the search UI was the only one of the file's four separable concerns with zero shared mutable state with the rest of the file. Drag mechanics has a real circular dependency with `render()`; row rendering has genuine bidirectional coupling between the overall-rank and rating tap-to-edit controls (`editingOverallMbid`/`editingRatingMbid` cross-write each other). Both were deliberately left for later.
+Stage 5's investigation found the search UI was the only one of `rankList.ts`'s four separable concerns with zero shared mutable state with the rest of the file, and flagged a "real circular dependency" between drag mechanics and `render()`. Stage 6 re-verified that claim directly (full-file read + grep of every call site of all 12 drag functions and the `drag` variable, cross-checked by a Plan agent) and found it wasn't a true circularity: `render()` is a hoisted function declaration, so it can be forward-referenced into the new module's deps exactly the way `showStatus` already is into `createSearchSection` -- no ordering hazard. `rankList.ts` is now 905 lines (down from 1319 at the start of the split). Row rendering's `editingOverallMbid`/`editingRatingMbid` bidirectional coupling is still deliberately left unextracted (see Don't forget).
 
 ## Next concrete step
-Decide what's next -- this was an open question when the session ended, not yet put to Keith: another `rankList.ts` cut (drag mechanics is the next-cleanest candidate, though riskier than stage 5 -- see Don't forget), or candidate/discovery ownership + bootstrap (the other remaining piece of the original 6-stage plan). Ask Keith before picking; it's a real fork, not an obvious call.
+Candidate/discovery ownership + bootstrap -- the other remaining piece of the original 6-stage plan, not yet started. Expect it to hit the same `main()` bootstrap interleaving that limited stages 1 and 3 (see Don't forget); budget extra investigation time before committing to an extraction shape.
 
 ## Open questions
-- Drag mechanics vs. candidate/discovery ownership -- which next? Not discussed with Keith yet.
+None open right now.
 
 ## Don't forget
 - `web/scripts/refresh-keithrobrien-collect.mjs` is tracked (commit `4f17298`, unrelated daily keithrobrien.com refresh job) -- don't fold changes to it into this task's commits.
-- Drag mechanics (`positionGhost` through `startDrag`, ~230 lines, in `rankList.ts`) is the next-best extraction candidate, but has a real circular dependency with `render()` (tap-fallback/no-op-reorder branches in `onPointerUp` call `render()` directly) that needs a forward-reference pattern to extract safely -- budget extra care.
 - Row rendering (`buildRow`/`buildOverallControl`/`buildRatingControl`) has genuine bidirectional coupling: `editingOverallMbid`/`editingRatingMbid` are cross-written (each control closes the other's editor) -- can't split those two functions apart without hoisting both variables into a shared state object.
 - Candidate/discovery ownership + bootstrap will hit the same `main()` bootstrap interleaving that limited stages 1 and 3's extractions -- budget extra investigation time.
 - The app's default view on boot is `'backlog'` ("Find missing albums"), not `'ranked'` -- every e2e spec has to click the "Ranked list" nav tab before interacting with the drag-to-place UI.
@@ -24,7 +23,7 @@ Decide what's next -- this was an open question when the session ended, not yet 
 
 ## Git state
 - Branch: main
-- Last commit: `4f3a144` chore: update handoff
+- Last commit: `e4ae3ba` refactor(web): extract drag mechanics out of rankList.ts
 - Uncommitted changes: no
 - Stashed: no
 
@@ -32,4 +31,4 @@ Decide what's next -- this was an open question when the session ended, not yet 
 session paused
 
 ## Updated
-2026-09-19T23:25:00Z
+2026-09-20T01:55:00Z
