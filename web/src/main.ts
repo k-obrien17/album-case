@@ -52,6 +52,7 @@ import {
 } from './artistBlocks';
 import { loadSkippedAlbums, saveSkippedAlbums } from './skippedAlbums';
 import { loadArtistLocks, saveArtistLocks } from './artistLocksStorage';
+import { loadCuratedSkips, saveCuratedSkips } from './curatedSkipsStorage';
 import {
   applyArtistCooldown,
   loadCandidateArtistCooldown,
@@ -162,17 +163,27 @@ async function main(): Promise<void> {
   const cachedState: RankingState = loadRanking() ?? { ranked: [], pending: null };
   const cachedLists = loadLists();
   const cachedArtistLocks = loadArtistLocks();
+  // A pending-sync flag means the local cache holds edits that were never
+  // confirmed saved (writes locked, network error, etc). Computed up front
+  // (it depends on nothing fetched below) so every server-authoritative
+  // field below -- including blockedArtists/curatedSkips -- can gate on it
+  // the same way, instead of letting the server clobber an unsynced local
+  // edit just because pendingSync hadn't been checked yet.
+  const pendingSync = hasPendingSync();
   // Turso is the source of truth for blocked artists / curated-entry skips,
   // same as ranked/lists/artistLocks -- localStorage here is a fallback for
   // the very first load after this field was introduced (nothing on the
-  // server yet) and an offline cache thereafter, never authoritative.
+  // server yet) and an offline cache thereafter, never authoritative. Never
+  // let the server value overwrite a pending local edit; the same rule
+  // resolveInitialState below applies to ranked/lists/artistLocks.
   let blockedArtists = loadBlockedArtists();
-  let curatedSkips = new Set<string>();
+  let curatedSkips = new Set(loadCuratedSkips());
   const serverLoad = await loadRankingSnapshotDetailed(OWNER_ID);
-  if (serverLoad.status === 'found') {
+  if (serverLoad.status === 'found' && !pendingSync) {
     blockedArtists = serverLoad.blockedArtists;
     saveBlockedArtists(blockedArtists);
     curatedSkips = new Set(serverLoad.curatedSkips);
+    saveCuratedSkips(serverLoad.curatedSkips);
   }
   let serverSnapshot =
     serverLoad.status === 'found'
@@ -213,13 +224,11 @@ async function main(): Promise<void> {
       artistLocks: serverSnapshot.artistLocks,
     };
   }
-  // A pending-sync flag means the local cache holds edits that were never
-  // confirmed saved (writes locked, network error, etc). In that case the
-  // server snapshot is stale by definition -- prefer the local cache instead
-  // of letting it clobber the unsynced edits, and retry the save below.
-  const pendingSync = hasPendingSync();
-  // Pending edits retain the revision they were actually made against. Never
-  // borrow the just-fetched server revision to save an older cached snapshot.
+  // When pendingSync is set, the server snapshot is stale by definition --
+  // prefer the local cache instead of letting it clobber the unsynced edits,
+  // and retry the save below. Pending edits retain the revision they were
+  // actually made against; never borrow the just-fetched server revision to
+  // save an older cached snapshot.
   if (pendingSync) {
     snapshotBaseUpdatedAt = loadSyncBase();
     if (serverLoad.status !== 'error' && pendingBaseConflicts(

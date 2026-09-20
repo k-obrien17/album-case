@@ -6,6 +6,7 @@ import { saveRanking } from './storage';
 import { saveLists } from './lists';
 import { saveArtistLocks } from './artistLocksStorage';
 import { saveBlockedArtists } from './artistBlocks';
+import { saveCuratedSkips } from './curatedSkipsStorage';
 import { loadRankingSnapshotDetailed, saveRankingSnapshot } from './rankingSync';
 import {
   clearPendingSync,
@@ -248,6 +249,7 @@ export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
           saveLists(fresh.lists);
           saveArtistLocks(fresh.artistLocks);
           saveBlockedArtists(fresh.blockedArtists);
+          saveCuratedSkips(fresh.curatedSkips);
           saveSyncBase(fresh.updatedAt);
           clearSyncConflict();
           clearPendingSync();
@@ -335,6 +337,7 @@ export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
   }
 
   function persistCuratedSkips(): void {
+    saveCuratedSkips([...deps.getCuratedSkips()]);
     markPendingSync();
     updateSyncBanner();
     queueSave();
