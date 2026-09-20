@@ -1,5 +1,5 @@
 import './style.css';
-import type { Album, ArtistLock, RankedAlbum, RankingState } from './ranking/types';
+import type { Album, RankedAlbum, RankingState } from './ranking/types';
 import { setAsideAlbum } from './ranking/setAside';
 import { ratingForDropIndex } from './ranking/rating';
 import {
@@ -71,6 +71,7 @@ import { renderBacklogView, type BacklogShelf } from './ui/backlogView';
 import { suggestAlbum, loadSuggestionConnections, type Suggestion, type RelatedArtist } from './suggestions';
 import { normalize } from './curatedListMatch';
 import { createSyncEngine, hydrateAlbums, hydrateLists, resolveInitialState } from './syncEngine';
+import { createRankingStore } from './rankingStore';
 
 type ViewMode = 'ranked' | ListName | 'blockedArtists' | 'artistBatch' | 'speedRound' | 'curatedLists' | 'backlog';
 
@@ -312,11 +313,18 @@ async function main(): Promise<void> {
   // Revision checks above decide conflicts; album counts cannot decide which
   // user's changes to keep.
   const initial = resolveInitialState(pendingSync ? null : serverSnapshot, cached);
-  let state: RankingState = initial.state;
-  // Even an empty review state must travel with new-client writes. This also
-  // lets Undo restore the first review action without resembling an old client.
-  let lists: SavedLists = { ...initial.lists, backlog: initial.lists.backlog ?? emptyBacklog<Album>() };
-  let artistLocks: ArtistLock[] = initial.artistLocks;
+  // Owns the ranking-snapshot domain from here on: state/lists/artistLocks/
+  // blockedArtists/curatedSkips are no longer closure locals -- see
+  // rankingStore.ts's module doc comment. Even an empty review state must
+  // travel with new-client writes; this also lets Undo restore the first
+  // review action without resembling an old client.
+  const rankingStore = createRankingStore({
+    state: initial.state,
+    lists: { ...initial.lists, backlog: initial.lists.backlog ?? emptyBacklog<Album>() },
+    artistLocks: initial.artistLocks,
+    blockedArtists,
+    curatedSkips,
+  });
 
   // Owns the steady-state save/retry/banner engine (was closure locals here
   // in main()); bootstrap above stays inline since it's tangled with the
@@ -324,25 +332,25 @@ async function main(): Promise<void> {
   // pull out in one pass -- see syncEngine.ts's module doc comment.
   const syncEngine = createSyncEngine({
     session,
-    getState: () => state,
-    getLists: () => lists,
-    getArtistLocks: () => artistLocks,
-    getBlockedArtists: () => blockedArtists,
-    getCuratedSkips: () => curatedSkips,
+    getState: rankingStore.getState,
+    getLists: rankingStore.getLists,
+    getArtistLocks: rankingStore.getArtistLocks,
+    getBlockedArtists: rankingStore.getBlockedArtists,
+    getCuratedSkips: rankingStore.getCuratedSkips,
     baseUpdatedAt: snapshotBaseUpdatedAt,
   });
 
   if (initial.fromServer) {
-    saveRanking(state);
-    saveLists(lists);
-    saveArtistLocks(artistLocks);
+    saveRanking(rankingStore.getState());
+    saveLists(rankingStore.getLists());
+    saveArtistLocks(rankingStore.getArtistLocks());
   } else if (
     pendingSync ||
     (serverLoad.status === 'missing' &&
-      (state.ranked.length > 0 ||
-        lists.wantToListen.length > 0 ||
-        lists.notHeard.length > 0 ||
-        lists.dontCare.length > 0 || !!lists.backlog))
+      (rankingStore.getState().ranked.length > 0 ||
+        rankingStore.getLists().wantToListen.length > 0 ||
+        rankingStore.getLists().notHeard.length > 0 ||
+        rankingStore.getLists().dontCare.length > 0 || !!rankingStore.getLists().backlog))
   ) {
     markPendingSync();
     syncEngine.queueSave();
@@ -405,20 +413,20 @@ async function main(): Promise<void> {
   syncEngine.updateSyncBanner();
 
   function pickFrom(excluded: Set<string>): Album | null {
-    const priority = nextPriorityCandidate(priorityQueue, pool, state.ranked, excluded);
+    const priority = nextPriorityCandidate(priorityQueue, pool, rankingStore.getState().ranked, excluded);
     priorityQueue = priority.queue;
     savePriorityQueue(priorityQueue);
     return (
-      priority.candidate ?? pickCandidate(pool, state.ranked, excluded, Math.random, playsByArtist)
+      priority.candidate ?? pickCandidate(pool, rankingStore.getState().ranked, excluded, Math.random, playsByArtist)
     );
   }
 
   function reselectCandidate(): void {
     // Selection excludes set-aside lists, skipped albums, and blocked artists.
-    let excluded = excludedMbids(lists);
-    for (const mbid of blockedArtistMbids(pool, blockedArtists)) excluded.add(mbid);
+    let excluded = excludedMbids(rankingStore.getLists());
+    for (const mbid of blockedArtistMbids(pool, rankingStore.getBlockedArtists())) excluded.add(mbid);
     for (const mbid of skippedAlbums) excluded.add(mbid);
-    excluded = applyArtistCooldown(pool, state.ranked, excluded, candidateArtistCooldown);
+    excluded = applyArtistCooldown(pool, rankingStore.getState().ranked, excluded, candidateArtistCooldown);
     candidate = pickFrom(excluded);
     candidateArtistCooldown = pushArtistCooldown(candidateArtistCooldown, candidate);
     saveCandidateArtistCooldown(candidateArtistCooldown);
@@ -443,13 +451,13 @@ async function main(): Promise<void> {
   }
 
   function removeBlockedFromPriorityQueue(): void {
-    const blockedIds = blockedArtistMbids(pool, blockedArtists);
+    const blockedIds = blockedArtistMbids(pool, rankingStore.getBlockedArtists());
     priorityQueue = priorityQueue.filter((mbid) => !blockedIds.has(mbid));
     savePriorityQueue(priorityQueue);
   }
 
   function handleBlockArtist(album: Album): void {
-    blockedArtists = addBlockedArtist(blockedArtists, album.primary_artist_name);
+    rankingStore.setBlockedArtists(addBlockedArtist(rankingStore.getBlockedArtists(), album.primary_artist_name));
     persistBlockedArtists();
     removeBlockedFromPriorityQueue();
     reselectCandidate();
@@ -506,7 +514,7 @@ async function main(): Promise<void> {
           discoverArtistDetailed(session.session_id, name, mbid, known),
         onProgress: (msg: string) => rankList.showStatus(msg),
       };
-      const result = await runBulkDiscovery(state.ranked, pool, priorityQueue, deps);
+      const result = await runBulkDiscovery(rankingStore.getState().ranked, pool, priorityQueue, deps);
       priorityQueue = result.priorityQueue;
       savePriorityQueue(priorityQueue);
       let summary = result.summary;
@@ -516,10 +524,10 @@ async function main(): Promise<void> {
       // albums.
       if (result.found === 0) {
         const expansion = await runSimilarExpansion(
-          state.ranked,
+          rankingStore.getState().ranked,
           pool,
           priorityQueue,
-          blockedArtists,
+          rankingStore.getBlockedArtists(),
           {
             ...deps,
             fetchSimilar: async (artistMbid) => {
@@ -553,8 +561,8 @@ async function main(): Promise<void> {
 
   function findAlbumByArtist(artistMbid: string): Album | null {
     return (
-      state.ranked.find((a) => a.primary_artist_mbid === artistMbid) ??
-      allSavedAlbums(lists).find(
+      rankingStore.getState().ranked.find((a) => a.primary_artist_mbid === artistMbid) ??
+      allSavedAlbums(rankingStore.getLists()).find(
         (a) => a.primary_artist_mbid === artistMbid
       ) ??
       pool.find((a) => a.primary_artist_mbid === artistMbid) ??
@@ -579,38 +587,38 @@ async function main(): Promise<void> {
     stage.textContent = '';
     artistBatchController = mountArtistBatchView(stage, {
       album: artistAlbum,
-      getRanked: () => state.ranked,
-      getLists: () => lists,
+      getRanked: () => rankingStore.getState().ranked,
+      getLists: () => rankingStore.getLists(),
       getPool: () => pool,
       onReorder: (from, to) => {
-        const album = state.ranked[from];
-        state = { ranked: reRate(state.ranked, album, to), pending: null };
+        const album = rankingStore.getState().ranked[from];
+        rankingStore.setState({ ranked: reRate(rankingStore.getState().ranked, album, to), pending: null });
         persistRankingState();
         renderArtistBatchView();
       },
       onRemoveRanked: (album) => {
-        lists = addToList(lists, album, 'dontCare');
-        state = setAsideAlbum(state, album.mbid);
+        rankingStore.setLists(addToList(rankingStore.getLists(), album, 'dontCare'));
+        rankingStore.setState(setAsideAlbum(rankingStore.getState(), album.mbid));
         persistLists();
         persistRankingState();
         renderArtistBatchView();
         renderNav();
       },
       onSetOverallRank: (from, to) => {
-        const album = state.ranked[from];
-        state = { ranked: reRate(state.ranked, album, to), pending: null };
+        const album = rankingStore.getState().ranked[from];
+        rankingStore.setState({ ranked: reRate(rankingStore.getState().ranked, album, to), pending: null });
         persistRankingState();
         renderArtistBatchView();
       },
       onSetRating: (from, rating) => {
-        state = { ranked: setRating(state.ranked, from, rating), pending: null };
+        rankingStore.setState({ ranked: setRating(rankingStore.getState().ranked, from, rating), pending: null });
         persistRankingState();
         renderArtistBatchView();
       },
       onRate: (album, rating) => {
-        const added = addSearchedAlbum(state.ranked, lists, album, rating);
-        state = { ranked: added.ranked, pending: null };
-        lists = added.lists;
+        const added = addSearchedAlbum(rankingStore.getState().ranked, rankingStore.getLists(), album, rating);
+        rankingStore.setState({ ranked: added.ranked, pending: null });
+        rankingStore.setLists(added.lists);
         persistRankingState();
         persistLists();
         renderArtistBatchView();
@@ -725,8 +733,8 @@ async function main(): Promise<void> {
       // No pairwise atom, same precedent as onDirectRate -- no comparison
       // happened, just a direct rating.
       onRate: (album, rating) => {
-        state = { ranked: insertAtRating(state.ranked, album, rating), pending: null };
-        lists = removeFromAllLists(lists, album);
+        rankingStore.setState({ ranked: insertAtRating(rankingStore.getState().ranked, album, rating), pending: null });
+        rankingStore.setLists(removeFromAllLists(rankingStore.getLists(), album));
         persistLists();
         persistRankingState();
         reselectCandidate();
@@ -786,8 +794,8 @@ async function main(): Promise<void> {
   }
 
   const rankList = mountRankList(stage, {
-    getRanked: () => filterAlbums(state.ranked, searchQuery),
-    getGlobalRanked: () => state.ranked,
+    getRanked: () => filterAlbums(rankingStore.getState().ranked, searchQuery),
+    getGlobalRanked: () => rankingStore.getState().ranked,
     getSearchQuery: () => searchQuery,
     onSearchQueryChange: (query) => {
       searchQuery = query;
@@ -798,9 +806,9 @@ async function main(): Promise<void> {
     onSearchMusicBrainz: runMusicBrainzSearch,
     getSearchResults: () => searchResults,
     onRateSearchResult: (album, rating) => {
-      const added = addSearchedAlbum(state.ranked, lists, album, rating);
-      state = { ranked: added.ranked, pending: null };
-      lists = added.lists;
+      const added = addSearchedAlbum(rankingStore.getState().ranked, rankingStore.getLists(), album, rating);
+      rankingStore.setState({ ranked: added.ranked, pending: null });
+      rankingStore.setLists(added.lists);
 
       searchQuery = '';
       searchResults = { status: 'idle' };
@@ -818,7 +826,7 @@ async function main(): Promise<void> {
     getCandidate: () => candidate,
     onPlace: (index) => {
       if (!candidate) return;
-      const before = state.ranked;
+      const before = rankingStore.getState().ranked;
       const placed = candidate;
       const clamped = Math.max(0, Math.min(index, before.length));
       const upper = before[clamped - 1] ?? null;
@@ -841,8 +849,8 @@ async function main(): Promise<void> {
         });
       }
 
-      state = { ranked: reRate(before, placed, clamped), pending: null };
-      lists = removeFromAllLists(lists, placed);
+      rankingStore.setState({ ranked: reRate(before, placed, clamped), pending: null });
+      rankingStore.setLists(removeFromAllLists(rankingStore.getLists(), placed));
       persistLists();
       persistRankingState();
       reselectCandidate();
@@ -850,14 +858,14 @@ async function main(): Promise<void> {
       renderNav();
     },
     onReorder: (from, to) => {
-      const album = state.ranked[from];
-      state = { ranked: reRate(state.ranked, album, to), pending: null };
+      const album = rankingStore.getState().ranked[from];
+      rankingStore.setState({ ranked: reRate(rankingStore.getState().ranked, album, to), pending: null });
       persistRankingState();
       rankList.render();
     },
     onRemoveRanked: (album) => {
-      lists = addToList(lists, album, 'dontCare');
-      state = setAsideAlbum(state, album.mbid);
+      rankingStore.setLists(addToList(rankingStore.getLists(), album, 'dontCare'));
+      rankingStore.setState(setAsideAlbum(rankingStore.getState(), album.mbid));
       persistLists();
       persistRankingState();
       reselectCandidate();
@@ -867,13 +875,13 @@ async function main(): Promise<void> {
     // Artist locks are paused (not enforced) -- see ranking/locks.ts's header
     // comment. This just moves to the requested index, no clamping.
     onSetOverallRank: (from, to) => {
-      const album = state.ranked[from];
-      state = { ranked: reRate(state.ranked, album, to), pending: null };
+      const album = rankingStore.getState().ranked[from];
+      rankingStore.setState({ ranked: reRate(rankingStore.getState().ranked, album, to), pending: null });
       persistRankingState();
       rankList.render();
     },
     onSetRating: (from, rating) => {
-      state = { ranked: setRating(state.ranked, from, rating), pending: null };
+      rankingStore.setState({ ranked: setRating(rankingStore.getState().ranked, from, rating), pending: null });
       persistRankingState();
       rankList.render();
     },
@@ -881,8 +889,8 @@ async function main(): Promise<void> {
     // comparison actually happened, so there's no winner/loser pair to log.
     onDirectRate: (rating) => {
       if (!candidate) return;
-      state = { ranked: insertAtRating(state.ranked, candidate, rating), pending: null };
-      lists = removeFromAllLists(lists, candidate);
+      rankingStore.setState({ ranked: insertAtRating(rankingStore.getState().ranked, candidate, rating), pending: null });
+      rankingStore.setLists(removeFromAllLists(rankingStore.getLists(), candidate));
       persistLists();
       persistRankingState();
       reselectCandidate();
@@ -893,8 +901,8 @@ async function main(): Promise<void> {
       // Record to the saved list first (so it is excluded), then drop it from
       // ranking state (setAsideAlbum also clears any stale placement), then
       // pick the next candidate.
-      lists = addToList(lists, album, which);
-      state = setAsideAlbum(state, album.mbid);
+      rankingStore.setLists(addToList(rankingStore.getLists(), album, which));
+      rankingStore.setState(setAsideAlbum(rankingStore.getState(), album.mbid));
       persistLists();
       persistRankingState();
       reselectCandidate();
@@ -926,15 +934,15 @@ async function main(): Promise<void> {
     },
     getArtistAlbumCount: (album) => {
       if (!album.primary_artist_mbid) return 0;
-      const grouped = artistAlbumsFor(album.primary_artist_mbid, state.ranked, lists, pool);
+      const grouped = artistAlbumsFor(album.primary_artist_mbid, rankingStore.getState().ranked, rankingStore.getLists(), pool);
       return grouped.ranked.length + grouped.unranked.length;
     },
   });
 
   function rateFromSavedList(album: Album, which: ListName, rating: number): void {
-    const added = addSearchedAlbum(state.ranked, lists, album, rating);
-    state = { ranked: added.ranked, pending: null };
-    lists = added.lists;
+    const added = addSearchedAlbum(rankingStore.getState().ranked, rankingStore.getLists(), album, rating);
+    rankingStore.setState({ ranked: added.ranked, pending: null });
+    rankingStore.setLists(added.lists);
     persistRankingState();
     persistLists();
     reselectCandidate();
@@ -943,7 +951,7 @@ async function main(): Promise<void> {
   }
 
   function removeFromSavedList(album: Album, which: ListName): void {
-    lists = removeFromList(lists, album.mbid, which);
+    rankingStore.setLists(removeFromList(rankingStore.getLists(), album.mbid, which));
     persistLists();
     // Unlike rateFromSavedList, this is a permanent discard, not a ranked
     // placement -- skippedAlbums already keeps it out of candidate selection
@@ -957,14 +965,14 @@ async function main(): Promise<void> {
   function renderCurrentSavedList(which: ListName): void {
     renderSavedList(
       stage,
-      lists[which],
+      rankingStore.getLists()[which],
       (album, rating) => rateFromSavedList(album, which, rating),
       (album) => removeFromSavedList(album, which)
     );
   }
 
   function restoreArtist(artistName: string): void {
-    blockedArtists = removeBlockedArtist(blockedArtists, artistName);
+    rankingStore.setBlockedArtists(removeBlockedArtist(rankingStore.getBlockedArtists(), artistName));
     persistBlockedArtists();
     if (!candidate) reselectCandidate();
     renderNav();
@@ -982,7 +990,7 @@ async function main(): Promise<void> {
   }
 
   function unskipCuratedEntry(entryKey: string): void {
-    curatedSkips.delete(entryKey);
+    rankingStore.getCuratedSkips().delete(entryKey);
     persistCuratedSkips();
     renderBlockedArtists();
     renderCuratedListsView();
@@ -995,7 +1003,7 @@ async function main(): Promise<void> {
   function renderBlockedArtists(): void {
     stage.textContent = '';
 
-    if (blockedArtists.length === 0 && curatedSkips.size === 0) {
+    if (rankingStore.getBlockedArtists().length === 0 && rankingStore.getCuratedSkips().size === 0) {
       const empty = document.createElement('p');
       empty.className = 'saved-empty';
       empty.textContent = 'No blocked artists or skipped albums.';
@@ -1003,7 +1011,7 @@ async function main(): Promise<void> {
       return;
     }
 
-    if (blockedArtists.length > 0) {
+    if (rankingStore.getBlockedArtists().length > 0) {
       const heading = document.createElement('p');
       heading.className = 'curated-list-status';
       heading.textContent = 'Blocked artists';
@@ -1011,7 +1019,7 @@ async function main(): Promise<void> {
 
       const list = document.createElement('ul');
       list.className = 'saved-list';
-      for (const artist of blockedArtists) {
+      for (const artist of rankingStore.getBlockedArtists()) {
         const item = document.createElement('li');
         item.className = 'saved-item';
 
@@ -1034,7 +1042,7 @@ async function main(): Promise<void> {
       stage.append(list);
     }
 
-    if (curatedSkips.size > 0) {
+    if (rankingStore.getCuratedSkips().size > 0) {
       const heading = document.createElement('p');
       heading.className = 'curated-list-status';
       heading.textContent = 'Skipped curated albums';
@@ -1042,7 +1050,7 @@ async function main(): Promise<void> {
 
       const list = document.createElement('ul');
       list.className = 'saved-list';
-      for (const entryKey of curatedSkips) {
+      for (const entryKey of rankingStore.getCuratedSkips()) {
         const item = document.createElement('li');
         item.className = 'saved-item';
 
@@ -1143,9 +1151,9 @@ async function main(): Promise<void> {
     // of the confirm gate below is defending against an unscoped live text
     // search; a resolved entry already cleared a stricter bar than that.
     if (entry.resolved) {
-      const added = addSearchedAlbum(state.ranked, lists, entry.resolved, rating);
-      state = { ranked: added.ranked, pending: null };
-      lists = added.lists;
+      const added = addSearchedAlbum(rankingStore.getState().ranked, rankingStore.getLists(), entry.resolved, rating);
+      rankingStore.setState({ ranked: added.ranked, pending: null });
+      rankingStore.setLists(added.lists);
       persistRankingState();
       persistLists();
       reselectCandidate();
@@ -1172,9 +1180,9 @@ async function main(): Promise<void> {
     if (!curatedPendingMatch) return;
     const match = curatedPendingMatch;
     if (match.kind === 'rate') {
-      const added = addSearchedAlbum(state.ranked, lists, match.album, match.rating);
-      state = { ranked: added.ranked, pending: null };
-      lists = added.lists;
+      const added = addSearchedAlbum(rankingStore.getState().ranked, rankingStore.getLists(), match.album, match.rating);
+      rankingStore.setState({ ranked: added.ranked, pending: null });
+      rankingStore.setLists(added.lists);
       persistRankingState();
       persistLists();
       curatedPendingMatch = null;
@@ -1184,7 +1192,7 @@ async function main(): Promise<void> {
       renderCuratedListsView();
       return;
     }
-    lists = addToList(lists, match.album, 'wantToListen');
+    rankingStore.setLists(addToList(rankingStore.getLists(), match.album, 'wantToListen'));
     persistLists();
     curatedPendingMatch = null;
     curatedRatingEntryKey = null;
@@ -1201,7 +1209,7 @@ async function main(): Promise<void> {
    *  way to skip" per the original complaint; unskip lives in the Blocked
    *  artists screen (renderBlockedArtists) instead, so this stays one tap. */
   function handleSkipCuratedEntry(listId: string, entry: CuratedAlbumEntry): void {
-    curatedSkips.add(curatedEntryKey(listId, entry));
+    rankingStore.getCuratedSkips().add(curatedEntryKey(listId, entry));
     persistCuratedSkips();
     renderCuratedListsView();
   }
@@ -1210,7 +1218,7 @@ async function main(): Promise<void> {
    *  (handleBlockArtist) -- curated entries carry an artist name but not
    *  always an Album record, so this can't reuse that function directly. */
   function handleHideCuratedArtist(entry: CuratedAlbumEntry): void {
-    blockedArtists = addBlockedArtist(blockedArtists, entry.artist);
+    rankingStore.setBlockedArtists(addBlockedArtist(rankingStore.getBlockedArtists(), entry.artist));
     persistBlockedArtists();
     removeBlockedFromPriorityQueue();
     renderCuratedListsView();
@@ -1229,7 +1237,7 @@ async function main(): Promise<void> {
     curatedPendingMatch = null;
 
     if (entry.resolved) {
-      lists = addToList(lists, entry.resolved, 'wantToListen');
+      rankingStore.setLists(addToList(rankingStore.getLists(), entry.resolved, 'wantToListen'));
       persistLists();
       renderCuratedListsView();
       return;
@@ -1284,10 +1292,10 @@ async function main(): Promise<void> {
 
   function renderCuratedListsView(): void {
     const unranked = selectedCuratedListId
-      ? unrankedFromCuratedList(CURATED_LISTS[selectedCuratedListId].albums, state.ranked, {
+      ? unrankedFromCuratedList(CURATED_LISTS[selectedCuratedListId].albums, rankingStore.getState().ranked, {
           listId: selectedCuratedListId,
-          skippedKeys: curatedSkips,
-          blockedArtists,
+          skippedKeys: rankingStore.getCuratedSkips(),
+          blockedArtists: rankingStore.getBlockedArtists(),
         })
       : [];
     renderCuratedListView(stage, {
@@ -1334,8 +1342,8 @@ async function main(): Promise<void> {
 
   function chooseSuggestion(): void {
     suggestionState = { ...suggestionState, current: suggestAlbum({
-      pool: [...pool, ...suggestionAlbums, ...suggestionCuratedAlbums], ranked: state.ranked, lists, preferred,
-      blocked: blockedArtists, skipped: skippedAlbums, seen: suggestionState.seen,
+      pool: [...pool, ...suggestionAlbums, ...suggestionCuratedAlbums], ranked: rankingStore.getState().ranked, lists: rankingStore.getLists(), preferred,
+      blocked: rankingStore.getBlockedArtists(), skipped: skippedAlbums, seen: suggestionState.seen,
       recentArtists: suggestionState.recent, related: suggestionRelated,
       discoveryTurn: suggestionState.count % 4 === 3,
       curated: suggestionCurated,
@@ -1355,7 +1363,7 @@ async function main(): Promise<void> {
   async function enrichSuggestions(): Promise<void> {
     if (suggestionLoaded || suggestionLoading) return;
     suggestionLoading = true;
-    const result = await loadSuggestionConnections(state.ranked, blockedArtists, pool);
+    const result = await loadSuggestionConnections(rankingStore.getState().ranked, rankingStore.getBlockedArtists(), pool);
     suggestionRelated = result.related;
     suggestionAlbums = result.albums;
     suggestionUnavailable = result.unavailable;
@@ -1372,12 +1380,12 @@ async function main(): Promise<void> {
   function renderBacklog(): void {
     const suggested = suggestionState.current?.album;
     if (backlogShelf === 'suggestions' && suggested && (
-      [...state.ranked, ...allSavedAlbums(lists)].some(a => a.mbid === suggested.mbid || albumKey(a) === albumKey(suggested)) ||
-      skippedAlbums.has(suggested.mbid) || blockedArtists.some(name => normalize(name) === normalize(suggested.primary_artist_name))
+      [...rankingStore.getState().ranked, ...allSavedAlbums(rankingStore.getLists())].some(a => a.mbid === suggested.mbid || albumKey(a) === albumKey(suggested)) ||
+      skippedAlbums.has(suggested.mbid) || rankingStore.getBlockedArtists().some(name => normalize(name) === normalize(suggested.primary_artist_name))
     )) chooseSuggestion();
-    const artists = buildArtistGaps(pool, state.ranked, lists, preferred, blockedArtists, skippedAlbums);
-    const selectedArtistId = lists.backlog?.currentArtistId ?? artists[0]?.id ?? null;
-    const remember = (persist = true) => { backlogUndo = { state, lists, suggestions: suggestionState, persist }; };
+    const artists = buildArtistGaps(pool, rankingStore.getState().ranked, rankingStore.getLists(), preferred, rankingStore.getBlockedArtists(), skippedAlbums);
+    const selectedArtistId = rankingStore.getLists().backlog?.currentArtistId ?? artists[0]?.id ?? null;
+    const remember = (persist = true) => { backlogUndo = { state: rankingStore.getState(), lists: rankingStore.getLists(), suggestions: suggestionState, persist }; };
     const commit = () => {
       persistLists();
       reselectCandidate();
@@ -1385,7 +1393,7 @@ async function main(): Promise<void> {
       renderNav();
     };
     renderBacklogView(stage, {
-      artists, lists, selectedArtistId, shelf: backlogShelf, showOther: backlogShowOther,
+      artists, lists: rankingStore.getLists(), selectedArtistId, shelf: backlogShelf, showOther: backlogShowOther,
       message: backlogMessage, canUndo: !!backlogUndo,
       suggestion: suggestionState.current, suggestionLoading, suggestionUnavailable,
       onShelf: (shelf) => {
@@ -1404,7 +1412,7 @@ async function main(): Promise<void> {
         renderBacklog();
       },
       onArtist: (id) => {
-        lists = { ...lists, backlog: { ...(lists.backlog ?? emptyBacklog<Album>()), currentArtistId: id } };
+        rankingStore.setLists({ ...rankingStore.getLists(), backlog: { ...(rankingStore.getLists().backlog ?? emptyBacklog<Album>()), currentArtistId: id } });
         backlogShowOther = false;
         backlogMessage = '';
         persistLists();
@@ -1413,9 +1421,9 @@ async function main(): Promise<void> {
       onShowOther: (show) => { backlogShowOther = show; renderBacklog(); },
       onDecide: (album, decision) => {
         remember();
-        lists = decideAlbum(lists, album, decision);
+        rankingStore.setLists(decideAlbum(rankingStore.getLists(), album, decision));
         // Keep the same artist visible when its remaining count changes.
-        lists = { ...lists, backlog: { ...(lists.backlog ?? emptyBacklog<Album>()), currentArtistId: selectedArtistId } };
+        rankingStore.setLists({ ...rankingStore.getLists(), backlog: { ...(rankingStore.getLists().backlog ?? emptyBacklog<Album>()), currentArtistId: selectedArtistId } });
         backlogMessage = decision === 'readyToRank' ? `${album.title} is ready to rank.`
           : decision === 'wantToListen' ? `${album.title} is saved to Want to listen.`
           : decision === null ? `${album.title} is back in artist review.` : `${album.title} reviewed.`;
@@ -1424,9 +1432,9 @@ async function main(): Promise<void> {
       },
       onRate: (album, rating) => {
         remember();
-        const added = addSearchedAlbum(state.ranked, lists, album, rating);
-        state = { ranked: added.ranked, pending: null };
-        lists = added.lists;
+        const added = addSearchedAlbum(rankingStore.getState().ranked, rankingStore.getLists(), album, rating);
+        rankingStore.setState({ ranked: added.ranked, pending: null });
+        rankingStore.setLists(added.lists);
         backlogMessage = `${album.title} rated ${rating.toFixed(2)}.`;
         if (backlogShelf === 'suggestions') advanceSuggestion();
         persistRankingState();
@@ -1434,18 +1442,18 @@ async function main(): Promise<void> {
       },
       onFinish: (id) => {
         remember();
-        const backlog = lists.backlog ?? emptyBacklog<Album>();
+        const backlog = rankingStore.getLists().backlog ?? emptyBacklog<Album>();
         const reviewed = [...new Set([...backlog.reviewedArtistIds, id])];
         const next = artists.find((a) => !reviewed.includes(a.id));
-        lists = { ...lists, backlog: { ...backlog, reviewedArtistIds: reviewed, currentArtistId: next?.id ?? id } };
+        rankingStore.setLists({ ...rankingStore.getLists(), backlog: { ...backlog, reviewedArtistIds: reviewed, currentArtistId: next?.id ?? id } });
         backlogShowOther = false;
         backlogMessage = next ? 'Artist reviewed. Here’s the next one.' : 'You’ve reviewed every artist in this pass. Your familiar albums are waiting in Ready to rank.';
         commit();
       },
       onUndo: () => {
         if (!backlogUndo) return;
-        state = backlogUndo.state;
-        lists = backlogUndo.lists;
+        rankingStore.setState(backlogUndo.state);
+        rankingStore.setLists(backlogUndo.lists);
         suggestionState = backlogUndo.suggestions;
         const persist = backlogUndo.persist;
         backlogUndo = null;
@@ -1507,11 +1515,11 @@ async function main(): Promise<void> {
     more.append(moreLabel, moreItems);
     const items: Array<{ mode: ViewMode; label: string }> = [
       { mode: 'backlog', label: 'Find missing albums' },
-      { mode: 'ranked', label: `Ranked list (${state.ranked.length})` },
-      { mode: 'wantToListen', label: `Want to listen (${lists.wantToListen.length})` },
-      { mode: 'notHeard', label: `Haven't heard (${lists.notHeard.length})` },
-      { mode: 'dontCare', label: `Don't care (${lists.dontCare.length})` },
-      { mode: 'blockedArtists', label: `Blocked artists (${blockedArtists.length})` },
+      { mode: 'ranked', label: `Ranked list (${rankingStore.getState().ranked.length})` },
+      { mode: 'wantToListen', label: `Want to listen (${rankingStore.getLists().wantToListen.length})` },
+      { mode: 'notHeard', label: `Haven't heard (${rankingStore.getLists().notHeard.length})` },
+      { mode: 'dontCare', label: `Don't care (${rankingStore.getLists().dontCare.length})` },
+      { mode: 'blockedArtists', label: `Blocked artists (${rankingStore.getBlockedArtists().length})` },
       { mode: 'speedRound', label: 'Voice speed round' },
       { mode: 'curatedLists', label: 'Curated lists' },
     ];
