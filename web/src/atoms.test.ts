@@ -98,4 +98,27 @@ describe('atom retry queue', () => {
 
     expect(JSON.parse(localStorage.getItem(QUEUE_KEY) ?? '[]')).toEqual([atom]);
   });
+
+  it('does not drop an atom enqueued while a previous atom is still in flight', async () => {
+    const atom2: AtomPayload = { ...atom, entity_a: '00000000-0000-4000-8000-000000000001' };
+    let resolveFetch!: (value: Response) => void;
+    const pending = new Promise<Response>((resolve) => {
+      resolveFetch = resolve;
+    });
+    const fetchMock = vi.fn().mockReturnValue(pending);
+    vi.stubGlobal('fetch', fetchMock);
+
+    enqueueAtom(atom); // starts the flush; its fetch is still pending
+    enqueueAtom(atom2); // appended to storage while the first fetch is in flight
+
+    resolveFetch(jsonResponse(201, { ok: true }));
+    await flushAtomQueue();
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const sentBodies = fetchMock.mock.calls.map(([, init]) =>
+      JSON.parse((init as RequestInit).body as string)
+    );
+    expect(sentBodies).toEqual([atom, atom2]);
+    expect(JSON.parse(localStorage.getItem(QUEUE_KEY) ?? '[]')).toEqual([]);
+  });
 });

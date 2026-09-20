@@ -44,8 +44,16 @@ export async function flushAtomQueue(): Promise<void> {
   if (activeFlush) return activeFlush;
 
   activeFlush = (async () => {
-    let queue = loadQueue();
-    while (queue.length > 0) {
+    while (true) {
+      // Re-read from storage on every iteration, not a captured local: a
+      // concurrent enqueueAtom() call appends straight to storage while this
+      // fetch is in flight, and only ever appends (never removes) while a
+      // flush is running, so the just-sent atom is always still the head.
+      // Reusing a stale local snapshot here previously clobbered storage
+      // with a smaller array on save, silently dropping the concurrently
+      // enqueued atom.
+      const queue = loadQueue();
+      if (queue.length === 0) return;
       const [atom] = queue;
       let response: Response;
       try {
@@ -75,8 +83,7 @@ export async function flushAtomQueue(): Promise<void> {
       }
       if (confirmed.ok !== true) return;
 
-      queue = queue.slice(1);
-      saveQueue(queue);
+      saveQueue(loadQueue().slice(1));
     }
   })();
 
