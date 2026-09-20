@@ -4,20 +4,26 @@
 
 (async function () {
   const STORAGE_KEY = "kob-calibration-v1";
-  const ARTISTS_URL = "artists.json";
 
   let ARTISTS = [];
   let state = null;
 
   // --- Loading ---
 
-  async function loadArtists() {
-    const res = await fetch(ARTISTS_URL);
-    if (!res.ok) throw new Error(`Failed to load ${ARTISTS_URL}: ${res.status}`);
-    const data = await res.json();
-    // Normalize: prototype used {n,e,g,c}, this uses {name,era,genre,country}
-    // Support either by mapping.
-    return data.map((a) => ({
+  // Reads the inlined pool from ../artists.js (window.CALIBRATION_ARTISTS),
+  // loaded via a <script> tag in index.html, not fetch(): fetching a local
+  // file from a page itself opened via file:// is blocked by Chrome's CORS
+  // policy, which is exactly why the root tool's app.js avoids fetch() too
+  // (see its own header comment). artists.js is root's generated file
+  // (build-artists.py's source of truth is artists.json) -- this is a
+  // sibling-of-parent read, not a local copy, so it can't drift from root's
+  // regenerated data.
+  function loadArtists() {
+    const raw = window.CALIBRATION_ARTISTS;
+    if (!raw) throw new Error("artists.js not loaded (window.CALIBRATION_ARTISTS missing)");
+    // Normalize: prototype used {n,e,g,c}, root's artists.js uses
+    // {name,era,genre,country}. Support either by mapping.
+    return raw.map((a) => ({
       n: a.n || a.name,
       e: a.e || a.era,
       g: a.g || a.genre,
@@ -269,7 +275,7 @@
   // --- Boot ---
 
   try {
-    ARTISTS = await loadArtists();
+    ARTISTS = loadArtists();
     state = loadState() || freshState();
     if (!loadState()) saveState();
     wireEvents();
