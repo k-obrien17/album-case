@@ -132,30 +132,29 @@ def _load_release_group(conn, path):
     )
     loaded = skipped = 0
     batch = []
-    with conn:
-        conn.execute("DELETE FROM stg_release_group")
-        for line in _iter_lines(path):
-            fields = line.split("\t")
-            if len(fields) != RG_EXPECTED_COLS:
-                skipped += 1
-                continue
-            try:
-                rg_id = _parse_int(fields[RG_COL_ID])
-                artist_credit = _parse_int(fields[RG_COL_ARTIST_CREDIT])
-                primary_type = _parse_int(fields[RG_COL_TYPE])
-            except ValueError:
-                skipped += 1
-                continue
-            mbid = _parse_null(fields[RG_COL_GID])
-            title = _parse_null(fields[RG_COL_NAME])
-            if rg_id is None or mbid is None:
-                skipped += 1
-                continue
-            batch.append((rg_id, mbid, title, artist_credit, primary_type))
-            loaded += 1
-            if len(batch) >= BATCH_SIZE:
-                _flush(conn, insert_sql, batch)
-        _flush(conn, insert_sql, batch)
+    conn.execute("DELETE FROM stg_release_group")
+    for line in _iter_lines(path):
+        fields = line.split("\t")
+        if len(fields) != RG_EXPECTED_COLS:
+            skipped += 1
+            continue
+        try:
+            rg_id = _parse_int(fields[RG_COL_ID])
+            artist_credit = _parse_int(fields[RG_COL_ARTIST_CREDIT])
+            primary_type = _parse_int(fields[RG_COL_TYPE])
+        except ValueError:
+            skipped += 1
+            continue
+        mbid = _parse_null(fields[RG_COL_GID])
+        title = _parse_null(fields[RG_COL_NAME])
+        if rg_id is None or mbid is None:
+            skipped += 1
+            continue
+        batch.append((rg_id, mbid, title, artist_credit, primary_type))
+        loaded += 1
+        if len(batch) >= BATCH_SIZE:
+            _flush(conn, insert_sql, batch)
+    _flush(conn, insert_sql, batch)
     if skipped:
         logger.warning("release_group: skipped %d malformed line(s)", skipped)
     return loaded, skipped
@@ -167,27 +166,26 @@ def _load_release_group_meta(conn, path):
     )
     loaded = skipped = 0
     batch = []
-    with conn:
-        conn.execute("DELETE FROM stg_release_group_meta")
-        for line in _iter_lines(path):
-            fields = line.split("\t")
-            if len(fields) != RGM_EXPECTED_COLS:
-                skipped += 1
-                continue
-            try:
-                rg_id = _parse_int(fields[RGM_COL_ID])
-                first_release_year = _parse_int(fields[RGM_COL_FIRST_RELEASE_YEAR])
-            except ValueError:
-                skipped += 1
-                continue
-            if rg_id is None:
-                skipped += 1
-                continue
-            batch.append((rg_id, first_release_year))
-            loaded += 1
-            if len(batch) >= BATCH_SIZE:
-                _flush(conn, insert_sql, batch)
-        _flush(conn, insert_sql, batch)
+    conn.execute("DELETE FROM stg_release_group_meta")
+    for line in _iter_lines(path):
+        fields = line.split("\t")
+        if len(fields) != RGM_EXPECTED_COLS:
+            skipped += 1
+            continue
+        try:
+            rg_id = _parse_int(fields[RGM_COL_ID])
+            first_release_year = _parse_int(fields[RGM_COL_FIRST_RELEASE_YEAR])
+        except ValueError:
+            skipped += 1
+            continue
+        if rg_id is None:
+            skipped += 1
+            continue
+        batch.append((rg_id, first_release_year))
+        loaded += 1
+        if len(batch) >= BATCH_SIZE:
+            _flush(conn, insert_sql, batch)
+    _flush(conn, insert_sql, batch)
     if skipped:
         logger.warning("release_group_meta: skipped %d malformed line(s)", skipped)
     return loaded, skipped
@@ -200,29 +198,28 @@ def _load_artist_credit_name(conn, path):
     )
     loaded = skipped = 0
     batch = []
-    with conn:
-        conn.execute("DELETE FROM stg_artist_credit_name")
-        for line in _iter_lines(path):
-            fields = line.split("\t")
-            if len(fields) != ACN_EXPECTED_COLS:
-                skipped += 1
-                continue
-            try:
-                artist_credit = _parse_int(fields[ACN_COL_ARTIST_CREDIT])
-                position = _parse_int(fields[ACN_COL_POSITION])
-                artist_id = _parse_int(fields[ACN_COL_ARTIST])
-            except ValueError:
-                skipped += 1
-                continue
-            if artist_credit is None or artist_id is None:
-                skipped += 1
-                continue
-            credited_name = _parse_null(fields[ACN_COL_NAME])
-            batch.append((artist_credit, position, artist_id, credited_name))
-            loaded += 1
-            if len(batch) >= BATCH_SIZE:
-                _flush(conn, insert_sql, batch)
-        _flush(conn, insert_sql, batch)
+    conn.execute("DELETE FROM stg_artist_credit_name")
+    for line in _iter_lines(path):
+        fields = line.split("\t")
+        if len(fields) != ACN_EXPECTED_COLS:
+            skipped += 1
+            continue
+        try:
+            artist_credit = _parse_int(fields[ACN_COL_ARTIST_CREDIT])
+            position = _parse_int(fields[ACN_COL_POSITION])
+            artist_id = _parse_int(fields[ACN_COL_ARTIST])
+        except ValueError:
+            skipped += 1
+            continue
+        if artist_credit is None or artist_id is None:
+            skipped += 1
+            continue
+        credited_name = _parse_null(fields[ACN_COL_NAME])
+        batch.append((artist_credit, position, artist_id, credited_name))
+        loaded += 1
+        if len(batch) >= BATCH_SIZE:
+            _flush(conn, insert_sql, batch)
+    _flush(conn, insert_sql, batch)
     if skipped:
         logger.warning("artist_credit_name: skipped %d malformed line(s)", skipped)
     return loaded, skipped
@@ -232,28 +229,27 @@ def _load_artist(conn, path):
     insert_sql = "INSERT INTO stg_artist (artist_id, mbid, name) VALUES (?, ?, ?)"
     loaded = skipped = 0
     batch = []
-    with conn:
-        conn.execute("DELETE FROM stg_artist")
-        for line in _iter_lines(path):
-            fields = line.split("\t")
-            if len(fields) != ARTIST_EXPECTED_COLS:
-                skipped += 1
-                continue
-            try:
-                artist_id = _parse_int(fields[ARTIST_COL_ID])
-            except ValueError:
-                skipped += 1
-                continue
-            mbid = _parse_null(fields[ARTIST_COL_GID])
-            name = _parse_null(fields[ARTIST_COL_NAME])
-            if artist_id is None or mbid is None:
-                skipped += 1
-                continue
-            batch.append((artist_id, mbid, name))
-            loaded += 1
-            if len(batch) >= BATCH_SIZE:
-                _flush(conn, insert_sql, batch)
-        _flush(conn, insert_sql, batch)
+    conn.execute("DELETE FROM stg_artist")
+    for line in _iter_lines(path):
+        fields = line.split("\t")
+        if len(fields) != ARTIST_EXPECTED_COLS:
+            skipped += 1
+            continue
+        try:
+            artist_id = _parse_int(fields[ARTIST_COL_ID])
+        except ValueError:
+            skipped += 1
+            continue
+        mbid = _parse_null(fields[ARTIST_COL_GID])
+        name = _parse_null(fields[ARTIST_COL_NAME])
+        if artist_id is None or mbid is None:
+            skipped += 1
+            continue
+        batch.append((artist_id, mbid, name))
+        loaded += 1
+        if len(batch) >= BATCH_SIZE:
+            _flush(conn, insert_sql, batch)
+    _flush(conn, insert_sql, batch)
     if skipped:
         logger.warning("artist: skipped %d malformed line(s)", skipped)
     return loaded, skipped
@@ -274,15 +270,32 @@ def load_musicbrainz_staging(conn, mbdump_dir, table_filenames=None):
 
     `table_filenames` optionally overrides the real mbdump file names
     (used by the test suite to point at the `mb_*.sample.tsv` fixtures).
+
+    All four tables load inside ONE transaction: a mid-load failure (missing
+    file, corrupt line, bad byte) rolls every table back to its pre-call
+    state instead of leaving some tables holding this run's data and others
+    holding the previous run's -- `materialize.py` has no way to detect that
+    kind of mixed staging state, and would silently join fresh rows against
+    stale ones.
     """
+    # executescript() implicitly commits any open transaction before running,
+    # so the DDL (idempotent CREATE TABLE/INDEX IF NOT EXISTS) must happen
+    # before BEGIN, not inside the atomic section below.
     conn.executescript(_STAGING_SQL_PATH.read_text())
     mbdump_dir = Path(mbdump_dir)
     filenames = {**DEFAULT_TABLE_FILENAMES, **(table_filenames or {})}
     stats = {}
-    for table_name, filename in filenames.items():
-        path = mbdump_dir / filename
-        loaded, skipped = _LOADERS[table_name](conn, path)
-        stats[table_name] = {"loaded": loaded, "skipped": skipped}
+    conn.execute("BEGIN")
+    try:
+        for table_name, filename in filenames.items():
+            path = mbdump_dir / filename
+            loaded, skipped = _LOADERS[table_name](conn, path)
+            stats[table_name] = {"loaded": loaded, "skipped": skipped}
+    except BaseException:
+        conn.rollback()
+        raise
+    else:
+        conn.commit()
     return stats
 
 
