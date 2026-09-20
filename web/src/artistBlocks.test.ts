@@ -30,6 +30,27 @@ describe('artistBlocks', () => {
     expect(loadBlockedArtists()).toEqual(['Radiohead']);
   });
 
+  it('falls back to an empty list when the stored value is valid JSON but not an array', () => {
+    const store = new Map<string, string>();
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: (key: string) => store.get(key) ?? null,
+        setItem: (key: string, value: string) => store.set(key, value),
+      },
+    });
+    try {
+      localStorage.setItem('tastetest-blocked-artists', 'null');
+      expect(loadBlockedArtists()).toEqual([]);
+
+      localStorage.setItem('tastetest-blocked-artists', '{}');
+      expect(loadBlockedArtists()).toEqual([]);
+    } finally {
+      // @ts-expect-error - restore the default Node test environment.
+      delete globalThis.localStorage;
+    }
+  });
+
   it('dedupes blocked artists while preserving the first spelling', () => {
     expect(addBlockedArtist(['Radiohead'], 'radiohead')).toEqual(['Radiohead']);
   });

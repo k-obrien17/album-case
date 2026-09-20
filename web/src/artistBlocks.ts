@@ -15,7 +15,8 @@ export function loadBlockedArtists(): string[] {
 
   try {
     const raw = localStorage.getItem(BLOCKED_ARTISTS_KEY);
-    return raw ? (JSON.parse(raw) as string[]) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === 'string') : [];
   } catch (err) {
     console.warn('tastetest: failed to read blocked artists from localStorage, using memory', err);
     return memoryBlockedArtists;
