@@ -43,9 +43,9 @@ function clamp(n: number): number | null {
 }
 
 function tryDigitForm(text: string): number | null {
-  const match = text.match(/-?\d+(\.\d+)?/);
-  if (!match) return null;
-  return clamp(Number(match[0]));
+  const matches = text.match(/-?\d+(\.\d+)?/g);
+  if (!matches) return null;
+  return clamp(Number(matches[matches.length - 1]));
 }
 
 function tryWordForm(text: string): number | null {
@@ -68,14 +68,19 @@ function tryWordForm(text: string): number | null {
     }
   }
 
-  // "X point Y [Z]" -- decimal built from word-digits after "point".
+  // "X point Y [Z]" -- decimal built from word-digits after "point". Only
+  // the CONTIGUOUS run right after "point" counts: stop at the first word
+  // that isn't a single digit (0-9), so a later, unrelated number elsewhere
+  // in the sentence (e.g. an aside) never gets appended onto the decimal.
   const pointIdx = words.indexOf('point');
   if (pointIdx !== -1 && pointIdx > 0) {
     const whole = words[pointIdx - 1];
-    const decimalDigits = words
-      .slice(pointIdx + 1)
-      .map((w) => WORD_DIGITS[w])
-      .filter((d): d is number => d !== undefined && d <= 9);
+    const decimalDigits: number[] = [];
+    for (const w of words.slice(pointIdx + 1)) {
+      const d = WORD_DIGITS[w];
+      if (d === undefined || d > 9) break;
+      decimalDigits.push(d);
+    }
     if (whole in WORD_DIGITS && decimalDigits.length > 0) {
       const decimalStr = decimalDigits.join('');
       return clamp(WORD_DIGITS[whole] + Number(`0.${decimalStr}`));

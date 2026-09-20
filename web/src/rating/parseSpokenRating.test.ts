@@ -15,9 +15,17 @@ describe('parseSpokenRating', () => {
     expect(parseSpokenRating("I'd say an 8.5")).toBe(8.5);
   });
 
+  test('last digit-form match wins when several appear (matches word-form behavior)', () => {
+    expect(parseSpokenRating('I was thinking maybe a 6 but actually more like an 8.5')).toBe(8.5);
+  });
+
   test('parses spelled-out point-decimal form', () => {
     expect(parseSpokenRating('seven point three five')).toBe(7.35);
     expect(parseSpokenRating('seven point five')).toBe(7.5);
+  });
+
+  test('stops the decimal at the first non-digit word after "point", ignoring unrelated later numbers', () => {
+    expect(parseSpokenRating("seven point six I've heard this nine times")).toBe(7.6);
   });
 
   test('parses "and a half/quarter" fraction words', () => {
