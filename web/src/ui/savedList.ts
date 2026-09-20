@@ -99,7 +99,13 @@ export function renderSavedList(
     removeBtn.type = 'button';
     removeBtn.className = 'saved-remove';
     removeBtn.textContent = 'Remove';
-    removeBtn.addEventListener('click', () => onRemove(album));
+    // Unlike a ranked row's remove (which lands in "Don't care," reviewable),
+    // this discards the album permanently with no recovery screen anywhere
+    // in the app -- require confirmation and say so plainly.
+    removeBtn.addEventListener('click', () => {
+      if (!window.confirm(`Remove "${album.title}" from your list? This can't be undone.`)) return;
+      onRemove(album);
+    });
 
     actions.append(form, removeBtn, status);
     item.append(thumb, meta, actions);
