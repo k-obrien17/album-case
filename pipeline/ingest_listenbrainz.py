@@ -35,7 +35,7 @@ from pathlib import Path
 # as well as `python3 -m pipeline.ingest_listenbrainz` / package import.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from pipeline.db import DEFAULT_DB_PATH, connect  # noqa: E402
+from pipeline.db import DEFAULT_DB_PATH, connect, iter_lines  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -56,15 +56,6 @@ def _first_present(record, keys):
     return None
 
 
-def _iter_lines(path):
-    """Stream non-empty, newline-stripped lines from `path` one at a time."""
-    with open(path, "r", encoding="utf-8") as f:
-        for raw_line in f:
-            line = raw_line.rstrip("\n")
-            if line:
-                yield line
-
-
 def load_listenbrainz_staging(conn, popularity_path):
     """Stream `popularity_path` (JSONL) into `stg_popularity`, truncating
     the table first. Returns {"loaded": int, "skipped": int}.
@@ -79,7 +70,7 @@ def load_listenbrainz_staging(conn, popularity_path):
     batch = []
     with conn:
         conn.execute("DELETE FROM stg_popularity")
-        for line in _iter_lines(popularity_path):
+        for line in iter_lines(popularity_path):
             try:
                 record = json.loads(line)
             except json.JSONDecodeError:
@@ -92,6 +83,10 @@ def load_listenbrainz_staging(conn, popularity_path):
             if not mbid:
                 skipped += 1
                 continue
+            # Normalize to lowercase so this mbid compares equal to
+            # stg_release_group.mbid regardless of the source dump's
+            # casing -- see the matching comment in ingest_musicbrainz.py.
+            mbid = mbid.lower()
             listen_count = _first_present(record, LISTEN_COUNT_KEYS)
             listener_count = _first_present(record, LISTENER_COUNT_KEYS)
             if listener_count is None:

@@ -45,7 +45,7 @@ from pathlib import Path
 # as well as `python3 -m pipeline.ingest_musicbrainz` / package import.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from pipeline.db import DEFAULT_DB_PATH, connect  # noqa: E402
+from pipeline.db import DEFAULT_DB_PATH, connect, iter_lines  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -110,15 +110,6 @@ def _parse_int(value):
     return int(value)
 
 
-def _iter_lines(path):
-    """Stream non-empty, newline-stripped lines from `path` one at a time."""
-    with open(path, "r", encoding="utf-8") as f:
-        for raw_line in f:
-            line = raw_line.rstrip("\n")
-            if line:
-                yield line
-
-
 def _flush(conn, sql, batch):
     if batch:
         conn.executemany(sql, batch)
@@ -133,7 +124,7 @@ def _load_release_group(conn, path):
     loaded = skipped = 0
     batch = []
     conn.execute("DELETE FROM stg_release_group")
-    for line in _iter_lines(path):
+    for line in iter_lines(path):
         fields = line.split("\t")
         if len(fields) != RG_EXPECTED_COLS:
             skipped += 1
@@ -146,6 +137,13 @@ def _load_release_group(conn, path):
             skipped += 1
             continue
         mbid = _parse_null(fields[RG_COL_GID])
+        # Normalize to lowercase so this mbid compares equal to
+        # stg_popularity.release_group_mbid regardless of the source
+        # dump's casing -- SQLite TEXT comparison is case-sensitive by
+        # default, and MBIDs are conventionally lowercase anyway, so this
+        # is a no-op against well-formed data and a safety net otherwise.
+        if mbid is not None:
+            mbid = mbid.lower()
         title = _parse_null(fields[RG_COL_NAME])
         if rg_id is None or mbid is None:
             skipped += 1
@@ -167,7 +165,7 @@ def _load_release_group_meta(conn, path):
     loaded = skipped = 0
     batch = []
     conn.execute("DELETE FROM stg_release_group_meta")
-    for line in _iter_lines(path):
+    for line in iter_lines(path):
         fields = line.split("\t")
         if len(fields) != RGM_EXPECTED_COLS:
             skipped += 1
@@ -199,7 +197,7 @@ def _load_artist_credit_name(conn, path):
     loaded = skipped = 0
     batch = []
     conn.execute("DELETE FROM stg_artist_credit_name")
-    for line in _iter_lines(path):
+    for line in iter_lines(path):
         fields = line.split("\t")
         if len(fields) != ACN_EXPECTED_COLS:
             skipped += 1
@@ -230,7 +228,7 @@ def _load_artist(conn, path):
     loaded = skipped = 0
     batch = []
     conn.execute("DELETE FROM stg_artist")
-    for line in _iter_lines(path):
+    for line in iter_lines(path):
         fields = line.split("\t")
         if len(fields) != ARTIST_EXPECTED_COLS:
             skipped += 1

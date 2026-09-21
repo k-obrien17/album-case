@@ -182,6 +182,47 @@ def test_refresh_adds_new_album_without_touching_existing_created_at(conn):
 # --- verify_universe ---
 
 
+def test_duplicate_position_zero_artist_credit_does_not_misattribute_or_inflate_stats(conn):
+    """A duplicate (artist_credit, position=0) row for an already-loaded
+    artist_credit must not fan out the identity join: the join must dedup
+    to a single, deterministic artist per artist_credit, and the reported
+    stats "total" must equal the TRUE post-upsert entities row count, not
+    a raw (possibly fanned-out) candidate-row count.
+
+    The fabricated duplicate uses an artist_id far larger than the real
+    Radiohead artist_id (1000) so the deterministic MIN(artist_id) tiebreak
+    provably picks the original/correct row, not the injected one.
+    """
+    fabricated_artist_id = 999999
+    fabricated_artist_mbid = "99999999-9999-9999-9999-999999999999"
+    with conn:
+        conn.execute(
+            "INSERT INTO stg_artist (artist_id, mbid, name) VALUES (?, ?, ?)",
+            (fabricated_artist_id, fabricated_artist_mbid, "Fabricated Artist"),
+        )
+        conn.execute(
+            "INSERT INTO stg_artist_credit_name "
+            "(artist_credit, position, artist_id, credited_name) VALUES (100, 0, ?, ?)",
+            (fabricated_artist_id, "Fabricated Artist"),
+        )
+
+    with patch("pipeline.materialize.now_ms", return_value=1_000):
+        result = materialize_albums(conn)
+
+    rows = conn.execute(
+        "SELECT * FROM entities WHERE entity_type = 'album' AND mbid = ?",
+        (OK_COMPUTER_MBID,),
+    ).fetchall()
+    assert len(rows) == 1
+    assert rows[0]["primary_artist_name"] == "Radiohead"
+    assert rows[0]["primary_artist_mbid"] != fabricated_artist_mbid
+
+    true_total = conn.execute(
+        "SELECT COUNT(*) FROM entities WHERE entity_type = 'album'"
+    ).fetchone()[0]
+    assert result["total"] == true_total
+
+
 def test_verify_universe_reports_universe_shape(conn):
     with patch("pipeline.materialize.now_ms", return_value=1_000):
         materialize_albums(conn)

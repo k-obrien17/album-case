@@ -17,8 +17,44 @@ from pipeline.covers import apply_cover_pointers
 from pipeline.config import NOTABILITY_MIN_LISTENERS
 from pipeline.db import DEFAULT_DB_PATH, connect
 from pipeline.ingest_listenbrainz import load_listenbrainz_staging
-from pipeline.ingest_musicbrainz import load_musicbrainz_staging
+from pipeline.ingest_musicbrainz import DEFAULT_TABLE_FILENAMES, load_musicbrainz_staging
 from pipeline.materialize import materialize_albums, verify_universe
+
+logger = logging.getLogger(__name__)
+
+
+class PipelineArgError(ValueError):
+    """Raised when a CLI argument fails validation before any staging
+    table is touched. Distinct from a bare ValueError so main() can catch
+    it specifically and print a clean message instead of a traceback."""
+
+
+def validate_pipeline_args(mbdump_dir: str, popularity_path: str) -> None:
+    """Validate `--mbdump-dir` and `--popularity` before `run_pipeline`
+    starts mutating staging tables. Raises PipelineArgError naming exactly
+    what's missing; raises nothing on success.
+    """
+    mbdump_path = Path(mbdump_dir)
+    if not mbdump_path.is_dir():
+        raise PipelineArgError(
+            f"--mbdump-dir {mbdump_dir!r} is not an existing directory"
+        )
+    missing_tables = [
+        filename
+        for filename in DEFAULT_TABLE_FILENAMES.values()
+        if not (mbdump_path / filename).is_file()
+    ]
+    if missing_tables:
+        raise PipelineArgError(
+            f"--mbdump-dir {mbdump_dir!r} is missing expected mbdump table "
+            f"file(s): {', '.join(sorted(missing_tables))}"
+        )
+
+    popularity_file = Path(popularity_path)
+    if not popularity_file.is_file():
+        raise PipelineArgError(
+            f"--popularity {popularity_path!r} is not an existing, readable file"
+        )
 
 
 def run_pipeline(
@@ -78,6 +114,14 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    try:
+        validate_pipeline_args(args.mbdump_dir, args.popularity)
+    except PipelineArgError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    # Only opened (and the --db file created) after validation passes, so a
+    # bad argument never touches the store.
     conn = connect(args.db)
     try:
         result = run_pipeline(
@@ -88,6 +132,9 @@ def main() -> None:
             verify=args.verify,
         )
         print(json.dumps(result, indent=2))
+    except Exception as exc:
+        logger.error("pipeline step failed: %s", exc)
+        raise
     finally:
         conn.close()
 

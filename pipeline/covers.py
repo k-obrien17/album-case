@@ -60,14 +60,11 @@ def apply_cover_pointers(conn):
     ).fetchall()
 
     now = now_ms()
-    updated = 0
+    params = [(cover_url_for(row["mbid"]), now, row["mbid"]) for row in rows]
     with conn:
-        for row in rows:
-            mbid = row["mbid"]
-            conn.execute(_UPDATE_SQL, (cover_url_for(mbid), now, mbid))
-            updated += 1
+        conn.executemany(_UPDATE_SQL, params)
 
-    return updated
+    return len(params)
 
 
 def main():

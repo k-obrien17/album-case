@@ -48,18 +48,39 @@ logger = logging.getLogger(__name__)
 # constant rather than a bare literal in the query below.
 ALBUM_PRIMARY_TYPE_ID = 1
 
-_CANDIDATE_COUNT_SQL = """
-    SELECT COUNT(*)
+# Dedup subquery for the primary (position=0) artist-credit-name row.
+# stg_artist_credit_name has no uniqueness constraint on (artist_credit,
+# position), so a duplicate position=0 row for the same artist_credit
+# would otherwise fan out the join below -- silently mis-attributing an
+# album to whichever duplicate SQLite's row order happens to process last,
+# and inflating _CANDIDATE_COUNT_SQL's row count past the true number of
+# distinct release-groups. Grouping by artist_credit and taking
+# MIN(artist_id) collapses any duplicate to exactly one deterministic
+# winner before it ever reaches the identity join.
+_PRIMARY_ARTIST_CREDIT_SQL = """
+    SELECT artist_credit, MIN(artist_id) AS artist_id
+    FROM stg_artist_credit_name
+    WHERE position = 0
+    GROUP BY artist_credit
+"""
+
+_CANDIDATE_COUNT_SQL = f"""
+    SELECT COUNT(DISTINCT rg.mbid)
     FROM stg_release_group rg
     JOIN stg_popularity pop ON pop.release_group_mbid = rg.mbid
-    JOIN stg_artist_credit_name acn
-        ON acn.artist_credit = rg.artist_credit AND acn.position = 0
+    JOIN ({_PRIMARY_ARTIST_CREDIT_SQL}) acn
+        ON acn.artist_credit = rg.artist_credit
     JOIN stg_artist a ON a.artist_id = acn.artist_id
     WHERE rg.primary_type = ?
       AND pop.listener_count >= ?
 """
+# COUNT(DISTINCT rg.mbid) rather than COUNT(*): even with the dedup join
+# above, this keeps the reported total tied to the true number of
+# candidate release-groups rather than the raw join row count, so any
+# future fan-out (e.g. from a different join added later) shows up as a
+# visible discrepancy instead of silently inflating the stats.
 
-_UPSERT_SQL = """
+_UPSERT_SQL = f"""
     INSERT INTO entities (
         entity_type, mbid, title, primary_artist_name, primary_artist_mbid,
         release_year, notability_score, created_at, updated_at
@@ -76,8 +97,8 @@ _UPSERT_SQL = """
         ? AS updated_at
     FROM stg_release_group rg
     JOIN stg_popularity pop ON pop.release_group_mbid = rg.mbid
-    JOIN stg_artist_credit_name acn
-        ON acn.artist_credit = rg.artist_credit AND acn.position = 0
+    JOIN ({_PRIMARY_ARTIST_CREDIT_SQL}) acn
+        ON acn.artist_credit = rg.artist_credit
     JOIN stg_artist a ON a.artist_id = acn.artist_id
     LEFT JOIN stg_release_group_meta rgm ON rgm.rg_id = rg.rg_id
     WHERE rg.primary_type = ?

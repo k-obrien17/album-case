@@ -10,6 +10,7 @@ Run from the project root:
 
     python3 -m pytest pipeline/test_ingest.py -v
 """
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -152,6 +153,61 @@ def test_musicbrainz_artist_column_pins_match_fixture_shape():
     assert fields[ARTIST_COL_NAME] == "Radiohead"
 
 
+def test_musicbrainz_release_group_mbid_is_lowercased_on_load(conn, tmp_path):
+    """The real MusicBrainz dump and the real ListenBrainz popularity
+    dataset could disagree on MBID casing; materialize.py joins them on
+    exact TEXT equality (pop.release_group_mbid = rg.mbid), so both
+    loaders must normalize to lowercase at ingest time (Finding 2)."""
+    mbdump_dir = tmp_path / "mbdump"
+    mbdump_dir.mkdir()
+    uppercase_mbid = "6CCB60C2-6D8A-4869-9E5B-BA3BA99CAEBE"
+    (mbdump_dir / "release_group").write_text(
+        f"5000\t{uppercase_mbid}\tOK Computer\t100\t1\t\t0\t2020-01-01 00:00:00+00\n"
+    )
+    (mbdump_dir / "release_group_meta").write_text("5000\t1\t1997\t5\t21\t\\N\t\\N\n")
+    (mbdump_dir / "artist_credit_name").write_text("100\t0\t1000\tRadiohead\t\n")
+    (mbdump_dir / "artist").write_text(
+        "1000\ta74b1b7f-71a5-4011-9441-d0b5e4122711\tRadiohead\tRadiohead\t"
+        "1985\t\\N\t\\N\t\\N\t\\N\t\\N\t2\t\\N\t\\N\t\t0\t"
+        "2020-01-01 00:00:00+00\tf\t\\N\t\\N\n"
+    )
+
+    load_musicbrainz_staging(conn, mbdump_dir)
+
+    row = conn.execute("SELECT mbid FROM stg_release_group").fetchone()
+    assert row["mbid"] == uppercase_mbid.lower()
+
+
+def test_musicbrainz_malformed_utf8_byte_is_skipped_and_counted_not_raised(conn, tmp_path):
+    """Finding 5: a single malformed byte anywhere in a dump file must not
+    raise UnicodeDecodeError and abort the whole table's load. The byte
+    sits in the primary_type column (must parse as int), so after
+    errors="replace" turns it into U+FFFD, int() raises ValueError and the
+    existing malformed-line handling skips-and-counts it -- proving the
+    "leans on validation that already exists downstream" claim rather
+    than just asserting it."""
+    mbdump_dir = tmp_path / "mbdump"
+    mbdump_dir.mkdir()
+    bad_line = (
+        b"5000\t6ccb60c2-6d8a-4869-9e5b-ba3ba99caebe\tOK Computer\t100\t\xff\t\t0\t"
+        b"2020-01-01 00:00:00+00\n"
+    )
+    (mbdump_dir / "release_group").write_bytes(bad_line)
+    (mbdump_dir / "release_group_meta").write_text("5000\t1\t1997\t5\t21\t\\N\t\\N\n")
+    (mbdump_dir / "artist_credit_name").write_text("100\t0\t1000\tRadiohead\t\n")
+    (mbdump_dir / "artist").write_text(
+        "1000\ta74b1b7f-71a5-4011-9441-d0b5e4122711\tRadiohead\tRadiohead\t"
+        "1985\t\\N\t\\N\t\\N\t\\N\t\\N\t2\t\\N\t\\N\t\t0\t"
+        "2020-01-01 00:00:00+00\tf\t\\N\t\\N\n"
+    )
+
+    stats = load_musicbrainz_staging(conn, mbdump_dir)  # must not raise
+
+    assert stats["release_group"]["loaded"] == 0
+    assert stats["release_group"]["skipped"] == 1
+    assert conn.execute("SELECT COUNT(*) FROM stg_release_group").fetchone()[0] == 0
+
+
 def test_musicbrainz_cli_help_shows_required_flags():
     result = subprocess.run(
         [sys.executable, "pipeline/ingest_musicbrainz.py", "--help"],
@@ -233,6 +289,29 @@ def test_listenbrainz_fixture_mbids_match_musicbrainz_fixture_mbids(conn):
     ).fetchall()
     titles = {row["title"] for row in joined}
     assert titles == {"OK Computer", "Now That's What I Call Music", "Abbey Road"}
+
+
+def test_listenbrainz_release_group_mbid_is_lowercased_on_load(conn, tmp_path):
+    """Mirrors test_musicbrainz_release_group_mbid_is_lowercased_on_load:
+    the ListenBrainz loader must also normalize MBID casing at ingest
+    time so the two staging tables join on exact TEXT equality (Finding 2)."""
+    uppercase_mbid = "6CCB60C2-6D8A-4869-9E5B-BA3BA99CAEBE"
+    popularity_path = tmp_path / "popularity.jsonl"
+    popularity_path.write_text(
+        json.dumps(
+            {
+                "release_group_mbid": uppercase_mbid,
+                "total_listen_count": 15000,
+                "total_listener_count": 3000,
+            }
+        )
+        + "\n"
+    )
+
+    load_listenbrainz_staging(conn, popularity_path)
+
+    row = conn.execute("SELECT release_group_mbid FROM stg_popularity").fetchone()
+    assert row["release_group_mbid"] == uppercase_mbid.lower()
 
 
 def test_listenbrainz_cli_help_shows_required_flags():

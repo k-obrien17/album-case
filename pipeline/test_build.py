@@ -1,3 +1,7 @@
+import subprocess
+import sys
+from pathlib import Path
+
 from pipeline.build import run_pipeline
 
 
@@ -36,3 +40,34 @@ def test_run_pipeline_calls_steps_in_order(monkeypatch, tmp_path):
         "covers": {"updated": 4},
         "verify": {"total_albums": 2},
     }
+
+
+def test_cli_rejects_nonexistent_mbdump_dir_and_popularity_before_touching_db(tmp_path):
+    """Finding 3: a bad --mbdump-dir/--popularity must fail fast with a
+    clear message and exit(1) BEFORE any staging table (or the --db file
+    itself) is touched -- not surface a raw traceback partway through a
+    multi-table load."""
+    db_path = tmp_path / "x.db"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "pipeline/build.py",
+            "--mbdump-dir",
+            str(tmp_path / "nonexistent-mbdump"),
+            "--popularity",
+            str(tmp_path / "nonexistent-popularity.jsonl"),
+            "--db",
+            str(db_path),
+        ],
+        capture_output=True,
+        text=True,
+        cwd=Path(__file__).parent.parent,
+    )
+
+    assert result.returncode != 0
+    assert "Traceback" not in result.stdout
+    assert "Traceback" not in result.stderr
+    combined = result.stdout + result.stderr
+    assert "mbdump-dir" in combined
+    assert "nonexistent-mbdump" in combined
+    assert not db_path.exists()
