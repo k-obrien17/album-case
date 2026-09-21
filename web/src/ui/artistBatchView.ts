@@ -70,6 +70,14 @@ export function mountArtistBatchView(
   // same shared `container` every mounted view reuses. Same pattern as
   // speedRound.ts's `active` flag.
   let active = true;
+  // Handle to stop the in-flight mic recording (buildUnrankedRow's per-row
+  // mic button), if any, callable from teardown(). Previously scoped only
+  // to buildUnrankedRow's own closure, so a re-render discarded the only
+  // reference able to stop it and the underlying SpeechRecognition kept
+  // listening until its own MAX_RECORD_MS timer expired. Lifted to this
+  // mount-level closure, mirroring speedRound.ts's `stopActive` -- only one
+  // row is ever mid-recording in practice, so a single handle suffices.
+  let activeMicStop: (() => void) | null = null;
 
   function buildUnrankedRow(album: Album): HTMLLIElement {
     const li = document.createElement('li');
@@ -110,14 +118,13 @@ export function mountArtistBatchView(
     micBtn.className = 'candidate-place-button candidate-mic-button';
     micBtn.textContent = 'Mic';
     micBtn.setAttribute('aria-label', `Speak a rating for ${album.title}`);
-    let stopActive: (() => void) | null = null;
     micBtn.addEventListener('click', () => {
-      if (stopActive) {
-        stopActive();
+      if (activeMicStop) {
+        activeMicStop();
         return;
       }
       const { stop, result } = startRecording();
-      stopActive = stop;
+      activeMicStop = stop;
       micBtn.textContent = 'Stop';
       micBtn.classList.add('candidate-mic-active');
       result
@@ -138,7 +145,7 @@ export function mountArtistBatchView(
           input.placeholder = message;
         })
         .finally(() => {
-          stopActive = null;
+          activeMicStop = null;
           micBtn.textContent = 'Mic';
           micBtn.classList.remove('candidate-mic-active');
         });
@@ -261,6 +268,8 @@ export function mountArtistBatchView(
     active = false;
     ranklistController?.teardown();
     ranklistController = null;
+    activeMicStop?.();
+    activeMicStop = null;
   }
 
   async function discoverAlbums(): Promise<void> {

@@ -294,9 +294,15 @@ async function main(): Promise<void> {
   // are the fallback.
   let candidate: Album | null = null;
 
-  // "Skip for now" is sticky: skipped albums are excluded from selection and
-  // persisted locally so they do not resurface on reload.
+  // Persisted, permanent excludes: an album the owner explicitly removed
+  // from a saved list (see removeFromSavedList) never resurfaces as a
+  // candidate, even across reloads.
   const skippedAlbums = loadSkippedAlbums();
+  // "Skip for now" (rankList.ts's onSkip / the speed-round wiring below) is
+  // session-scoped only, per its own doc comment: kept in memory for the
+  // running session so it doesn't resurface immediately, but never
+  // persisted -- a fresh page load makes a skipped album eligible again.
+  const sessionSkipped = new Set<string>();
   let candidateArtistCooldown = loadCandidateArtistCooldown();
 
   // Local search over the ranked list, plus the MusicBrainz fallback when
@@ -359,6 +365,7 @@ async function main(): Promise<void> {
     let excluded = excludedMbids(rankingStore.getLists());
     for (const mbid of blockedArtistMbids(pool, rankingStore.getBlockedArtists())) excluded.add(mbid);
     for (const mbid of skippedAlbums) excluded.add(mbid);
+    for (const mbid of sessionSkipped) excluded.add(mbid);
     excluded = applyArtistCooldown(pool, rankingStore.getState().ranked, excluded, candidateArtistCooldown);
     candidate = pickFrom(excluded);
     candidateArtistCooldown = pushArtistCooldown(candidateArtistCooldown, candidate);
@@ -669,8 +676,7 @@ async function main(): Promise<void> {
         renderNav();
       },
       onSkip: (album) => {
-        skippedAlbums.add(album.mbid);
-        saveSkippedAlbums(skippedAlbums);
+        sessionSkipped.add(album.mbid);
         reselectCandidate();
         renderSpeedRound();
       },
@@ -828,8 +834,7 @@ async function main(): Promise<void> {
       renderNav();
     },
     onSkip: (album) => {
-      skippedAlbums.add(album.mbid);
-      saveSkippedAlbums(skippedAlbums);
+      sessionSkipped.add(album.mbid);
       reselectCandidate();
       rankList.render();
     },

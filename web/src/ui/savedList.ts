@@ -38,6 +38,7 @@ export function renderSavedList(
     thumb.decoding = 'async';
     thumb.alt = '';
     thumb.src = album.cover_url;
+    thumb.addEventListener('error', () => { thumb.hidden = true; });
 
     const meta = document.createElement('div');
     meta.className = 'saved-meta';

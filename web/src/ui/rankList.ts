@@ -203,6 +203,17 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
   // realistically be open at once; nothing here enforces that beyond the
   // fact that opening one re-renders and doesn't touch the other's state.
   let editingRatingMbid: string | null = null;
+  // Handle to stop the in-flight mic recording (buildDirectRate's "Or rate
+  // it directly" mic button), if any, callable from teardown(). Previously
+  // this lived only in a local variable scoped to buildDirectRate's own
+  // closure, so an unrelated re-render (e.g. editing a different row's
+  // rating triggers render()) discarded the only reference able to stop it
+  // -- the underlying SpeechRecognition kept listening until its own
+  // MAX_RECORD_MS timer expired. Lifted to this mount-level closure and
+  // mirrors speedRound.ts's `stopActive`. At most one candidate card (and
+  // thus one mic button) is ever rendered at a time, so a single handle
+  // suffices.
+  let activeMicStop: (() => void) | null = null;
 
   // showStatus is a hoisted function declaration (defined further down in
   // this closure) -- referencing it here just stores the callback, it isn't
@@ -609,14 +620,13 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     micBtn.className = 'candidate-place-button candidate-mic-button';
     micBtn.textContent = 'Mic';
     micBtn.setAttribute('aria-label', `Speak a rating for ${album.title}`);
-    let stopActive: (() => void) | null = null;
     micBtn.addEventListener('click', () => {
-      if (stopActive) {
-        stopActive();
+      if (activeMicStop) {
+        activeMicStop();
         return;
       }
       const { stop, result } = startRecording();
-      stopActive = stop;
+      activeMicStop = stop;
       micBtn.textContent = 'Stop';
       micBtn.classList.add('candidate-mic-active');
       result
@@ -637,7 +647,7 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
           input.placeholder = message;
         })
         .finally(() => {
-          stopActive = null;
+          activeMicStop = null;
           micBtn.textContent = 'Mic';
           micBtn.classList.remove('candidate-mic-active');
         });
@@ -919,6 +929,8 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     assist = null;
     assistStep = 0;
     assistTotal = 0;
+    activeMicStop?.();
+    activeMicStop = null;
   }
 
   function showStatus(message: string): void {
