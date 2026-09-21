@@ -1,12 +1,24 @@
 // KOB Artist Calibration Game
 // Loads artists.json, shuffles, presents one at a time for rating.
 // Persists state to localStorage. Exports ratings as downloadable JSON.
+//
+// Rendering uses textContent / createElement, not raw-markup assignment, so
+// artist names and metadata can't inject markup, mirroring root app.js.
 
 (async function () {
   const STORAGE_KEY = "kob-calibration-v1";
 
   let ARTISTS = [];
   let state = null;
+
+  // --- DOM helpers ---
+
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text != null) node.textContent = String(text);
+    return node;
+  }
 
   // --- Loading ---
 
@@ -106,14 +118,20 @@
 
   // --- Rendering ---
 
+  function statCard(num, label) {
+    const card = el("div", "stat");
+    card.append(el("div", "stat-num", num), el("div", "stat-lbl", label));
+    return card;
+  }
+
   function renderStats() {
     const t = tally();
-    document.getElementById("stats").innerHTML = `
-      <div class="stat"><div class="stat-num">${t.total}</div><div class="stat-lbl">rated</div></div>
-      <div class="stat"><div class="stat-num">${t.yes}</div><div class="stat-lbl">yes (S${t.S} A${t.A} B${t.B} C${t.C})</div></div>
-      <div class="stat"><div class="stat-num">${t.no}</div><div class="stat-lbl">no songs</div></div>
-      <div class="stat"><div class="stat-num">${t.never}</div><div class="stat-lbl">never heard</div></div>
-    `;
+    document.getElementById("stats").replaceChildren(
+      statCard(t.total, "rated"),
+      statCard(t.yes, `yes (S${t.S} A${t.A} B${t.B} C${t.C})`),
+      statCard(t.no, "no songs"),
+      statCard(t.never, "never heard"),
+    );
     const pct = Math.round((t.total / ARTISTS.length) * 100);
     document.getElementById("bar").style.width = pct + "%";
   }
@@ -125,6 +143,7 @@
     if (idx >= state.order.length) {
       document.getElementById("active").classList.add("hidden");
       document.getElementById("finished").classList.remove("hidden");
+      document.getElementById("ref-done-title").textContent = `All ${ARTISTS.length} artists rated`;
       return;
     }
 
@@ -133,32 +152,36 @@
 
     document.getElementById("name").textContent = name;
 
-    let meta = "";
+    const metaEl = document.getElementById("meta");
+    metaEl.replaceChildren();
     if (a) {
-      if (a.e) meta += `<span>${a.e}</span>`;
-      if (a.g) meta += `<span>${a.g}</span>`;
-      if (a.c) meta += `<span>${a.c}</span>`;
+      if (a.e) metaEl.append(el("span", null, a.e));
+      if (a.g) metaEl.append(el("span", null, a.g));
+      if (a.c) metaEl.append(el("span", null, a.c));
     }
-    document.getElementById("meta").innerHTML = meta;
 
     // Last action hint
     const last = state.history[state.history.length - 1];
     const lastEl = document.getElementById("last");
+    lastEl.replaceChildren();
     if (last) {
       const lr = state.ratings[last.artist];
-      let suffix = "";
+      lastEl.append(document.createTextNode(`last: ${last.artist}`));
       if (lr) {
         if (lr.verdict === "yes") {
-          suffix = ` <strong style="color:var(--tier-${(lr.tier || "c").toLowerCase()})">${lr.tier}</strong>`;
+          const tag = el("strong", null, lr.tier);
+          tag.style.color = `var(--tier-${(lr.tier || "c").toLowerCase()})`;
+          lastEl.append(document.createTextNode(" "), tag);
         } else if (lr.verdict === "no") {
-          suffix = ` <span style="color:var(--no)">no</span>`;
+          const tag = el("span", null, "no");
+          tag.style.color = "var(--no)";
+          lastEl.append(document.createTextNode(" "), tag);
         } else if (lr.verdict === "never") {
-          suffix = ` <span style="color:var(--text-tertiary)">never</span>`;
+          const tag = el("span", null, "never");
+          tag.style.color = "var(--text-tertiary)";
+          lastEl.append(document.createTextNode(" "), tag);
         }
       }
-      lastEl.innerHTML = `last: ${last.artist}${suffix}`;
-    } else {
-      lastEl.innerHTML = "";
     }
   }
 
@@ -284,6 +307,10 @@
   } catch (e) {
     console.error("Boot failed:", e);
     document.getElementById("name").textContent = "Error loading artists";
-    document.getElementById("meta").innerHTML = `<span style="color:#A32D2D">${e.message}</span>`;
+    const metaEl = document.getElementById("meta");
+    metaEl.replaceChildren();
+    const err = el("span", null, e.message);
+    err.style.color = "#A32D2D";
+    metaEl.append(err);
   }
 })();

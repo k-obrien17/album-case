@@ -4,7 +4,7 @@ The calibration game produces a JSON export listing Keith's rating for each
 artist in a curated 996-artist pool. This module reads the latest export and
 exposes helper functions to weight song candidates accordingly.
 
-Spec: integration/CALIBRATION_INTEGRATION.md
+Spec: CALIBRATION_INTEGRATION.md
 """
 
 import json

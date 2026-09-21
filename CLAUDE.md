@@ -168,4 +168,4 @@ not a full `/ship-check` (see that skill's own Don'ts).
 | `archive/PRODUCT.md` | Older product definition (historical; see `PROJECT.md` for current) |
 | `CALIBRATION_GAME.md` | Legacy calibration-tool spec |
 | `scoring/CALIBRATION_INTEGRATION.md` | How the legacy export plugs into the parked Best-of-Years pipeline |
-| `README.md` | Legacy run/play/export instructions |
+| `README.md` | Product (Album Case) run/deploy instructions; see this file's own "Commands (legacy tool)" section for the legacy tool instead |
