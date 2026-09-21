@@ -79,4 +79,12 @@ describe('mapFilteredReorderToGlobal', () => {
     const mapped = mapFilteredReorderToGlobal(ranked, ARTIST_A, 0, 0);
     expect(mapped).toEqual({ from: 1, to: 1 });
   });
+
+  it('anchors a single-row artist cluster to its own original position, not the end of the list', () => {
+    // artist A's lone album sits FIRST, not last -- unlike the fixture
+    // above, this actually exercises the anchor instead of masking it.
+    const ranked = [album('a1', ARTIST_A), album('z1', ARTIST_B)];
+    const mapped = mapFilteredReorderToGlobal(ranked, ARTIST_A, 0, 0);
+    expect(mapped).toEqual({ from: 0, to: 0 });
+  });
 });

@@ -5,7 +5,6 @@ import {
   nextPriorityCandidate,
   priorityQueueFromAlbumPlan,
   priorityQueueFromArtists,
-  priorityQueueFromArtistText,
 } from './priority';
 
 function album(mbid: string, artist: string, title = `Title ${mbid}`): Album {
@@ -25,30 +24,6 @@ const pool = [
   album('b1', 'Beyoncé', 'Lemonade'),
   album('m1', 'Massive Attack', 'Blue Lines'),
 ];
-
-describe('priority queue from artist text', () => {
-  it('matches artists in pasted order and includes their seed albums', () => {
-    expect(priorityQueueFromArtistText('Radiohead3826 Kanye West58 Beyoncé13', pool)).toEqual([
-      'r1',
-      'k1',
-      'k2',
-      'b1',
-    ]);
-  });
-
-  it('accent-folds artist names', () => {
-    expect(priorityQueueFromArtistText('Beyonce', pool)).toEqual(['b1']);
-  });
-
-  it('ignores unknown artists', () => {
-    expect(priorityQueueFromArtistText('Ben Frost / The Clean', pool)).toEqual([]);
-  });
-
-  it('matches a slash-credited album ("Genius/GZA") from its listed member ("GZA")', () => {
-    const slashPool = [album('gza', 'Genius/GZA', 'Liquid Swords')];
-    expect(priorityQueueFromArtistText('GZA', slashPool)).toEqual(['gza']);
-  });
-});
 
 describe('artistKeys', () => {
   it('splits slash-credits so either member can match', () => {

@@ -1,5 +1,6 @@
 import type { Album } from './ranking/types';
 import type { DiscoverArtistResult } from './discovery';
+import { artistKeys } from './priority';
 
 export const TOP_ARTIST_DISCOVERY_COUNT = 10;
 
@@ -93,7 +94,10 @@ export type SimilarArtist = { mbid: string; name: string; score: number };
  * summing, so one seed's larger raw score scale can't dominate -- and an
  * artist similar to SEVERAL of the owner's top artists outranks one similar
  * to just one. Artists already represented in the library (by mbid) or
- * blocked (by name, case-insensitive) are excluded before the top-n cut.
+ * blocked (by name) are excluded before the top-n cut. Blocked-name matching
+ * uses `artistKeys` (NFKD diacritic-stripping, punctuation-insensitive), the
+ * same normalize `artistBlocks.ts` itself uses to check blocks -- so a
+ * blocked artist can't leak back in via a name variant ListenBrainz returns.
  */
 export function rankSimilarArtists(
   seedLists: SimilarArtist[][],
@@ -101,7 +105,7 @@ export function rankSimilarArtists(
   blockedNames: string[],
   n: number
 ): { mbid: string; name: string }[] {
-  const blocked = new Set(blockedNames.map((name) => name.trim().toLowerCase()));
+  const blocked = new Set(blockedNames.flatMap((name) => artistKeys(name)));
   const totals = new Map<string, { name: string; total: number }>();
 
   for (const list of seedLists) {
@@ -118,7 +122,7 @@ export function rankSimilarArtists(
   return [...totals.entries()]
     .filter(
       ([mbid, { name }]) =>
-        !excludedArtistMbids.has(mbid) && !blocked.has(name.trim().toLowerCase())
+        !excludedArtistMbids.has(mbid) && !artistKeys(name).some((key) => blocked.has(key))
     )
     .sort((a, b) => b[1].total - a[1].total)
     .slice(0, n)

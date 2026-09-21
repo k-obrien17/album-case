@@ -75,7 +75,12 @@ export function mapFilteredReorderToGlobal(
       ? remainingFilteredIndices[clampedTo]
       : remainingFilteredIndices.length > 0
         ? remainingFilteredIndices[remainingFilteredIndices.length - 1] + 1
-        : withoutMoved.length;
+        // No other row of this artist to anchor against (it's the only
+        // ranked album by this artist): anchor to its own original global
+        // position instead of appending at the end of the whole list --
+        // removing at `from` and reinserting at `from` in the shorter
+        // post-removal array reproduces the original slot exactly.
+        : Math.min(from, withoutMoved.length);
 
   return { from, to };
 }

@@ -234,6 +234,15 @@ describe('rankSimilarArtists', () => {
     expect(out.map((a) => a.name)).toEqual(['Pixies']);
   });
 
+  it('excludes a blocked artist despite a diacritic-only name variant (bare toLowerCase would miss this)', () => {
+    // ListenBrainz returns the accented spelling; the owner blocked the
+    // plain-ASCII variant (or vice versa) -- only a diacritic-stripping
+    // normalize (matching artistBlocks.ts's own check) catches this.
+    const seed = [sa('x', 'Mötley Crüe', 100), sa('y', 'Pixies', 90)];
+    const out = rankSimilarArtists([seed], new Set(), ['Motley Crue'], 5);
+    expect(out.map((a) => a.name)).toEqual(['Pixies']);
+  });
+
   it('caps at n', () => {
     const seed = [sa('a', 'A', 5), sa('b', 'B', 4), sa('c', 'C', 3)];
     expect(rankSimilarArtists([seed], new Set(), [], 2)).toHaveLength(2);

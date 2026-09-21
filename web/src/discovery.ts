@@ -61,13 +61,3 @@ export async function discoverArtistDetailed(
     return { status: 'error' };
   }
 }
-
-export async function discoverArtist(
-  sessionId: string,
-  artistName: string,
-  artistMbid: string,
-  knownMbids: string[]
-): Promise<Album[]> {
-  const result = await discoverArtistDetailed(sessionId, artistName, artistMbid, knownMbids);
-  return result.status === 'found' ? result.albums : [];
-}

@@ -33,15 +33,6 @@ export function artistKeys(name: string): string[] {
   return [...keys];
 }
 
-function earliestIndex(haystack: string, keys: string[]): number {
-  let best = -1;
-  for (const key of keys) {
-    const i = haystack.indexOf(key);
-    if (i >= 0 && (best === -1 || i < best)) best = i;
-  }
-  return best;
-}
-
 function dedupe(ids: string[]): string[] {
   const seen = new Set<string>();
   return ids.filter((id) => {
@@ -123,27 +114,6 @@ export function savePriorityQueue(queue: string[]): void {
   } catch (err) {
     console.warn('tastetest: failed to persist priority queue, continuing in-memory', err);
   }
-}
-
-export function priorityQueueFromArtistText(input: string, pool: Album[]): string[] {
-  const haystack = normalize(input);
-  if (!haystack) return [];
-
-  const byArtist = new Map<string, { artist: string; albums: Album[]; keys: string[] }>();
-  for (const album of pool) {
-    const primaryKey = normalize(album.primary_artist_name);
-    const entry =
-      byArtist.get(primaryKey) ??
-      { artist: album.primary_artist_name, albums: [], keys: artistKeys(album.primary_artist_name) };
-    entry.albums.push(album);
-    byArtist.set(primaryKey, entry);
-  }
-
-  return Array.from(byArtist.values())
-    .map((entry) => ({ ...entry, index: earliestIndex(haystack, entry.keys) }))
-    .filter((entry) => entry.index >= 0)
-    .sort((a, b) => a.index - b.index || a.artist.localeCompare(b.artist))
-    .flatMap((entry) => entry.albums.map((album) => album.mbid));
 }
 
 /**
