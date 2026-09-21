@@ -226,6 +226,31 @@ describe('loadRankingSnapshot', () => {
     ).resolves.toEqual({ status: 'error' });
   });
 
+  it('warns and drops a malformed ranked entry instead of silently vanishing it', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const snapshot = {
+      ranked: [{ ...album('a'), rating: 8.43 }, { ...album('b'), title: undefined, rating: 5 }],
+      lists: { wantToListen: [], notHeard: [], dontCare: [] },
+      updated_at: 1,
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ snapshot }),
+      } as unknown as Response)
+    );
+
+    const result = await loadRankingSnapshotDetailed('11111111-1111-4111-8111-111111111111');
+
+    expect(result.status).toBe('found');
+    if (result.status === 'found') {
+      expect(result.ranked).toEqual([{ ...album('a'), rating: 8.43 }]);
+    }
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('dropped 1 malformed ranked entry'));
+  });
+
   it('returns null without throwing on a 200 non-JSON response (SPA/HTML fallback)', async () => {
     vi.stubGlobal(
       'fetch',

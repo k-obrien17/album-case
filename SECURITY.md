@@ -27,6 +27,15 @@ authentication of any kind on writes.
 - Public read AND write exposure is intentional for now, a deliberate, revertible tradeoff (see above), not an oversight.
 - If this needs re-gating later (privacy, or someone actually vandalizing the list), re-enable `requireWriteKey()` first; gate reads only if private rankings matter independently of that.
 
+## Backup Export Is One-Way
+
+The sync-conflict banner's "Export unsaved backup" button (`syncEngine.ts`)
+writes a JSON file via `createRankingBackup` (`backup.ts`). There is no
+in-app import path for it -- `parseRankingBackup` exists and is exercised by
+tests, but nothing in the UI calls it. Treat an exported backup as a
+one-way emergency copy to read or hand-merge manually, not something that
+currently round-trips back into the app.
+
 ## Also Considered
 
 - Vercel Password Protection as an additional layer: requires the "Advanced Deployment Protection" add-on, not enabled on this team (paid upgrade, not a toggle). Not pursued. Revisit if write-key enforcement comes back and this team's plan changes for other reasons.

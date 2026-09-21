@@ -135,6 +135,21 @@ describe('hydrateAlbums', () => {
       albumWithArtistMbid('a', '11111111-1111-4111-8111-111111111111'),
     ]);
   });
+
+  it('picks up a fresher cover_url/release_year from the pool when the stored album has none, without disturbing other stored fields', () => {
+    // parseAlbum (album.ts) never OMITS cover_url/release_year -- a ranked
+    // album stored before a cover was known carries cover_url: '' and/or
+    // release_year: null forever, unlike genuinely-optional fields (e.g.
+    // primary_artist_mbid) that the existing spread order already backfills.
+    const saved = [{ ...album('a'), cover_url: '', release_year: null }];
+    const pool = new Map([
+      ['a', { ...album('a'), cover_url: 'https://example.test/fresh-a.jpg', release_year: 1999 }],
+    ]);
+
+    expect(hydrateAlbums(saved, pool)).toEqual([
+      { ...album('a'), cover_url: 'https://example.test/fresh-a.jpg', release_year: 1999 },
+    ]);
+  });
 });
 
 describe('reRate (splice at the computed index, not sort-after-append)', () => {
@@ -157,6 +172,20 @@ describe('reRate (splice at the computed index, not sort-after-append)', () => {
     expect(result.map((a) => a.mbid)).toEqual(['D', 'A', 'B', 'C']);
     expect(result[0].mbid).toBe('D');
     expect(result[0].rating).toBe(10);
+  });
+
+  it('does not throw when the drag-reorder index is out of range (undefined album), unlike setRating it used to crash on this', () => {
+    // Mirrors setRating's `const album = ranked[from]; if (!album) return ranked;`
+    // guard -- reRateAt's `ranked[from]` lookup can hand reRate an
+    // out-of-range (undefined at runtime, despite the Album-typed signature)
+    // album, e.g. a stale global index from a list that shrank between
+    // render and drop. Before the guard this threw
+    // "Cannot read properties of undefined (reading 'mbid')".
+    const ranked: RankedAlbum[] = [rankedAlbum('A', 10), rankedAlbum('B', 8)];
+
+    const result = reRate(ranked, ranked[99], 0);
+
+    expect(result).toEqual(ranked);
   });
 });
 

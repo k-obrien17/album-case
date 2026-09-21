@@ -131,6 +131,15 @@ export async function saveRankingSnapshot(
   }
 }
 
+function warnOnDrop(field: string, raw: unknown, parsedCount: number): void {
+  const rawCount = Array.isArray(raw) ? raw.length : 0;
+  if (rawCount > parsedCount) {
+    console.warn(
+      `tastetest: ranking snapshot load dropped ${rawCount - parsedCount} malformed ${field} entr${rawCount - parsedCount === 1 ? 'y' : 'ies'} (server had ${rawCount}, kept ${parsedCount})`
+    );
+  }
+}
+
 export async function loadRankingSnapshotDetailed(sessionId: string): Promise<RankingSnapshotLoad> {
   let response: Response;
   try {
@@ -152,13 +161,29 @@ export async function loadRankingSnapshotDetailed(sessionId: string): Promise<Ra
 
   // Records are full: no seed-pool resolution needed. Guard array shapes so a
   // malformed payload degrades to empty rather than crashing the loop.
+  const ranked = parseRankedAlbumArray(body.snapshot.ranked);
+  const wantToListen = parseAlbumArray(body.snapshot.lists?.wantToListen);
+  const notHeard = parseAlbumArray(body.snapshot.lists?.notHeard);
+  const dontCare = parseAlbumArray(body.snapshot.lists?.dontCare);
+
+  // parseRankedAlbumArray/parseAlbumArray silently `continue` past any entry
+  // failing validation (missing mbid/title/rating, bad artist-mbid UUID
+  // shape) -- unlike every other degraded-read path in this layer, they
+  // don't warn on their own. A shorter parsed array than the raw response
+  // means entries were dropped, and the next save re-persists the trimmed
+  // list, so this is the one chance to surface it.
+  warnOnDrop('ranked', body.snapshot.ranked, ranked.length);
+  warnOnDrop('lists.wantToListen', body.snapshot.lists?.wantToListen, wantToListen.length);
+  warnOnDrop('lists.notHeard', body.snapshot.lists?.notHeard, notHeard.length);
+  warnOnDrop('lists.dontCare', body.snapshot.lists?.dontCare, dontCare.length);
+
   return {
     status: 'found',
-    ranked: parseRankedAlbumArray(body.snapshot.ranked),
+    ranked,
     lists: {
-      wantToListen: parseAlbumArray(body.snapshot.lists?.wantToListen),
-      notHeard: parseAlbumArray(body.snapshot.lists?.notHeard),
-      dontCare: parseAlbumArray(body.snapshot.lists?.dontCare),
+      wantToListen,
+      notHeard,
+      dontCare,
       ...(body.snapshot.lists?.backlog && {
         backlog: parseBacklog(body.snapshot.lists.backlog, parseAlbumArray) ?? undefined,
       }),

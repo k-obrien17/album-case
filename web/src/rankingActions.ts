@@ -21,6 +21,7 @@ import type { RankingStore } from './rankingStore';
  * incumbent ahead of the new item, making position 0 unreachable.
  */
 export function reRate(ranked: RankedAlbum[], album: Album, targetIndex: number): RankedAlbum[] {
+  if (!album) return ranked;
   const without = ranked.filter((a) => a.mbid !== album.mbid);
   const clampedIndex = Math.max(0, Math.min(targetIndex, without.length));
   const rating = ratingForDropIndex(without, clampedIndex);

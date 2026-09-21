@@ -65,8 +65,23 @@ export function serverSnapshotIsRicher(
   );
 }
 
+// parseAlbum (album.ts) never OMITS cover_url/release_year -- unlike a
+// genuinely-optional field (primary_artist_mbid, genres), a stored album
+// with no known cover/year still carries cover_url: '' / release_year: null,
+// so the default "stored album's own keys win" spread below can never let a
+// fresher pool value through for these two. Override them specifically,
+// preferring the pool's value only when the stored one is falsy, while every
+// other field keeps the existing stored-wins precedence.
 export function hydrateAlbums<T extends Album>(albums: T[], byId: Map<string, Album>): T[] {
-  return albums.map((album) => ({ ...(byId.get(album.mbid) ?? {}), ...album }));
+  return albums.map((album) => {
+    const pooled = byId.get(album.mbid);
+    return {
+      ...(pooled ?? {}),
+      ...album,
+      cover_url: album.cover_url || pooled?.cover_url || album.cover_url,
+      release_year: album.release_year ?? pooled?.release_year ?? null,
+    };
+  });
 }
 
 export function hydrateLists(lists: SavedLists, byId: Map<string, Album>): SavedLists {
