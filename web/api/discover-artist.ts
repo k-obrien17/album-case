@@ -3,8 +3,12 @@ import { createClient } from '@libsql/client';
 import { SCHEMA_STATEMENTS, alterTableAddColumnIfMissing } from './_schema.js';
 import { mergeDiscovered, browseArtistLps, type DiscoveredAlbum } from './_lp.js';
 import { requireWriteKey } from './_writeKey.js';
+import { withDbTimeout } from './_dbTimeout.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Defensive cap on client-supplied arrays -- Keith's real collection is
+// nowhere near this scale; this only ever trips on a pathological payload.
+const MAX_KNOWN_MBIDS = 5000;
 
 type DiscoverBody = {
   session_id?: unknown;
@@ -26,7 +30,7 @@ function ensureSchema(): Promise<void> {
   const client = db();
   schemaReady ??= (async () => {
     for (const sql of SCHEMA_STATEMENTS) {
-      await client.execute(sql);
+      await withDbTimeout(client.execute(sql));
     }
     await alterTableAddColumnIfMissing(
       client,
@@ -57,7 +61,11 @@ function isSessionId(value: unknown): value is string {
 }
 
 function isKnownMbids(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((v) => typeof v === 'string' && UUID_RE.test(v));
+  return (
+    Array.isArray(value) &&
+    value.length <= MAX_KNOWN_MBIDS &&
+    value.every((v) => typeof v === 'string' && UUID_RE.test(v))
+  );
 }
 
 function validatePost(body: DiscoverBody | null):
@@ -113,14 +121,16 @@ async function discoveredForSession(
   client: ReturnType<typeof createClient>,
   sessionId: string
 ): Promise<DiscoveredAlbum[]> {
-  const rows = await client.execute({
-    sql: `
+  const rows = await withDbTimeout(
+    client.execute({
+      sql: `
 SELECT mbid, title, primary_artist_name, primary_artist_mbid, release_year, cover_url, genres_json
 FROM discovered_albums
 WHERE session_id = ?
 `,
-    args: [sessionId],
-  });
+      args: [sessionId],
+    })
+  );
   return rows.rows.map((row) => rowToAlbum(row as unknown as Record<string, unknown>));
 }
 
@@ -129,14 +139,16 @@ async function discoveredForArtist(
   sessionId: string,
   artistMbid: string
 ): Promise<DiscoveredAlbum[]> {
-  const rows = await client.execute({
-    sql: `
+  const rows = await withDbTimeout(
+    client.execute({
+      sql: `
 SELECT mbid, title, primary_artist_name, primary_artist_mbid, release_year, cover_url, genres_json
 FROM discovered_albums
 WHERE session_id = ? AND primary_artist_mbid = ?
 `,
-    args: [sessionId, artistMbid],
-  });
+      args: [sessionId, artistMbid],
+    })
+  );
   return rows.rows.map((row) => rowToAlbum(row as unknown as Record<string, unknown>));
 }
 
@@ -170,31 +182,43 @@ async function handlePost(req: VercelRequest, res: VercelResponse): Promise<void
     validated.artistMbid
   );
 
-  const lps = await browseArtistLps(validated.artistMbid, validated.artistName);
+  // Catch the MusicBrainz call locally so an upstream failure is reported as
+  // a 502, matching browse-artist.ts/search-album.ts, instead of falling
+  // through to the generic DB-error catch-all in the outer handler (which
+  // would also needlessly invalidate the schema-ready cache -- see Finding 6).
+  let lps: DiscoveredAlbum[];
+  try {
+    lps = await browseArtistLps(validated.artistMbid, validated.artistName);
+  } catch {
+    res.status(502).json({ error: 'musicbrainz_unavailable' });
+    return;
+  }
   const newlyDiscovered = lps.filter((album) => !known.has(album.mbid));
 
   if (newlyDiscovered.length > 0) {
     const now = Date.now();
-    await client.batch(
-      newlyDiscovered.map((album) => ({
-        sql: `
+    await withDbTimeout(
+      client.batch(
+        newlyDiscovered.map((album) => ({
+          sql: `
 INSERT INTO discovered_albums
   (session_id, mbid, title, primary_artist_name, primary_artist_mbid, release_year, cover_url, genres_json, discovered_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(session_id, mbid) DO NOTHING
 `,
-        args: [
-          validated.sessionId,
-          album.mbid,
-          album.title,
-          album.primary_artist_name,
-          album.primary_artist_mbid ?? null,
-          album.release_year,
-          album.cover_url,
-          album.genres?.length ? JSON.stringify(album.genres) : null,
-          now,
-        ],
-      }))
+          args: [
+            validated.sessionId,
+            album.mbid,
+            album.title,
+            album.primary_artist_name,
+            album.primary_artist_mbid ?? null,
+            album.release_year,
+            album.cover_url,
+            album.genres?.length ? JSON.stringify(album.genres) : null,
+            now,
+          ],
+        }))
+      )
     );
   }
 
@@ -214,7 +238,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
     res.setHeader('Allow', 'GET, POST');
     res.status(405).json({ error: 'method_not_allowed' });
-  } catch {
+  } catch (err) {
+    console.error('discover_error', err);
     schemaReady = null;
     res.status(500).json({ error: 'discover_error' });
   }

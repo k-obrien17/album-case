@@ -3,9 +3,13 @@ import { createClient } from '@libsql/client';
 import allowlist from './_allowlist.json' with { type: 'json' };
 import { SCHEMA_STATEMENTS, alterTableAddColumnIfMissing } from './_schema.js';
 import { requireWriteKey } from './_writeKey.js';
+import { withDbTimeout } from './_dbTimeout.js';
 import { parseBacklog, type Backlog } from '../shared/backlog.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Defensive cap on client-supplied arrays -- Keith's real collection is
+// nowhere near this scale; this only ever trips on a pathological payload.
+const MAX_ARRAY_ENTRIES = 5000;
 // The allowlist gates /api/atom only. Ranking snapshots deliberately do NOT
 // gate on it: the server stores whatever FULL album records the owner has
 // placed, so the saved list survives seed/allowlist changes. Import retained
@@ -61,7 +65,7 @@ function ensureSchema(): Promise<void> {
   const client = db();
   schemaReady ??= (async () => {
     for (const sql of SCHEMA_STATEMENTS) {
-      await client.execute(sql);
+      await withDbTimeout(client.execute(sql));
     }
     for (const column of ['artist_locks_json', 'blocked_artists_json', 'curated_skips_json']) {
       await alterTableAddColumnIfMissing(
@@ -126,7 +130,7 @@ function parseAlbum(value: unknown): Album | null {
 
 // A list of full album records, de-duped by mbid within the list.
 function parseAlbumList(value: unknown): Album[] | null {
-  if (!Array.isArray(value)) return null;
+  if (!Array.isArray(value) || value.length > MAX_ARRAY_ENTRIES) return null;
   const seen = new Set<string>();
   const albums: Album[] = [];
   for (const item of value) {
@@ -149,14 +153,16 @@ function parseRankedAlbum(value: unknown): RankedAlbum | null {
   return { ...album, rating };
 }
 
+// Duplicate mbids within `ranked` are NOT rejected here -- that's validate()'s
+// job (the `duplicate_ranked_album` check below), so the caller gets a
+// specific, diagnosable error code instead of this collapsing into the same
+// generic `invalid_snapshot` as any other malformed entry.
 function parseRankedAlbumList(value: unknown): RankedAlbum[] | null {
-  if (!Array.isArray(value)) return null;
-  const seen = new Set<string>();
+  if (!Array.isArray(value) || value.length > MAX_ARRAY_ENTRIES) return null;
   const albums: RankedAlbum[] = [];
   for (const item of value) {
     const album = parseRankedAlbum(item);
-    if (!album || seen.has(album.mbid)) return null;
-    seen.add(album.mbid);
+    if (!album) return null;
     albums.push(album);
   }
   return albums;
@@ -175,7 +181,7 @@ function parseLists(value: unknown): SnapshotLists | null {
 
 function parseArtistLocks(value: unknown): ArtistLock[] | null {
   if (value === undefined) return [];
-  if (!Array.isArray(value)) return null;
+  if (!Array.isArray(value) || value.length > MAX_ARRAY_ENTRIES) return null;
   const locks: ArtistLock[] = [];
   for (const item of value) {
     if (!isObject(item)) return null;
@@ -194,9 +200,43 @@ function parseArtistLocks(value: unknown): ArtistLock[] | null {
 // view; validated here, given meaning by the client.
 function parseStringArray(value: unknown): string[] | null {
   if (value === undefined) return [];
-  if (!Array.isArray(value)) return null;
+  if (!Array.isArray(value) || value.length > MAX_ARRAY_ENTRIES) return null;
   if (!value.every((item) => typeof item === 'string')) return null;
   return value as string[];
+}
+
+function exceedsMaxEntries(value: unknown): boolean {
+  return Array.isArray(value) && value.length > MAX_ARRAY_ENTRIES;
+}
+
+// Re-checks the raw (unparsed) body for an over-cap array so validate() can
+// return the specific `too_many_entries` code instead of the generic
+// `invalid_snapshot` the parsers themselves fall back to.
+function exceedsMaxEntriesSomewhere(body: RankingBody): boolean {
+  if (
+    exceedsMaxEntries(body.ranked) ||
+    exceedsMaxEntries(body.artist_locks) ||
+    exceedsMaxEntries(body.blocked_artists) ||
+    exceedsMaxEntries(body.curated_skips)
+  ) {
+    return true;
+  }
+  if (!isObject(body.lists)) return false;
+  const lists = body.lists;
+  if (
+    exceedsMaxEntries(lists.wantToListen) ||
+    exceedsMaxEntries(lists.notHeard) ||
+    exceedsMaxEntries(lists.dontCare)
+  ) {
+    return true;
+  }
+  if (!isObject(lists.backlog)) return false;
+  const backlog = lists.backlog;
+  return (
+    exceedsMaxEntries(backlog.readyToRank) ||
+    exceedsMaxEntries(backlog.needsRefresher) ||
+    exceedsMaxEntries(backlog.pendingReview)
+  );
 }
 
 function parseBaseUpdatedAt(value: unknown): number | null | undefined {
@@ -226,6 +266,12 @@ function validate(body: RankingBody | null):
   const blockedArtists = parseStringArray(body.blocked_artists);
   const curatedSkips = parseStringArray(body.curated_skips);
   if (!ranked || !lists || !artistLocks || !blockedArtists || !curatedSkips) {
+    // Give the specific over-cap error code precedence over the generic
+    // shape-mismatch one, since the cap check inside each parser above
+    // collapses to the same null return as any other invalid shape.
+    if (exceedsMaxEntriesSomewhere(body)) {
+      return { ok: false, message: 'too_many_entries' };
+    }
     return { ok: false, message: 'invalid_snapshot' };
   }
   const baseUpdatedAt = parseBaseUpdatedAt(body.base_updated_at);
@@ -234,6 +280,10 @@ function validate(body: RankingBody | null):
   }
 
   const rankedIds = new Set(ranked.map((album) => album.mbid));
+  if (rankedIds.size !== ranked.length) {
+    return { ok: false, message: 'duplicate_ranked_album' };
+  }
+
   const saved = [...lists.wantToListen, ...lists.notHeard, ...lists.dontCare,
     ...(lists.backlog?.readyToRank ?? []), ...(lists.backlog?.needsRefresher ?? []), ...(lists.backlog?.pendingReview ?? [])];
   if (saved.some((album) => rankedIds.has(album.mbid))) {
@@ -266,14 +316,16 @@ async function handleGet(req: VercelRequest, res: VercelResponse): Promise<void>
   }
 
   await ensureSchema();
-  const rows = await db().execute({
-    sql: `
+  const rows = await withDbTimeout(
+    db().execute({
+      sql: `
 SELECT ranking_json, lists_json, artist_locks_json, blocked_artists_json, curated_skips_json, updated_at
 FROM ranking_snapshots
 WHERE session_id = ?
 `,
-    args: [sessionId],
-  });
+      args: [sessionId],
+    })
+  );
   const row = rows.rows[0];
   if (!row) {
     res.status(200).json({ snapshot: null });
@@ -358,23 +410,25 @@ WHERE ranking_snapshots.updated_at = ?
     OR json_type(excluded.lists_json, '$.backlog') IS NOT NULL)
 `;
 
-  const results = await db().batch([
-    {
-      sql: `
+  const results = await withDbTimeout(
+    db().batch([
+      {
+        sql: `
 INSERT INTO sessions (session_id, created_at, last_seen_at)
 VALUES (?, ?, ?)
 ON CONFLICT(session_id) DO UPDATE SET last_seen_at = excluded.last_seen_at
 `,
-      args: [validated.sessionId, now, now],
-    },
-    {
-      sql: snapshotSql,
-      args:
-        validated.baseUpdatedAt == null
-          ? snapshotArgs
-          : [...snapshotArgs, validated.baseUpdatedAt],
-    },
-  ]);
+        args: [validated.sessionId, now, now],
+      },
+      {
+        sql: snapshotSql,
+        args:
+          validated.baseUpdatedAt == null
+            ? snapshotArgs
+            : [...snapshotArgs, validated.baseUpdatedAt],
+      },
+    ])
+  );
   const snapshotRowsAffected = Number(results[1]?.rowsAffected ?? 0);
   if (snapshotRowsAffected === 0) {
     res.status(409).json({ error: 'snapshot_conflict' });
@@ -397,7 +451,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
     res.setHeader('Allow', 'GET, POST');
     res.status(405).json({ error: 'method_not_allowed' });
-  } catch {
+  } catch (err) {
+    console.error('ranking_error', err);
     schemaReady = null;
     res.status(500).json({ error: 'store_error' });
   }

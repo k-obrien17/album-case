@@ -348,6 +348,63 @@ describe('/api/ranking', () => {
     expect(snapshot.curated_skips).toEqual([]);
   });
 
+  it('rejects a ranked array with two entries sharing the same mbid', async () => {
+    vi.stubEnv('TURSO_DATABASE_URL', 'libsql://example.test');
+    vi.stubEnv('TURSO_AUTH_TOKEN', 'token');
+    vi.stubEnv('ALBUM_CASE_WRITE_KEY', 'secret-123');
+    dbMock.execute.mockResolvedValue({ rows: [] });
+    const mbid = '22222222-2222-4222-8222-222222222222';
+    const res = makeRes();
+
+    await handler(
+      postReq({
+        session_id: '11111111-1111-4111-8111-111111111111',
+        ranked: [
+          { ...album(mbid), rating: 8.0 },
+          { ...album(mbid), rating: 9.0 },
+        ],
+        lists: { wantToListen: [], notHeard: [], dontCare: [] },
+      }) as never,
+      res as never
+    );
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toEqual({ error: 'duplicate_ranked_album' });
+  });
+
+  it('rejects an oversized array with too_many_entries while a normal-sized one still passes', async () => {
+    vi.stubEnv('TURSO_DATABASE_URL', 'libsql://example.test');
+    vi.stubEnv('TURSO_AUTH_TOKEN', 'token');
+    vi.stubEnv('ALBUM_CASE_WRITE_KEY', 'secret-123');
+    dbMock.execute.mockResolvedValue({ rows: [] });
+    dbMock.batch.mockResolvedValue([{ rowsAffected: 1 }, { rowsAffected: 1 }]);
+
+    const oversizedRes = makeRes();
+    await handler(
+      postReq({
+        session_id: '11111111-1111-4111-8111-111111111111',
+        ranked: [],
+        lists: { wantToListen: [], notHeard: [], dontCare: [] },
+        blocked_artists: Array.from({ length: 5001 }, (_, i) => `Artist ${i}`),
+      }) as never,
+      oversizedRes as never
+    );
+    expect(oversizedRes.statusCode).toBe(400);
+    expect(oversizedRes.body).toEqual({ error: 'too_many_entries' });
+
+    const normalRes = makeRes();
+    await handler(
+      postReq({
+        session_id: '11111111-1111-4111-8111-111111111111',
+        ranked: [],
+        lists: { wantToListen: [], notHeard: [], dontCare: [] },
+        blocked_artists: Array.from({ length: 5000 }, (_, i) => `Artist ${i}`),
+      }) as never,
+      normalRes as never
+    );
+    expect(normalRes.statusCode).toBe(200);
+  });
+
   it('does not require a rating on albums inside lists (wantToListen/notHeard/dontCare)', async () => {
     vi.stubEnv('TURSO_DATABASE_URL', 'libsql://example.test');
     vi.stubEnv('TURSO_AUTH_TOKEN', 'token');

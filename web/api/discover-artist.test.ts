@@ -37,10 +37,15 @@ function getReq(query: Record<string, string>, headers: Record<string, string> =
   return { method: 'GET', headers, query };
 }
 
+function postReq(body: unknown) {
+  return { method: 'POST', headers: { 'x-album-case-write-key': 'secret-123' }, body };
+}
+
 describe('/api/discover-artist GET', () => {
   afterEach(() => {
     vi.clearAllMocks();
     vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
   });
 
   it('serves a GET without a write key (reads are intentionally public)', async () => {
@@ -57,5 +62,37 @@ describe('/api/discover-artist GET', () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.body).toEqual({ albums: [] });
+  });
+});
+
+describe('/api/discover-artist POST', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  it('returns 502, not the generic discover_error 500, when the MusicBrainz browse call fails', async () => {
+    vi.stubEnv('TURSO_DATABASE_URL', 'libsql://example.test');
+    vi.stubEnv('TURSO_AUTH_TOKEN', 'token');
+    vi.stubEnv('ALBUM_CASE_WRITE_KEY', 'secret-123');
+    dbMock.execute.mockResolvedValue({ rows: [] });
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
+    const res = makeRes();
+
+    await handler(
+      postReq({
+        session_id: '11111111-1111-4111-8111-111111111111',
+        artist_name: 'Radiohead',
+        artist_mbid: 'a74b1b7f-71a5-4011-9441-d0b5e4122711',
+        known_mbids: [],
+      }) as never,
+      res as never
+    );
+
+    expect(res.statusCode).toBe(502);
+    expect(res.body).toEqual({ error: 'musicbrainz_unavailable' });
+    // A pure upstream failure shouldn't touch the DB write path.
+    expect(dbMock.batch).not.toHaveBeenCalled();
   });
 });

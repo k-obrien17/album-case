@@ -3,6 +3,7 @@ import { createClient } from '@libsql/client';
 import allowlist from './_allowlist.json' with { type: 'json' };
 import { SCHEMA_STATEMENTS } from './_schema.js';
 import { requireWriteKey } from './_writeKey.js';
+import { withDbTimeout } from './_dbTimeout.js';
 
 const MECHANISM = 'drag_to_place';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -28,7 +29,7 @@ function ensureSchema(): Promise<void> {
   const client = db();
   schemaReady ??= (async () => {
     for (const sql of SCHEMA_STATEMENTS) {
-      await client.execute(sql);
+      await withDbTimeout(client.execute(sql));
     }
   })();
   return schemaReady;
@@ -52,10 +53,12 @@ function isUuid(value: unknown): value is string {
 
 async function isKnownMbid(mbid: string, client: ReturnType<typeof createClient>): Promise<boolean> {
   if (allowedMbids.has(mbid)) return true;
-  const rows = await client.execute({
-    sql: 'SELECT 1 FROM discovered_albums WHERE mbid = ? LIMIT 1',
-    args: [mbid],
-  });
+  const rows = await withDbTimeout(
+    client.execute({
+      sql: 'SELECT 1 FROM discovered_albums WHERE mbid = ? LIMIT 1',
+      args: [mbid],
+    })
+  );
   return rows.rows.length > 0;
 }
 
@@ -109,33 +112,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
     const now = Date.now();
 
-    await client.batch([
-      {
-        sql: `
+    await withDbTimeout(
+      client.batch([
+        {
+          sql: `
 INSERT INTO sessions (session_id, created_at, last_seen_at)
 VALUES (?, ?, ?)
 ON CONFLICT(session_id) DO UPDATE SET last_seen_at = excluded.last_seen_at
 `,
-        args: [validated.sessionId, now, now],
-      },
-      {
-        sql: `
+          args: [validated.sessionId, now, now],
+        },
+        {
+          sql: `
 INSERT INTO atoms (entity_a, entity_b, winner, mechanism, session_id, created_at)
 VALUES (?, ?, ?, ?, ?, ?)
 `,
-        args: [
-          validated.entityA,
-          validated.entityB,
-          validated.winner,
-          MECHANISM,
-          validated.sessionId,
-          now,
-        ],
-      },
-    ]);
+          args: [
+            validated.entityA,
+            validated.entityB,
+            validated.winner,
+            MECHANISM,
+            validated.sessionId,
+            now,
+          ],
+        },
+      ])
+    );
 
     res.status(201).json({ ok: true });
-  } catch {
+  } catch (err) {
+    console.error('atom_error', err);
     schemaReady = null;
     res.status(500).json({ error: 'store_error' });
   }
