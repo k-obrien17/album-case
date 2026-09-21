@@ -18,10 +18,7 @@
  *   TOP_N=20 COLLECT_OUT=/abs/path/albums.json node --env-file=web/.env.local web/scripts/export-collect-albums.mjs
  */
 import { createClient } from '@libsql/client';
-
-// Matches web/src/owner.ts's OWNER_ID. Duplicated, not imported: this is a
-// plain Node ESM script with no TS loader, so it can't import a .ts file.
-const OWNER_ID = 'c0ffee00-0000-4000-8000-000000000001';
+import { OWNER_ID } from '../src/owner.ts';
 
 const TOP_N = Number(process.env.TOP_N || 10);
 

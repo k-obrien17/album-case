@@ -21,9 +21,7 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { createClient } from '@libsql/client';
-
-// Matches web/src/owner.ts's OWNER_ID.
-const OWNER_ID = 'c0ffee00-0000-4000-8000-000000000001';
+import { OWNER_ID } from '../src/owner.ts';
 
 function score(rank, total) {
   const raw = 1 + (9 * (total - rank)) / (total - 1);

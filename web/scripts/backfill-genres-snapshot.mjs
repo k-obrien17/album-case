@@ -18,6 +18,8 @@
  * Usage:
  *   node --env-file=web/.env.local web/scripts/backfill-genres-snapshot.mjs [--write]
  */
+import { writeFileSync, mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { createClient } from '@libsql/client';
 import { OWNER_ID } from '../src/owner.ts';
 import { fetchGenresForMbid, delay, MB_DELAY_MS } from './lib/musicbrainz.mjs';
@@ -49,6 +51,15 @@ if (!row) {
 const baseUpdatedAt = Number(row.updated_at);
 const ranked = JSON.parse(String(row.ranking_json));
 const lists = JSON.parse(String(row.lists_json));
+
+// --- Back up the current (pre-backfill) snapshot before touching anything,
+//     same convention as import-album-canon.mjs / backfill-ratings.mjs:
+//     written unconditionally, even on a dry run, so a backup always exists
+//     on disk before this script does anything further. ---
+const backupPath = `web/scripts/backups/genres-snapshot-backfill-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+mkdirSync(dirname(backupPath), { recursive: true });
+writeFileSync(backupPath, JSON.stringify({ ranked, lists, updated_at: baseUpdatedAt }, null, 2));
+console.log(`Backup written to ${backupPath}`);
 
 // One entry per album object across ranking_json + all three lists_json
 // arrays -- an album can legitimately appear more than once (e.g. ranked and

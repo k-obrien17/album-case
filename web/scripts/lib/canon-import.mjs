@@ -47,3 +47,19 @@ export function isLpReleaseGroup(group) {
 export function isConfidentMatch(candidates) {
   return candidates.length === 1 && candidates[0].score >= 90;
 }
+
+/** True when a parsed row has non-empty `artist` and `album` fields. A row
+ *  with fewer fields than expected (malformed CSV/TSV line) produces
+ *  `undefined` for a missing field; callers must check this BEFORE passing
+ *  the row to any normalize/match logic, since that throws on `undefined`
+ *  instead of degrading gracefully. Callers should route a row failing this
+ *  check into their existing needsReview skip-and-log path rather than
+ *  crashing the whole run. */
+export function isValidRow(row) {
+  return (
+    typeof row.artist === 'string' &&
+    row.artist.trim().length > 0 &&
+    typeof row.album === 'string' &&
+    row.album.trim().length > 0
+  );
+}

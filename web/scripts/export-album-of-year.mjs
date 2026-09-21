@@ -13,10 +13,7 @@
 import { createClient } from '@libsql/client';
 import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname } from 'node:path';
-
-// Matches web/src/owner.ts's OWNER_ID. Duplicated, not imported: this is a
-// plain Node ESM script with no TS loader, so it can't import a .ts file.
-const OWNER_ID = 'c0ffee00-0000-4000-8000-000000000001';
+import { OWNER_ID } from '../src/owner.ts';
 
 function db() {
   const url = process.env.TURSO_DATABASE_URL;

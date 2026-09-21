@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseCanonCsv, isLpReleaseGroup, isConfidentMatch } from './canon-import.mjs';
+import { parseCanonCsv, isLpReleaseGroup, isConfidentMatch, isValidRow } from './canon-import.mjs';
 
 describe('parseCanonCsv', () => {
   it('parses the header and rows into typed objects', () => {
@@ -19,6 +19,32 @@ describe('parseCanonCsv', () => {
 
   it('returns an empty array for a header-only CSV', () => {
     expect(parseCanonCsv('Ranking,Album,Artist,Year,Rating\n')).toEqual([]);
+  });
+
+  it('parses a malformed row (missing trailing fields) into undefined fields instead of throwing', () => {
+    // A row with fewer commas than expected -- Artist/Year/Rating missing.
+    const csv = 'Ranking,Album,Artist,Year,Rating\n1,OK Computer\n';
+    const rows = parseCanonCsv(csv);
+    expect(rows).toEqual([{ ranking: 1, album: 'OK Computer', artist: undefined, year: NaN, rating: NaN }]);
+    expect(isValidRow(rows[0])).toBe(false);
+  });
+});
+
+describe('isValidRow', () => {
+  it('accepts a row with non-empty artist and album', () => {
+    expect(isValidRow({ artist: 'Radiohead', album: 'OK Computer' })).toBe(true);
+  });
+  it('rejects a row missing artist entirely (undefined, e.g. a malformed short row)', () => {
+    expect(isValidRow({ artist: undefined, album: 'OK Computer' })).toBe(false);
+  });
+  it('rejects a row missing album entirely', () => {
+    expect(isValidRow({ artist: 'Radiohead', album: undefined })).toBe(false);
+  });
+  it('rejects a row with a blank/whitespace-only artist', () => {
+    expect(isValidRow({ artist: '   ', album: 'OK Computer' })).toBe(false);
+  });
+  it('rejects a row with a blank/whitespace-only album', () => {
+    expect(isValidRow({ artist: 'Radiohead', album: '' })).toBe(false);
   });
 });
 

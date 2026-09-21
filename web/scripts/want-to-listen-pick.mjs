@@ -13,10 +13,7 @@
  *   COUNT=5 node --env-file=web/.env.local web/scripts/want-to-listen-pick.mjs
  */
 import { createClient } from '@libsql/client';
-
-// Matches web/src/owner.ts's OWNER_ID. Duplicated, not imported: this is a
-// plain Node ESM script with no TS loader, so it can't import a .ts file.
-const OWNER_ID = 'c0ffee00-0000-4000-8000-000000000001';
+import { OWNER_ID } from '../src/owner.ts';
 
 const COUNT = Number(process.env.COUNT || 3);
 

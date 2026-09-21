@@ -33,7 +33,9 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createClient } from '@libsql/client';
-import { isLpReleaseGroup, isConfidentMatch } from './lib/canon-import.mjs';
+import { OWNER_ID } from '../src/owner.ts';
+import { key as curatedMatchKey } from '../src/curatedListMatch.ts';
+import { isLpReleaseGroup, isConfidentMatch, isValidRow } from './lib/canon-import.mjs';
 
 const TSV_PATH = process.env.SPOTIFY_TSV || 'web/scripts/data/spotify-top-albums.tsv';
 const REPORT_PATH = 'web/scripts/spotify-import-report.json';
@@ -42,15 +44,8 @@ const USER_AGENT = 'AlbumCase/0.1 (keith@totalemphasis.com)';
 const DELAY_MS = 1000;
 const WRITE = process.argv.includes('--write');
 
-// Matches web/src/owner.ts's OWNER_ID.
-const OWNER_ID = 'c0ffee00-0000-4000-8000-000000000001';
-
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function normalize(s) {
-  return s.toLowerCase().trim().replace(/\s+/g, ' ');
 }
 
 function releaseYear(group) {
@@ -97,8 +92,13 @@ function parseTsv(text) {
   const lines = text.split('\n').filter((line) => line.trim().length > 0);
   const [, ...dataLines] = lines; // skip header
   return dataLines.map((line) => {
+    // A short/malformed line (fewer tabs than expected) leaves `album`/
+    // `artist` undefined -- optional-chain the trim() so parsing itself
+    // never throws; the row-processing loop's isValidRow() check catches
+    // the resulting undefined field and routes the row to needsReview
+    // instead of crashing the run.
     const [rank, album, artist] = line.split('\t');
-    return { rank: Number(rank), album: album.trim(), artist: artist.trim() };
+    return { rank: Number(rank), album: album?.trim(), artist: artist?.trim() };
   });
 }
 
@@ -111,7 +111,7 @@ const snapshotRows = await client.execute({
 });
 const snapshotRow = snapshotRows.rows[0];
 const currentRanked = snapshotRow ? JSON.parse(String(snapshotRow.ranking_json)) : [];
-const rankedIndex = new Map(currentRanked.map((a) => [`${normalize(a.primary_artist_name)}|${normalize(a.title)}`, a]));
+const rankedIndex = new Map(currentRanked.map((a) => [curatedMatchKey(a.primary_artist_name, a.title), a]));
 console.log(`Loaded ${currentRanked.length} already-ranked albums as a local match index.`);
 
 // --- Local index #2: albums already sitting in discovered_albums for this owner. ---
@@ -128,7 +128,7 @@ const currentDiscovered = discoveredRows.rows.map((row) => ({
   cover_url: String(row.cover_url),
 }));
 const discoveredIndex = new Map(
-  currentDiscovered.map((a) => [`${normalize(a.primary_artist_name)}|${normalize(a.title)}`, a])
+  currentDiscovered.map((a) => [curatedMatchKey(a.primary_artist_name, a.title), a])
 );
 console.log(`Loaded ${currentDiscovered.length} already-discovered candidates as a local match index.`);
 
@@ -146,7 +146,13 @@ let mbCalls = 0;
 for (let i = 0; i < rows.length; i++) {
   const row = rows[i];
   process.stdout.write(`\rMatching ${i + 1}/${rows.length} (${localHits} local, ${mbCalls} MusicBrainz)...`);
-  const key = `${normalize(row.artist)}|${normalize(row.album)}`;
+
+  if (!isValidRow(row)) {
+    needsReview.push({ row, reason: 'malformed_row' });
+    continue;
+  }
+
+  const key = curatedMatchKey(row.artist, row.album);
 
   const rankedMatch = rankedIndex.get(key);
   if (rankedMatch) {

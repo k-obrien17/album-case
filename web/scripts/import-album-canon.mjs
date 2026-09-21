@@ -14,7 +14,9 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { createClient } from '@libsql/client';
-import { parseCanonCsv, isLpReleaseGroup, isConfidentMatch } from './lib/canon-import.mjs';
+import { OWNER_ID } from '../src/owner.ts';
+import { key as curatedMatchKey } from '../src/curatedListMatch.ts';
+import { parseCanonCsv, isLpReleaseGroup, isConfidentMatch, isValidRow } from './lib/canon-import.mjs';
 
 const CSV_PATH = process.env.CANON_CSV || `${process.env.HOME}/Desktop/album-canon-8-to-10-rated-and-interspersed.csv`;
 const MB_BASE = 'https://musicbrainz.org/ws/2';
@@ -30,15 +32,8 @@ if (!Number.isFinite(RATING_FLOOR) || RATING_FLOOR < 0 || RATING_FLOOR > 10) {
   process.exit(1);
 }
 
-// Matches web/src/owner.ts's OWNER_ID.
-const OWNER_ID = 'c0ffee00-0000-4000-8000-000000000001';
-
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function normalize(s) {
-  return s.toLowerCase().trim().replace(/\s+/g, ' ');
 }
 
 function releaseYear(group) {
@@ -93,7 +88,7 @@ writeFileSync(backupPath, JSON.stringify({ ranked: currentRanked, lists, artist_
 console.log(`Backup written to ${backupPath}`);
 
 // --- Build a local lookup so already-known albums never need a MusicBrainz call. ---
-const localIndex = new Map(currentRanked.map((a) => [`${normalize(a.primary_artist_name)}|${normalize(a.title)}`, a]));
+const localIndex = new Map(currentRanked.map((a) => [curatedMatchKey(a.primary_artist_name, a.title), a]));
 
 // --- Parse the CSV and match every row: local first, MusicBrainz only on a miss. ---
 const csvText = readFileSync(CSV_PATH, 'utf-8');
@@ -109,7 +104,12 @@ for (let i = 0; i < rows.length; i++) {
   const row = rows[i];
   process.stdout.write(`\rMatching ${i + 1}/${rows.length} (${localHits} local, ${mbCalls} MusicBrainz)...`);
 
-  const localMatch = localIndex.get(`${normalize(row.artist)}|${normalize(row.album)}`);
+  if (!isValidRow(row)) {
+    needsReview.push({ row, reason: 'malformed_row' });
+    continue;
+  }
+
+  const localMatch = localIndex.get(curatedMatchKey(row.artist, row.album));
   if (localMatch) {
     localHits++;
     confident.push({

@@ -51,72 +51,82 @@ function git(args, extraEnv = {}) {
 
 console.log(`=== ${new Date().toISOString()} keithrobrien-collect-refresh ===`);
 
-// 0. Self-heal: clone if the dedicated working copy doesn't exist yet.
-if (!existsSync(KRO_CLONE_DIR)) {
-  console.log(`Cloning ${KRO_REMOTE} into ${KRO_CLONE_DIR}...`);
+// The whole run is wrapped so a transient failure (network blip, git
+// conflict, a bad export) prints one clean `FAILED <timestamp>: <reason>`
+// line -- matching the existing `OK <timestamp>` success line style -- to
+// cron logs instead of a raw stack trace, then still exits non-zero so cron
+// alerting still fires. The actual git/refresh logic below is unchanged.
+try {
+  // 0. Self-heal: clone if the dedicated working copy doesn't exist yet.
+  if (!existsSync(KRO_CLONE_DIR)) {
+    console.log(`Cloning ${KRO_REMOTE} into ${KRO_CLONE_DIR}...`);
+    run(
+      "git",
+      ["clone", KRO_REMOTE, KRO_CLONE_DIR],
+      "/Users/keithobrien/Desktop/Claude/Projects",
+      { GIT_SSH_COMMAND },
+    );
+  }
+
+  // 1. Always start from a clean, current main -- safe here, this clone holds
+  //    no work of Keith's, only ever what this job put there.
+  git(["fetch", "origin", "main"], { GIT_SSH_COMMAND });
+  git(["checkout", "main"]);
+  git(["reset", "--hard", "origin/main"]);
+
+  // 2. Regenerate both files straight into the clone (COLLECT_OUT override,
+  //    same knob export-collect-albums.mjs and export-album-of-year.mjs
+  //    already support) -- never Keith's live working copy.
+  const [albumsOut, albumOfYearOut] = FILES.map((f) => `${KRO_CLONE_DIR}/${f}`);
   run(
-    "git",
-    ["clone", KRO_REMOTE, KRO_CLONE_DIR],
-    "/Users/keithobrien/Desktop/Claude/Projects",
-    { GIT_SSH_COMMAND },
+    "node",
+    ["--env-file=web/.env.local", "web/scripts/export-collect-albums.mjs"],
+    ALBUM_CASE_DIR,
+    { COLLECT_OUT: albumsOut },
   );
-}
+  run(
+    "node",
+    ["--env-file=web/.env.local", "web/scripts/export-album-of-year.mjs"],
+    ALBUM_CASE_DIR,
+    { COLLECT_OUT: albumOfYearOut },
+  );
 
-// 1. Always start from a clean, current main -- safe here, this clone holds
-//    no work of Keith's, only ever what this job put there.
-git(["fetch", "origin", "main"], { GIT_SSH_COMMAND });
-git(["checkout", "main"]);
-git(["reset", "--hard", "origin/main"]);
+  // 3. Diff against the still-open branch if one exists (so a rerun before
+  //    Keith merges is a no-op unless something genuinely new happened),
+  //    otherwise against main.
+  let baselineRef = "origin/main";
+  const remoteRefreshSha = git(["ls-remote", "origin", `refs/heads/${BRANCH}`]).trim();
+  if (remoteRefreshSha) {
+    git(["fetch", "origin", `${BRANCH}:refs/remotes/origin/${BRANCH}`], { GIT_SSH_COMMAND });
+    baselineRef = `origin/${BRANCH}`;
+  }
 
-// 2. Regenerate both files straight into the clone (COLLECT_OUT override,
-//    same knob export-collect-albums.mjs and export-album-of-year.mjs
-//    already support) -- never Keith's live working copy.
-const [albumsOut, albumOfYearOut] = FILES.map((f) => `${KRO_CLONE_DIR}/${f}`);
-run(
-  "node",
-  ["--env-file=web/.env.local", "web/scripts/export-collect-albums.mjs"],
-  ALBUM_CASE_DIR,
-  { COLLECT_OUT: albumsOut },
-);
-run(
-  "node",
-  ["--env-file=web/.env.local", "web/scripts/export-album-of-year.mjs"],
-  ALBUM_CASE_DIR,
-  { COLLECT_OUT: albumOfYearOut },
-);
+  const diff = git(["diff", "--stat", baselineRef, "--", ...FILES]).trim();
+  if (!diff) {
+    console.log(`No change vs. ${baselineRef}. Nothing to do.`);
+    console.log(`OK ${new Date().toISOString()}`);
+    process.exit(0);
+  }
 
-// 3. Diff against the still-open branch if one exists (so a rerun before
-//    Keith merges is a no-op unless something genuinely new happened),
-//    otherwise against main.
-let baselineRef = "origin/main";
-const remoteRefreshSha = git(["ls-remote", "origin", `refs/heads/${BRANCH}`]).trim();
-if (remoteRefreshSha) {
-  git(["fetch", "origin", `${BRANCH}:refs/remotes/origin/${BRANCH}`], { GIT_SSH_COMMAND });
-  baselineRef = `origin/${BRANCH}`;
-}
+  console.log(`Changed vs. ${baselineRef}:\n${diff}`);
 
-const diff = git(["diff", "--stat", baselineRef, "--", ...FILES]).trim();
-if (!diff) {
-  console.log(`No change vs. ${baselineRef}. Nothing to do.`);
+  // 4. Rebuild the bot-owned branch fresh off current main and force-push.
+  git(["checkout", "-B", BRANCH]);
+  git(["add", ...FILES]);
+  git(
+    [
+      "commit",
+      "-m",
+      "chore(collect): refresh album data from album-case\n\nAutomated daily refresh. Review and merge to deploy.",
+    ],
+  );
+  git(["push", "--force", "-u", "origin", BRANCH], { GIT_SSH_COMMAND });
+  git(["checkout", "main"]);
+
+  console.log(`Pushed ${BRANCH} with updated album data. Review + merge at:`);
+  console.log(`  https://github.com/k-obrien17/keithrobrien/compare/main...${BRANCH}`);
   console.log(`OK ${new Date().toISOString()}`);
-  process.exit(0);
+} catch (err) {
+  console.error(`FAILED ${new Date().toISOString()}: ${err instanceof Error ? err.message : String(err)}`);
+  process.exit(1);
 }
-
-console.log(`Changed vs. ${baselineRef}:\n${diff}`);
-
-// 4. Rebuild the bot-owned branch fresh off current main and force-push.
-git(["checkout", "-B", BRANCH]);
-git(["add", ...FILES]);
-git(
-  [
-    "commit",
-    "-m",
-    "chore(collect): refresh album data from album-case\n\nAutomated daily refresh. Review and merge to deploy.",
-  ],
-);
-git(["push", "--force", "-u", "origin", BRANCH], { GIT_SSH_COMMAND });
-git(["checkout", "main"]);
-
-console.log(`Pushed ${BRANCH} with updated album data. Review + merge at:`);
-console.log(`  https://github.com/k-obrien17/keithrobrien/compare/main...${BRANCH}`);
-console.log(`OK ${new Date().toISOString()}`);
