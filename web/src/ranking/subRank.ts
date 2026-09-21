@@ -9,14 +9,23 @@ export type SubRank = {
   overallTotal: number;
 };
 
+// Artists collide by display name across distinct real MusicBrainz artists
+// (and one artist's name can be inconsistently cased/formatted), so group by
+// the stable `primary_artist_mbid` when it's present, falling back to
+// `primary_artist_name` only when an album has no mbid on record.
+function artistGroupKey(album: Album): string {
+  return album.primary_artist_mbid ?? album.primary_artist_name;
+}
+
 export function computeSubRanks(ranked: Album[]): Map<string, SubRank> {
   const byArtist = new Map<string, Album[]>();
   const byYear = new Map<number, Album[]>();
 
   for (const album of ranked) {
-    const artistGroup = byArtist.get(album.primary_artist_name) ?? [];
+    const key = artistGroupKey(album);
+    const artistGroup = byArtist.get(key) ?? [];
     artistGroup.push(album);
-    byArtist.set(album.primary_artist_name, artistGroup);
+    byArtist.set(key, artistGroup);
 
     if (album.release_year != null) {
       const yearGroup = byYear.get(album.release_year) ?? [];
@@ -27,7 +36,7 @@ export function computeSubRanks(ranked: Album[]): Map<string, SubRank> {
 
   const result = new Map<string, SubRank>();
   ranked.forEach((album, index) => {
-    const artistGroup = byArtist.get(album.primary_artist_name) as Album[];
+    const artistGroup = byArtist.get(artistGroupKey(album)) as Album[];
     const artistRank = artistGroup.indexOf(album) + 1;
     const artistTotal = artistGroup.length;
 

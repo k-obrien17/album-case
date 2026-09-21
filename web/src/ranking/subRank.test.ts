@@ -74,4 +74,14 @@ describe('computeSubRanks', () => {
   it('returns an empty map for an empty ranked list', () => {
     expect(computeSubRanks([]).size).toBe(0);
   });
+
+  it('does not merge two distinct artists that share a display name (groups by mbid)', () => {
+    const ranked = [
+      album({ mbid: 'a', primary_artist_name: 'The Beatles', primary_artist_mbid: 'mbid-1' }),
+      album({ mbid: 'b', primary_artist_name: 'The Beatles', primary_artist_mbid: 'mbid-2' }),
+    ];
+    const ranks = computeSubRanks(ranked);
+    expect(ranks.get('a')).toMatchObject({ artistRank: 1, artistTotal: 1 });
+    expect(ranks.get('b')).toMatchObject({ artistRank: 1, artistTotal: 1 });
+  });
 });

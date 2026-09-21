@@ -34,6 +34,10 @@ describe('parseSpokenRating', () => {
     expect(parseSpokenRating('six and three quarters')).toBe(6.75);
   });
 
+  test('self-correction: last "and" fraction wins when several appear', () => {
+    expect(parseSpokenRating('six and a half, no wait, seven and a quarter')).toBe(7.25);
+  });
+
   test('parses a plain whole-number word', () => {
     expect(parseSpokenRating('nine')).toBe(9);
     expect(parseSpokenRating('zero')).toBe(0);

@@ -56,11 +56,19 @@ function tryWordForm(text: string): number | null {
     .filter(Boolean);
 
   // "X and a half/quarter/three quarters" -- fraction word(s) anywhere
-  // after "and", added to the last whole number found before it.
-  const andIdx = words.indexOf('and');
-  if (andIdx !== -1) {
+  // after "and", added to the last whole number found before it. When
+  // several "X and a <fraction>" self-corrections appear ("six and a half,
+  // no wait, seven and a quarter"), the LAST "and" with a valid whole+
+  // fraction pair wins, matching the "last match wins" convention used by
+  // the digit-form and bare-whole-word-word branches below.
+  const andIndices = words.reduce<number[]>((acc, w, i) => {
+    if (w === 'and') acc.push(i);
+    return acc;
+  }, []);
+  for (let i = andIndices.length - 1; i >= 0; i--) {
+    const andIdx = andIndices[i];
     const wholeWord = [...words.slice(0, andIdx)].reverse().find((w) => w in WORD_DIGITS);
-    const rest = words.slice(andIdx + 1).join(' ');
+    const rest = words.slice(andIdx + 1, andIndices[i + 1]).join(' ');
     if (wholeWord !== undefined) {
       for (const [phrase, value] of FRACTION_WORDS) {
         if (rest.includes(phrase)) return clamp(WORD_DIGITS[wholeWord] + value);
