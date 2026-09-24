@@ -93,6 +93,16 @@ describe('bootstrapApp', () => {
     expect(result.pool.map((a) => a.mbid)).toContain('seed1');
   });
 
+  it('reports missing status with a null snapshot base when the server has nothing saved yet', async () => {
+    stubFetch({ ok: true, body: {} });
+
+    const result = await bootstrapApp('11111111-1111-4111-8111-111111111111');
+
+    expect(result.serverLoadStatus).toBe('missing');
+    expect(result.serverSnapshot).toBeNull();
+    expect(result.snapshotBaseUpdatedAt).toBeNull();
+  });
+
   it('reports error status and falls back to the cached sync base when the server is unreachable', async () => {
     stubFetch({ ok: false, reject: true });
 
