@@ -1,19 +1,11 @@
 import './style.css';
 import type { Album, RankingState } from './ranking/types';
-import {
-  loadSeedPool,
-  loadPreferredArtists,
-  loadPriorityAlbumPlan,
-  playsMapFromPreferred,
-  pickCandidate,
-} from './seed';
-import type { ArtistPlays } from './seed';
-import { loadRanking, saveRanking } from './storage';
+import { pickCandidate } from './seed';
+import { saveRanking } from './storage';
 import { filterAlbums } from './search';
 import { getOrCreateSession, isValidSessionId } from './session';
 import { OWNER_ID } from './owner';
 import {
-  loadLists,
   saveLists,
   addToList,
   removeFromList,
@@ -30,29 +22,20 @@ import { artistAlbumsFor } from './artistLockAlbums';
 import { renderSavedList } from './ui/savedList';
 import { enqueueAtom, flushAtomQueue } from './atoms';
 import {
-  loadPriorityQueue,
-  loadPriorityPlanVersion,
   nextPriorityCandidate,
-  priorityQueueFromAlbumPlan,
-  priorityQueueFromArtists,
   savePriorityQueue,
-  savePriorityPlanVersion,
 } from './priority';
-import { loadRankingSnapshotDetailed } from './rankingSync';
-import { discoverArtistDetailed, loadDiscoveredAlbums } from './discovery';
+import { discoverArtistDetailed } from './discovery';
 import { runBulkDiscovery, runSimilarExpansion, TOP_ARTIST_DISCOVERY_COUNT } from './bulkDiscovery';
 import type { SimilarArtist } from './bulkDiscovery';
-import { hasPendingSync, markPendingSync, markSyncConflict, loadSyncBase, saveSyncBase, pendingBaseConflicts } from './syncStatus';
+import { markPendingSync } from './syncStatus';
 import {
   addBlockedArtist,
   blockedArtistMbids,
-  loadBlockedArtists,
   removeBlockedArtist,
-  saveBlockedArtists,
 } from './artistBlocks';
 import { loadSkippedAlbums, saveSkippedAlbums } from './skippedAlbums';
-import { loadArtistLocks, saveArtistLocks } from './artistLocksStorage';
-import { loadCuratedSkips, saveCuratedSkips } from './curatedSkipsStorage';
+import { saveArtistLocks } from './artistLocksStorage';
 import {
   applyArtistCooldown,
   loadCandidateArtistCooldown,
@@ -68,9 +51,10 @@ import { emptyBacklog } from '../shared/backlog';
 import { renderBacklogView, type BacklogShelf } from './ui/backlogView';
 import { suggestAlbum, loadSuggestionConnections, type Suggestion, type RelatedArtist } from './suggestions';
 import { normalize } from './curatedListMatch';
-import { createSyncEngine, hydrateAlbums, hydrateLists, resolveInitialState } from './syncEngine';
+import { createSyncEngine, resolveInitialState } from './syncEngine';
 import { createRankingStore } from './rankingStore';
 import { rateAlbum, reRateAt, setRatingAt, directRate, setAside, placeAt } from './rankingActions';
+import { bootstrapApp } from './bootstrap';
 
 type ViewMode = 'ranked' | ListName | 'blockedArtists' | 'artistBatch' | 'speedRound' | 'curatedLists' | 'backlog';
 
@@ -132,111 +116,20 @@ async function main(): Promise<void> {
   const session = getOrCreateSession();
   void flushAtomQueue();
 
-  const pool = await loadSeedPool();
-
-  // Keith's play-weighted artist list drives both weighted selection and the
-  // auto-seeded priority queue. Degrade gracefully to uniform/random if it
-  // can't be loaded -- the loop must never blank out over a missing sidecar.
-  let preferred: ArtistPlays[] = [];
-  try {
-    preferred = await loadPreferredArtists();
-  } catch (err) {
-    console.warn('tastetest: failed to load preferred artists, using uniform selection', err);
-  }
-  const playsByArtist = playsMapFromPreferred(preferred);
-
-  let priorityQueue = loadPriorityQueue();
-  // First-visit default: front-load Keith's most-played artists with no manual
-  // paste.
-  if (priorityQueue.length === 0 && preferred.length > 0) {
-    priorityQueue = priorityQueueFromArtists(
-      preferred.map((entry) => entry.artist),
-      pool
-    );
-    savePriorityQueue(priorityQueue);
-  }
-
-  // Server-authoritative load-on-open. The owner snapshot (full records) is the
-  // source of truth; localStorage is only an offline cache. When the server is
-  // unreachable or has nothing yet, fall back to the cache -- and if the cache
-  // holds local data, seed it up to the server.
-  const cachedState: RankingState = loadRanking() ?? { ranked: [], pending: null };
-  const cachedLists = loadLists();
-  const cachedArtistLocks = loadArtistLocks();
-  // A pending-sync flag means the local cache holds edits that were never
-  // confirmed saved (writes locked, network error, etc). Computed up front
-  // (it depends on nothing fetched below) so every server-authoritative
-  // field below -- including blockedArtists/curatedSkips -- can gate on it
-  // the same way, instead of letting the server clobber an unsynced local
-  // edit just because pendingSync hadn't been checked yet.
-  const pendingSync = hasPendingSync();
-  // Turso is the source of truth for blocked artists / curated-entry skips,
-  // same as ranked/lists/artistLocks -- localStorage here is a fallback for
-  // the very first load after this field was introduced (nothing on the
-  // server yet) and an offline cache thereafter, never authoritative. Never
-  // let the server value overwrite a pending local edit; the same rule
-  // resolveInitialState below applies to ranked/lists/artistLocks.
-  let blockedArtists = loadBlockedArtists();
-  let curatedSkips = new Set(loadCuratedSkips());
-  const serverLoad = await loadRankingSnapshotDetailed(OWNER_ID);
-  if (serverLoad.status === 'found' && !pendingSync) {
-    blockedArtists = serverLoad.blockedArtists;
-    saveBlockedArtists(blockedArtists);
-    curatedSkips = new Set(serverLoad.curatedSkips);
-    saveCuratedSkips(serverLoad.curatedSkips);
-  }
-  let serverSnapshot =
-    serverLoad.status === 'found'
-      ? { ranked: serverLoad.ranked, lists: serverLoad.lists, artistLocks: serverLoad.artistLocks }
-      : null;
-  let snapshotBaseUpdatedAt: number | null | undefined =
-    serverLoad.status === 'found'
-      ? serverLoad.updatedAt
-      : serverLoad.status === 'missing'
-        ? null
-        : loadSyncBase();
-  const discovered = await loadDiscoveredAlbums(OWNER_ID);
-  const knownPoolIds = new Set(pool.map((album) => album.mbid));
-  for (const album of discovered) {
-    if (!knownPoolIds.has(album.mbid)) {
-      pool.push(album);
-      knownPoolIds.add(album.mbid);
-    }
-  }
-  try {
-    const priorityPlan = await loadPriorityAlbumPlan();
-    if (priorityPlan && loadPriorityPlanVersion() !== priorityPlan.version) {
-      priorityQueue = [
-        ...priorityQueueFromAlbumPlan(priorityPlan.albums, pool),
-        ...priorityQueue,
-      ];
-      savePriorityQueue(priorityQueue);
-      savePriorityPlanVersion(priorityPlan.version);
-    }
-  } catch (err) {
-    console.warn('tastetest: failed to load priority album plan', err);
-  }
-  const poolById = new Map(pool.map((album) => [album.mbid, album]));
-  if (serverSnapshot) {
-    serverSnapshot = {
-      ranked: hydrateAlbums(serverSnapshot.ranked, poolById),
-      lists: hydrateLists(serverSnapshot.lists, poolById),
-      artistLocks: serverSnapshot.artistLocks,
-    };
-  }
-  // When pendingSync is set, the server snapshot is stale by definition --
-  // prefer the local cache instead of letting it clobber the unsynced edits,
-  // and retry the save below. Pending edits retain the revision they were
-  // actually made against; never borrow the just-fetched server revision to
-  // save an older cached snapshot.
-  if (pendingSync) {
-    snapshotBaseUpdatedAt = loadSyncBase();
-    if (serverLoad.status !== 'error' && pendingBaseConflicts(
-      true, snapshotBaseUpdatedAt, serverLoad.status === 'found' ? serverLoad.updatedAt : null,
-    )) markSyncConflict();
-  } else if (snapshotBaseUpdatedAt !== undefined) {
-    saveSyncBase(snapshotBaseUpdatedAt);
-  }
+  const bootstrap = await bootstrapApp(OWNER_ID);
+  const pool = bootstrap.pool;
+  let priorityQueue = bootstrap.priorityQueue;
+  const preferred = bootstrap.preferred;
+  const playsByArtist = bootstrap.playsByArtist;
+  const cachedState = bootstrap.cachedState;
+  const cachedLists = bootstrap.cachedLists;
+  const cachedArtistLocks = bootstrap.cachedArtistLocks;
+  const pendingSync = bootstrap.pendingSync;
+  const blockedArtists = bootstrap.blockedArtists;
+  const curatedSkips = bootstrap.curatedSkips;
+  const serverSnapshot = bootstrap.serverSnapshot;
+  const serverLoadStatus = bootstrap.serverLoadStatus;
+  const snapshotBaseUpdatedAt = bootstrap.snapshotBaseUpdatedAt;
   const cached = {
     state: cachedState,
     lists: cachedLists,
@@ -279,7 +172,7 @@ async function main(): Promise<void> {
     saveArtistLocks(rankingStore.getArtistLocks());
   } else if (
     pendingSync ||
-    (serverLoad.status === 'missing' &&
+    (serverLoadStatus === 'missing' &&
       (rankingStore.getState().ranked.length > 0 ||
         rankingStore.getLists().wantToListen.length > 0 ||
         rankingStore.getLists().notHeard.length > 0 ||
