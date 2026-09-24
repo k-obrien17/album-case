@@ -153,9 +153,8 @@ async function main(): Promise<void> {
   });
 
   // Owns the steady-state save/retry/banner engine (was closure locals here
-  // in main()); bootstrap above stays inline since it's tangled with the
-  // priority-queue/discovery bootstrap above in a way that isn't safe to
-  // pull out in one pass -- see syncEngine.ts's module doc comment.
+  // in main()); bootstrap above now lives in bootstrapApp() -- see
+  // bootstrap.ts's module doc comment.
   const syncEngine = createSyncEngine({
     session,
     getState: rankingStore.getState,

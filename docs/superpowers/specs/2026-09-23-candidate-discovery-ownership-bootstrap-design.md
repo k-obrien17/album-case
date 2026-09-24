@@ -63,18 +63,20 @@ isolated.
 One new file: `web/src/bootstrap.ts`.
 
 ```ts
-async function bootstrapApp(
-  ownerId: string,
-  cachedState: RankingState,
-  cachedLists: SavedLists,
-  cachedArtistLocks: ArtistLock[]
-): Promise<BootstrapResult>
+async function bootstrapApp(ownerId: string): Promise<BootstrapResult>
 ```
 
 Moves `main.ts` lines ~135-239 verbatim: same order, same `await`s, same
 try/catch degrade paths (`loadPreferredArtists` degrades to uniform
 selection; `loadPriorityAlbumPlan` degrades to no-op), same
-`console.warn` calls.
+`console.warn` calls. `cachedState`/`cachedLists`/`cachedArtistLocks` are
+computed inside `bootstrapApp` (via `loadRanking`/`loadLists`/
+`loadArtistLocks`, the same calls `main.ts` made at this point today) and
+returned, rather than passed in as parameters -- they were part of the
+verbatim line range and nothing in that range actually depends on a
+caller-supplied value for them, so threading them through as parameters
+would have been unnecessary ceremony. This is a shipped-code correction
+to this design's original sketch, which passed them in; behavior-neutral.
 
 Returns:
 
@@ -84,12 +86,15 @@ interface BootstrapResult {
   priorityQueue: string[];
   preferred: ArtistPlays[];
   playsByArtist: Map<string, number>;
-  serverSnapshot: { ranked: Album[]; lists: SavedLists; artistLocks: ArtistLock[] } | null;
-  serverLoadStatus: RankingSnapshotLoad['status']; // 'found' | 'missing' | 'error'
-  snapshotBaseUpdatedAt: number | null | undefined;
+  cachedState: RankingState;
+  cachedLists: SavedLists;
+  cachedArtistLocks: ArtistLock[];
   pendingSync: boolean;
   blockedArtists: string[];
   curatedSkips: Set<string>;
+  serverSnapshot: { ranked: RankedAlbum[]; lists: SavedLists; artistLocks: ArtistLock[] } | null;
+  serverLoadStatus: RankingSnapshotLoad['status']; // 'found' | 'missing' | 'error'
+  snapshotBaseUpdatedAt: number | null | undefined;
 }
 ```
 
@@ -102,9 +107,11 @@ the Fable review; the original draft's struct had this gap.
 ### `main()` after extraction
 
 ```ts
-const bootstrap = await bootstrapApp(OWNER_ID, cachedState, cachedLists, cachedArtistLocks);
-let { pool, priorityQueue, preferred, playsByArtist } = bootstrap;
-const { serverSnapshot, serverLoadStatus, snapshotBaseUpdatedAt, pendingSync, blockedArtists, curatedSkips } = bootstrap;
+const bootstrap = await bootstrapApp(OWNER_ID);
+const pool = bootstrap.pool;
+let priorityQueue = bootstrap.priorityQueue;
+const { preferred, playsByArtist, cachedState, cachedLists, cachedArtistLocks } = bootstrap;
+const { pendingSync, blockedArtists, curatedSkips, serverSnapshot, serverLoadStatus, snapshotBaseUpdatedAt } = bootstrap;
 const rankingStore = createRankingStore({ /* unchanged, uses blockedArtists/curatedSkips from bootstrap */ });
 ```
 

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Album } from './ranking/types';
 import { bootstrapApp } from './bootstrap';
-import { markPendingSync, saveSyncBase } from './syncStatus';
+import { hasSyncConflict, markPendingSync, saveSyncBase } from './syncStatus';
 
 function album(mbid: string): Album {
   return {
@@ -112,6 +112,8 @@ describe('bootstrapApp', () => {
     expect(result.serverSnapshot).toBeNull();
     expect(result.pendingSync).toBe(false);
     expect(result.snapshotBaseUpdatedAt).toBeUndefined();
+    expect(result.blockedArtists).toEqual([]);
+    expect(result.curatedSkips).toEqual(new Set());
   });
 
   it('does not let a found server response overwrite blocked/curated lists when a local edit is pending', async () => {
@@ -138,5 +140,6 @@ describe('bootstrapApp', () => {
     expect(result.blockedArtists).toEqual([]);
     expect(result.curatedSkips).toEqual(new Set());
     expect(result.snapshotBaseUpdatedAt).toBe(456);
+    expect(hasSyncConflict()).toBe(true);
   });
 });

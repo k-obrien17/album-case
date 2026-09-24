@@ -202,10 +202,9 @@ export type SyncEngine = {
  * Owns the steady-state save/retry/banner engine: the in-memory sync state
  * (save chain, revision counter, retry timer, base version, banner DOM) that
  * used to live as closure locals in main()'s `main()` function. Bootstrap
- * (session/pool/server-snapshot loading) stays in main.ts -- it's tangled
- * with the priority-queue/discovery bootstrap in a way that isn't safe to
- * disentangle in this pass -- and hands this engine its seed `baseUpdatedAt`
- * once the initial state is resolved.
+ * (session/pool/server-snapshot loading) now lives in bootstrap.ts's
+ * bootstrapApp(), which main.ts calls before constructing this engine and
+ * hands it the resolved seed `baseUpdatedAt`.
  */
 export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
   let snapshotBaseUpdatedAt = deps.baseUpdatedAt;

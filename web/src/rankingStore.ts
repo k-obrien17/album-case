@@ -33,8 +33,9 @@ export interface RankingStoreInit {
  * reference; `setCuratedSkips` exists for the one bootstrap-time wholesale
  * reassignment (adopting the server's skip list).
  *
- * Bootstrap (server/cache resolution) stays inline in main.ts -- this store
- * is only created once that resolution has produced initial values.
+ * Bootstrap (server/cache resolution) lives in bootstrap.ts's bootstrapApp()
+ * -- this store is only created once that resolution has produced initial
+ * values.
  */
 export function createRankingStore(init: RankingStoreInit): RankingStore {
   let state = init.state;
