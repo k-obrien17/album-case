@@ -2,19 +2,31 @@
 
 ## Positioning
 
-**Album Case** is currently a personal, single-owner album-ranking app. The
-starting experience: show one candidate album, drag it into the exact position
-in the ranked list, and repeat until the owner has a true, self-consistent album
-order. The canonical list is the fixed owner snapshot in Turso; localStorage is
-only a fast/offline cache. Write-key enforcement (`ALBUM_CASE_WRITE_KEY`) is
-currently dropped (2026-08-11, see `SECURITY.md`) -- mutations are unauthenticated
-for now, same as reads. `requireWriteKey()` in `web/api/_writeKey.ts` is a
-pass-through, not deleted, so re-enabling is a one-function revert.
+**Album Case** is an album-ranking app for Keith and **a small group of
+friends**, each with their own list (Keith's direction, 2026-09-25: "make it
+better and have some friends use it", not a big commercial product). The core
+job is helping someone who has heard a lot of music rank what they've
+actually heard, and keep that ranking honest.
 
-The older public "Taste Test" / crowd-aggregate direction is historical
-planning context, not the implemented product surface. Do not re-expand toward
-accounts, public anonymous sessions, licensable datasets, or crowd charts unless
-Keith explicitly reopens that product direction.
+**Target vs. today.** The shipped code is still a single-owner app: one fixed
+owner id (`web/src/owner.ts`), no accounts, and the canonical list is that
+owner's snapshot in Turso (localStorage is only a fast/offline cache).
+Write-key enforcement (`ALBUM_CASE_WRITE_KEY`) is currently dropped
+(2026-08-11, see `SECURITY.md`), so mutations are unauthenticated;
+`requireWriteKey()` in `web/api/_writeKey.ts` is a pass-through, not deleted.
+That is the current implementation, not the target. New work must not deepen
+the single-owner assumption: prefer per-user data shapes and shared reference
+data (like the album catalog) over anything keyed to the one owner.
+
+**Needed for friends to use it:** simple sign-in and per-user data, so each
+person has their own list. Build for a handful of users: no payments, growth
+features, or heavy compliance work. Licensing questions (critic-list
+reproduction, cover art, Spotify/Last.fm API terms) only matter if it ever
+goes public; flag them then.
+
+The older "Taste Test" crowd-aggregate direction (public crowd charts,
+licensable datasets) is still historical context, not part of the plan. Don't
+build crowd charts or dataset licensing unless Keith asks.
 
 The rankable unit is the **album** (MusicBrainz release-group), built to expand to songs and artists and to richer mechanisms without a rebuild.
 
@@ -38,7 +50,7 @@ This repo also contains a **legacy private calibration tool** (artist-tier rater
 
 ## Codebases in this repo
 
-1. **The product (Album Case), being built:** the personal drag-to-place album ranking web app in `web/`, plus API-backed Turso persistence and MusicBrainz discovery. This is where new work happens.
+1. **The product (Album Case), being built:** the album ranking web app in `web/`, plus API-backed Turso persistence and MusicBrainz discovery. This is where new work happens.
 2. **The legacy calibration tool, at the repo root:** `index.html`, `app.js`, `style.css`, `artists.js`, `build-artists.py`, `scoring/`, `reference/`. Zero-dependency, runs from `file://`. Kept as seed pool + fixture. The old constraints below apply ONLY to it.
 3. **The offline seed pipeline, at `pipeline/`:** stdlib-only Python that streams MusicBrainz/ListenBrainz bulk dumps into `data/tastetest.db`'s `entities` table (`ingest_musicbrainz.py`, `ingest_listenbrainz.py`, `materialize.py`, `covers.py`, wrapped by `build.py`). Produces the static seed the product bootstraps from; not run at request time. See `pipeline/README.md`.
 
@@ -47,11 +59,13 @@ This repo also contains a **legacy private calibration tool** (artist-tier rater
 - Rankable unit is the MusicBrainz release-group album.
 - Album records carry `mbid`, `title`, `primary_artist_name`,
   `primary_artist_mbid`, `release_year`, and a Cover Art Archive pointer URL.
-- The personal list is transitive by construction. Do not replace it with Elo.
+- Each user's list is transitive by construction. Do not replace it with Elo.
 - Pairwise atoms are still recorded for placements/comparisons, but the primary
-  product state is the owner ranking snapshot.
-- The static seed is a temporary bootstrap. Live discovery is allowed for this
-  personal app and should use MusicBrainz artist MBIDs, not name search.
+  product state is the ranking snapshot (today, the single owner's).
+- The static seed is a temporary bootstrap, being replaced by a self-hosted
+  MusicBrainz catalog (`docs/superpowers/specs/2026-09-24-album-catalog-design.md`).
+  Live MusicBrainz calls are slow and rate-limited (about 1 request per second,
+  shared), so treat them as a fallback, and use artist MBIDs, not name search.
 
 ## Schema (Turso/libSQL)
 
@@ -121,8 +135,8 @@ The deploy line is a reminder that nothing reaches production on its own, not st
   available.**
 - **Don't use Elo or any model that allows self-contradicting picks** for the
   personal list. It is transitive-by-construction.
-- **Don't confuse the older public Taste Test aggregate roadmap with the
-  current personal Album Case app.**
+- **Don't confuse the older Taste Test crowd-chart/dataset roadmap with the
+  current Album Case plan (Keith plus friends).**
 - **Don't append a re-ranked/re-rated album and re-sort the list.** Splice at
   the computed index directly (see `insertAtRating` in `web/src/main.ts`).
   Append-then-sort broke on rating ties: a stable sort strands the new album
@@ -152,8 +166,10 @@ acceptance criteria. Build to the bar; don't wait for /ship-check to find the ga
 
 Class is a custom "personal-app" lens set, not one of ship-standard's five
 presets: none assume a single-owner tool with no accounts/signup surface.
-Ongoing regression checks after this point should use `/regression-smoke`,
-not a full `/ship-check` (see that skill's own Don'ts).
+That class fits today's single-owner build. Once friends get accounts,
+revisit SHIP-STANDARD.md for a small multi-user app (auth and per-user data
+isolation become must-pass). Ongoing regression checks use
+`/regression-smoke` (see that skill's own Don'ts).
 
 ## Reference
 
