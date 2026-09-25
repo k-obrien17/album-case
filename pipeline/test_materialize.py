@@ -29,7 +29,12 @@ import pytest
 from pipeline.db import connect
 from pipeline.ingest_listenbrainz import load_listenbrainz_staging
 from pipeline.ingest_musicbrainz import load_musicbrainz_staging
-from pipeline.materialize import materialize_albums, verify_universe
+from pipeline.materialize import (
+    ALBUM_PRIMARY_TYPE_ID,
+    EP_PRIMARY_TYPE_ID,
+    materialize_albums,
+    verify_universe,
+)
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
@@ -38,6 +43,7 @@ MB_FIXTURE_FILENAMES = {
     "release_group_meta": "mb_release_group_meta.sample.tsv",
     "artist_credit_name": "mb_artist_credit_name.sample.tsv",
     "artist": "mb_artist.sample.tsv",
+    "release_group_secondary_type_join": "mb_release_group_secondary_type_join.sample.tsv",
 }
 LB_FIXTURE_PATH = FIXTURES_DIR / "lb_popularity.sample.jsonl"
 
@@ -235,3 +241,53 @@ def test_verify_universe_reports_universe_shape(conn):
     assert stats["release_year_max"] is not None
     assert stats["below_listener_bound"] == 0
     assert stats["above_listener_bound"] == 2
+
+
+def _insert_release_group(conn, rg_id, mbid, title, primary_type, listeners=5000):
+    conn.execute(
+        "INSERT INTO stg_release_group (rg_id, mbid, title, artist_credit, primary_type) "
+        "VALUES (?, ?, ?, 100, ?)",
+        (rg_id, mbid, title, primary_type),
+    )
+    conn.execute(
+        "INSERT INTO stg_popularity (release_group_mbid, listen_count, listener_count) "
+        "VALUES (?, ?, ?)",
+        (mbid, listeners * 5, listeners),
+    )
+
+
+def test_ep_with_no_secondary_type_materializes_as_ep(conn):
+    ep_mbid = "22222222-2222-2222-2222-222222222222"
+    with conn:
+        _insert_release_group(conn, 9100, ep_mbid, "An EP", EP_PRIMARY_TYPE_ID)
+
+    with patch("pipeline.materialize.now_ms", return_value=1_000):
+        materialize_albums(conn)
+
+    assert _album_row(conn, ep_mbid)["release_type"] == "EP"
+    assert _album_row(conn, OK_COMPUTER_MBID)["release_type"] == "Album"
+
+
+def test_album_with_a_secondary_type_is_excluded(conn):
+    live_mbid = "33333333-3333-3333-3333-333333333333"
+    with conn:
+        _insert_release_group(conn, 9200, live_mbid, "Live at Somewhere", ALBUM_PRIMARY_TYPE_ID)
+        conn.execute("INSERT INTO stg_release_group_secondary_type (rg_id) VALUES (9200)")
+
+    with patch("pipeline.materialize.now_ms", return_value=1_000):
+        materialize_albums(conn)
+
+    assert _album_row(conn, live_mbid) is None
+    assert _album_row(conn, OK_COMPUTER_MBID) is not None
+
+
+def test_candidate_total_ignores_secondary_typed_and_single_release_groups(conn):
+    with conn:
+        _insert_release_group(conn, 9300, "44444444-4444-4444-4444-444444444444", "A Single", 2)
+        _insert_release_group(conn, 9301, "55555555-5555-5555-5555-555555555555", "Live Album", ALBUM_PRIMARY_TYPE_ID)
+        conn.execute("INSERT INTO stg_release_group_secondary_type (rg_id) VALUES (9301)")
+
+    with patch("pipeline.materialize.now_ms", return_value=1_000):
+        stats = materialize_albums(conn)
+
+    assert stats["total"] == 2  # OK Computer + the VA fixture, unchanged baseline

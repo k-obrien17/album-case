@@ -29,8 +29,12 @@ def connect(path=DEFAULT_DB_PATH):
 
 
 def init_db(conn):
-    """Apply schema.sql to `conn`. Idempotent: safe to call more than once."""
+    """Apply schema.sql to `conn`, then add columns introduced after a store
+    was first created. Idempotent: safe to call more than once."""
     conn.executescript(_SCHEMA_PATH.read_text())
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(entities)")}
+    if "release_type" not in columns:
+        conn.execute("ALTER TABLE entities ADD COLUMN release_type TEXT")
     conn.commit()
 
 

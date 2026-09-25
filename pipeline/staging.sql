@@ -52,3 +52,13 @@ CREATE INDEX IF NOT EXISTS idx_stg_artist_artist_id
     ON stg_artist(artist_id);
 CREATE INDEX IF NOT EXISTS idx_stg_release_group_meta_rg_id
     ON stg_release_group_meta(rg_id);
+
+-- One row per (release group, secondary type) pair. Only rg_id is kept:
+-- the pipeline just needs to know a release group has ANY secondary type
+-- (Live, Compilation, Soundtrack, ...), which excludes it from the catalog.
+CREATE TABLE IF NOT EXISTS stg_release_group_secondary_type (
+    rg_id INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_stg_release_group_secondary_type_rg_id
+    ON stg_release_group_secondary_type(rg_id);

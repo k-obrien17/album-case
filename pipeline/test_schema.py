@@ -147,3 +147,21 @@ def test_init_db_is_idempotent(db_path):
     ]
     assert sorted(names) == ["atoms", "entities", "sessions"]
     c.close()
+
+
+def test_init_db_adds_release_type_to_an_existing_entities_table(tmp_path):
+    from pipeline.db import connect, init_db
+
+    conn = connect(tmp_path / "old.db")
+    conn.execute(
+        "CREATE TABLE entities (entity_type TEXT NOT NULL, mbid TEXT NOT NULL, "
+        "title TEXT NOT NULL, primary_artist_name TEXT, primary_artist_mbid TEXT, "
+        "release_year INTEGER, cover_url TEXT, notability_score INTEGER, "
+        "created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, "
+        "PRIMARY KEY (entity_type, mbid))"
+    )
+    init_db(conn)
+    init_db(conn)  # second call must not fail on the now-present column
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(entities)")}
+    assert "release_type" in columns
+    conn.close()

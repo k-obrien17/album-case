@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS entities (
     release_year INTEGER,
     cover_url TEXT,
     notability_score INTEGER,
+    release_type TEXT,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
     PRIMARY KEY (entity_type, mbid)

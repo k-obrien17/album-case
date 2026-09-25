@@ -9,7 +9,7 @@ counted rather than aborting the whole load.
 
 Only the release-group-scoped tables needed to build an album row are
 loaded: `release_group`, `release_group_meta`, `artist_credit_name`,
-`artist`. This deliberately does NOT load `release`, edit history, or
+`artist`, `release_group_secondary_type_join`. This deliberately does NOT load `release`, edit history, or
 cover-art tables (see 01-02-PLAN.md dump_sources).
 
 Column indices below are pinned as named constants, derived from the
@@ -87,6 +87,11 @@ ARTIST_COL_GID = 1
 ARTIST_COL_NAME = 2
 ARTIST_EXPECTED_COLS = 19
 
+# --- release_group_secondary_type_join ---
+# release_group, secondary_type, created
+RGST_COL_RELEASE_GROUP = 0
+RGST_EXPECTED_COLS = 3
+
 # Real mbdump table files carry no extension and are named exactly like
 # the Postgres table (e.g. `mbdump/release_group`). The test suite passes
 # its own `table_filenames` override to point at the `mb_*.sample.tsv`
@@ -96,6 +101,7 @@ DEFAULT_TABLE_FILENAMES = {
     "release_group_meta": "release_group_meta",
     "artist_credit_name": "artist_credit_name",
     "artist": "artist",
+    "release_group_secondary_type_join": "release_group_secondary_type_join",
 }
 
 
@@ -253,23 +259,54 @@ def _load_artist(conn, path):
     return loaded, skipped
 
 
+def _load_release_group_secondary_type_join(conn, path):
+    insert_sql = "INSERT INTO stg_release_group_secondary_type (rg_id) VALUES (?)"
+    loaded = skipped = 0
+    batch = []
+    conn.execute("DELETE FROM stg_release_group_secondary_type")
+    for line in iter_lines(path):
+        fields = line.split("\t")
+        if len(fields) != RGST_EXPECTED_COLS:
+            skipped += 1
+            continue
+        try:
+            rg_id = _parse_int(fields[RGST_COL_RELEASE_GROUP])
+        except ValueError:
+            skipped += 1
+            continue
+        if rg_id is None:
+            skipped += 1
+            continue
+        batch.append((rg_id,))
+        loaded += 1
+        if len(batch) >= BATCH_SIZE:
+            _flush(conn, insert_sql, batch)
+    _flush(conn, insert_sql, batch)
+    if skipped:
+        logger.warning(
+            "release_group_secondary_type_join: skipped %d malformed line(s)", skipped
+        )
+    return loaded, skipped
+
+
 _LOADERS = {
     "release_group": _load_release_group,
     "release_group_meta": _load_release_group_meta,
     "artist_credit_name": _load_artist_credit_name,
     "artist": _load_artist,
+    "release_group_secondary_type_join": _load_release_group_secondary_type_join,
 }
 
 
 def load_musicbrainz_staging(conn, mbdump_dir, table_filenames=None):
-    """Stream the four release-group-scoped mbdump table files under
+    """Stream the five release-group-scoped mbdump table files under
     `mbdump_dir` into SQLite staging tables, truncating each staging table
     first. Returns {table_name: {"loaded": int, "skipped": int}}.
 
     `table_filenames` optionally overrides the real mbdump file names
     (used by the test suite to point at the `mb_*.sample.tsv` fixtures).
 
-    All four tables load inside ONE transaction: a mid-load failure (missing
+    All five tables load inside ONE transaction: a mid-load failure (missing
     file, corrupt line, bad byte) rolls every table back to its pre-call
     state instead of leaving some tables holding this run's data and others
     holding the previous run's -- `materialize.py` has no way to detect that
@@ -306,7 +343,8 @@ def main():
         "--mbdump-dir",
         required=True,
         help="Path to the unpacked mbdump directory containing release_group, "
-        "release_group_meta, artist_credit_name, and artist table files.",
+        "release_group_meta, artist_credit_name, artist, and "
+        "release_group_secondary_type_join table files.",
     )
     parser.add_argument(
         "--db",

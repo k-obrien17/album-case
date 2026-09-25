@@ -27,7 +27,7 @@ curl -s https://data.metabrainz.org/pub/musicbrainz/data/fullexport/LATEST
 MB_DUMP_DIR="20260701-002146"   # substitute the value LATEST printed
 curl -O "https://data.metabrainz.org/pub/musicbrainz/data/fullexport/${MB_DUMP_DIR}/mbdump.tar.bz2"
 
-# Extract ONLY the four release-group-scoped tables this pipeline reads
+# Extract ONLY the five release-group-scoped tables this pipeline reads
 # (never `release`, edit history, or cover-art tables -- see
 # ingest_musicbrainz.py's module docstring). tar -x with explicit member
 # names extracts just those files, not the whole multi-GB archive.
@@ -35,10 +35,11 @@ tar -xjf mbdump.tar.bz2 \
     mbdump/release_group \
     mbdump/release_group_meta \
     mbdump/artist_credit_name \
-    mbdump/artist
+    mbdump/artist \
+    mbdump/release_group_secondary_type_join
 ```
 
-This produces an `mbdump/` directory containing the four extension-less
+This produces an `mbdump/` directory containing the five extension-less
 table files `ingest_musicbrainz.py --mbdump-dir` expects.
 
 ### ListenBrainz (popularity floor)

@@ -10,9 +10,10 @@ keyed `(entity_type='album', mbid)`:
       JOIN stg_artist          ON artist_id           (primary artist identity)
       LEFT JOIN stg_release_group_meta ON rg_id        (first release year)
 
-Only primary-type Album release-groups (release_group_primary_type id 1,
-per InsertDefaultRows.sql -- pinned in ingest_musicbrainz.py during Plan
-02) that clear NOTABILITY_MIN_LISTENERS survive the join.
+Only primary-type Album or EP release-groups with no secondary type
+(release_group_primary_type ids pinned below) that clear
+NOTABILITY_MIN_LISTENERS survive the join. Each row records release_type
+('Album' or 'EP').
 
 The whole join is one parameterized, set-based
 `INSERT ... SELECT ... ON CONFLICT(entity_type, mbid) DO UPDATE` statement
@@ -48,6 +49,20 @@ logger = logging.getLogger(__name__)
 # constant rather than a bare literal in the query below.
 ALBUM_PRIMARY_TYPE_ID = 1
 
+# release_group_primary_type id 3 = 'EP'. Not in InsertDefaultRows.sql, so
+# it's confirmed against the real dump's release_group_primary_type table
+# before each production build (plan 2026-09-24-album-catalog, Task 7).
+EP_PRIMARY_TYPE_ID = 3
+
+# A release group with ANY secondary type (Live, Compilation, Soundtrack,
+# Remix, ...) is excluded, matching web/api/_lp.ts's isAlbumOrEpReleaseGroup.
+_NO_SECONDARY_TYPE_SQL = """
+    NOT EXISTS (
+        SELECT 1 FROM stg_release_group_secondary_type st
+        WHERE st.rg_id = rg.rg_id
+    )
+"""
+
 # Dedup subquery for the primary (position=0) artist-credit-name row.
 # stg_artist_credit_name has no uniqueness constraint on (artist_credit,
 # position), so a duplicate position=0 row for the same artist_credit
@@ -71,7 +86,8 @@ _CANDIDATE_COUNT_SQL = f"""
     JOIN ({_PRIMARY_ARTIST_CREDIT_SQL}) acn
         ON acn.artist_credit = rg.artist_credit
     JOIN stg_artist a ON a.artist_id = acn.artist_id
-    WHERE rg.primary_type = ?
+    WHERE rg.primary_type IN (?, ?)
+      AND {_NO_SECONDARY_TYPE_SQL}
       AND pop.listener_count >= ?
 """
 # COUNT(DISTINCT rg.mbid) rather than COUNT(*): even with the dedup join
@@ -83,7 +99,7 @@ _CANDIDATE_COUNT_SQL = f"""
 _UPSERT_SQL = f"""
     INSERT INTO entities (
         entity_type, mbid, title, primary_artist_name, primary_artist_mbid,
-        release_year, notability_score, created_at, updated_at
+        release_year, notability_score, created_at, updated_at, release_type
     )
     SELECT
         'album' AS entity_type,
@@ -95,15 +111,18 @@ _UPSERT_SQL = f"""
         pop.listener_count AS notability_score,
         ? AS created_at,
         ? AS updated_at
+        , CASE WHEN rg.primary_type = ? THEN 'EP' ELSE 'Album' END AS release_type
     FROM stg_release_group rg
     JOIN stg_popularity pop ON pop.release_group_mbid = rg.mbid
     JOIN ({_PRIMARY_ARTIST_CREDIT_SQL}) acn
         ON acn.artist_credit = rg.artist_credit
     JOIN stg_artist a ON a.artist_id = acn.artist_id
     LEFT JOIN stg_release_group_meta rgm ON rgm.rg_id = rg.rg_id
-    WHERE rg.primary_type = ?
+    WHERE rg.primary_type IN (?, ?)
+      AND {_NO_SECONDARY_TYPE_SQL}
       AND pop.listener_count >= ?
     ON CONFLICT(entity_type, mbid) DO UPDATE SET
+        release_type = excluded.release_type,
         title = excluded.title,
         primary_artist_name = excluded.primary_artist_name,
         primary_artist_mbid = excluded.primary_artist_mbid,
@@ -133,7 +152,7 @@ def materialize_albums(conn, min_listeners=NOTABILITY_MIN_LISTENERS):
     with conn:
         conn.execute(
             _UPSERT_SQL,
-            (now, now, ALBUM_PRIMARY_TYPE_ID, min_listeners),
+            (now, now, EP_PRIMARY_TYPE_ID, ALBUM_PRIMARY_TYPE_ID, EP_PRIMARY_TYPE_ID, min_listeners),
         )
 
     after = conn.execute(
@@ -141,7 +160,7 @@ def materialize_albums(conn, min_listeners=NOTABILITY_MIN_LISTENERS):
     ).fetchone()[0]
 
     candidate_total = conn.execute(
-        _CANDIDATE_COUNT_SQL, (ALBUM_PRIMARY_TYPE_ID, min_listeners)
+        _CANDIDATE_COUNT_SQL, (ALBUM_PRIMARY_TYPE_ID, EP_PRIMARY_TYPE_ID, min_listeners)
     ).fetchone()[0]
 
     inserted = after - before

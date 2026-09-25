@@ -43,6 +43,7 @@ MB_FIXTURE_FILENAMES = {
     "release_group_meta": "mb_release_group_meta.sample.tsv",
     "artist_credit_name": "mb_artist_credit_name.sample.tsv",
     "artist": "mb_artist.sample.tsv",
+    "release_group_secondary_type_join": "mb_release_group_secondary_type_join.sample.tsv",
 }
 
 
@@ -171,6 +172,7 @@ def test_musicbrainz_release_group_mbid_is_lowercased_on_load(conn, tmp_path):
         "1985\t\\N\t\\N\t\\N\t\\N\t\\N\t2\t\\N\t\\N\t\t0\t"
         "2020-01-01 00:00:00+00\tf\t\\N\t\\N\n"
     )
+    (mbdump_dir / "release_group_secondary_type_join").write_text("")
 
     load_musicbrainz_staging(conn, mbdump_dir)
 
@@ -200,6 +202,7 @@ def test_musicbrainz_malformed_utf8_byte_is_skipped_and_counted_not_raised(conn,
         "1985\t\\N\t\\N\t\\N\t\\N\t\\N\t2\t\\N\t\\N\t\t0\t"
         "2020-01-01 00:00:00+00\tf\t\\N\t\\N\n"
     )
+    (mbdump_dir / "release_group_secondary_type_join").write_text("")
 
     stats = load_musicbrainz_staging(conn, mbdump_dir)  # must not raise
 
@@ -324,3 +327,19 @@ def test_listenbrainz_cli_help_shows_required_flags():
     assert result.returncode == 0
     assert "--popularity" in result.stdout
     assert "--db" in result.stdout
+
+
+def test_secondary_type_join_loads_release_group_ids_and_skips_malformed(conn):
+    stats = _load_mb_fixtures(conn)
+    assert stats["release_group_secondary_type_join"] == {"loaded": 1, "skipped": 1}
+    rows = conn.execute("SELECT rg_id FROM stg_release_group_secondary_type").fetchall()
+    assert [r["rg_id"] for r in rows] == [9999]
+
+
+def test_secondary_type_join_pinned_column_count_matches_fixture():
+    from pipeline.ingest_musicbrainz import RGST_COL_RELEASE_GROUP, RGST_EXPECTED_COLS
+
+    line = (FIXTURES_DIR / "mb_release_group_secondary_type_join.sample.tsv").read_text().splitlines()[0]
+    fields = line.split("\t")
+    assert len(fields) == RGST_EXPECTED_COLS
+    assert fields[RGST_COL_RELEASE_GROUP] == "9999"
