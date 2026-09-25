@@ -580,7 +580,7 @@ async function main(): Promise<void> {
 
   reselectCandidate();
 
-  function runMusicBrainzSearch(query: string): void {
+  function runMusicBrainzSearch(query: string, options: { live?: boolean } = {}): void {
     void (async () => {
       // Guard against a stale response landing after the user kept typing:
       // capture the query this fetch is FOR, and discard the result if the
@@ -595,7 +595,8 @@ async function main(): Promise<void> {
       // BOTH fail.
       const albumsPromise: Promise<Album[] | null> = (async () => {
         try {
-          const res = await fetch(`/api/search-album?q=${encodeURIComponent(query)}`);
+          const liveParam = options.live ? '&live=1' : '';
+          const res = await fetch(`/api/search-album?q=${encodeURIComponent(query)}${liveParam}`);
           if (!res.ok) throw new Error(String(res.status));
           const body = (await res.json()) as { albums: Album[] };
           return body.albums ?? [];

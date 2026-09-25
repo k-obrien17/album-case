@@ -21,7 +21,7 @@ export type RankListSearchDeps = {
   getGlobalRanked?: () => RankedAlbum[];
   getSearchQuery?: () => string;
   onSearchQueryChange?: (query: string) => void;
-  onSearchMusicBrainz?: (query: string) => void;
+  onSearchMusicBrainz?: (query: string, options?: { live?: boolean }) => void;
   getSearchResults?: () => SearchResultsState;
   onRateSearchResult?: (album: Album, rating: number) => void;
   onSelectArtist?: (artist: ArtistResult) => void;
@@ -199,6 +199,17 @@ export function createSearchSection(deps: RankListSearchDeps): RankListSearchSec
       return btn;
     };
 
+    // Forces a live MusicBrainz search, bypassing the catalog: covers
+    // same-day releases and anything below the catalog's popularity floor.
+    const searchEverywhereBtn = (): HTMLButtonElement => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'candidate-action rank-search-everywhere';
+      btn.textContent = 'Search everywhere';
+      btn.addEventListener('click', () => deps.onSearchMusicBrainz?.(query, { live: true }));
+      return btn;
+    };
+
     const results: SearchResultsState = deps.getSearchResults?.() ?? { status: 'idle' };
 
     if (results.status === 'idle') {
@@ -227,7 +238,7 @@ export function createSearchSection(deps: RankListSearchDeps): RankListSearchSec
       const none = document.createElement('p');
       none.className = 'rank-search-status';
       none.textContent = 'No albums or bands found.';
-      wrap.append(none);
+      wrap.append(none, searchEverywhereBtn());
       return wrap;
     }
 
@@ -259,6 +270,7 @@ export function createSearchSection(deps: RankListSearchDeps): RankListSearchSec
       wrap.append(msg);
     }
 
+    wrap.append(searchEverywhereBtn());
     return wrap;
   }
 

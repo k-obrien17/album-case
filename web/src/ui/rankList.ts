@@ -109,7 +109,7 @@ export type RankListOptions = {
    *  local matches (so an artist with one album already ranked can still be
    *  searched for their others). Omit to hide the MusicBrainz fallback
    *  entirely (plain "no matches" text only, and no prompt below matches). */
-  onSearchMusicBrainz?: (query: string) => void;
+  onSearchMusicBrainz?: (query: string, options?: { live?: boolean }) => void;
   /** The current MusicBrainz result state for the empty state to render.
    *  Omit (or return 'idle') to show only the initial "Search MusicBrainz"
    *  prompt. */
