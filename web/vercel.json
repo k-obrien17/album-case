@@ -1,5 +1,11 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "framework": "vite"
+  "framework": "vite",
+  "functions": {
+    "api/cron/refresh-catalog.ts": { "maxDuration": 60 }
+  },
+  "crons": [
+    { "path": "/api/cron/refresh-catalog", "schedule": "0 9 * * 1" }
+  ]
 }
