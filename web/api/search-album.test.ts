@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import handler from './search-album';
 
 function makeRes() {
@@ -27,8 +27,16 @@ function getReq(query: Record<string, string>) {
 }
 
 describe('/api/search-album GET', () => {
+  beforeEach(() => {
+    // Keep these tests on the MusicBrainz path even if the shell exports
+    // real Turso credentials.
+    vi.stubEnv('TURSO_DATABASE_URL', '');
+    vi.stubEnv('TURSO_AUTH_TOKEN', '');
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
   it('rejects non-GET methods', async () => {
