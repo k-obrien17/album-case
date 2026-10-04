@@ -1923,10 +1923,11 @@ MB_DUMP_DIR=$(curl -s https://data.metabrainz.org/pub/musicbrainz/data/fullexpor
 echo "dump: $MB_DUMP_DIR"
 curl -s "https://data.metabrainz.org/pub/musicbrainz/data/fullexport/${MB_DUMP_DIR}/mbdump.tar.bz2" \
   | tar -xjf - mbdump/release_group mbdump/release_group_meta mbdump/artist_credit_name \
-      mbdump/artist mbdump/release_group_secondary_type_join
+      mbdump/artist mbdump/release_group_secondary_type_join mbdump/release_group_primary_type
 ls -la mbdump/
+grep -P '\tEP\t' mbdump/release_group_primary_type
 ```
-Expected: five table files in `~/album-case-dump/mbdump/`, no `.tar.bz2` on disk. Expect this to take a long time (download plus single-threaded bzip2).
+Expected: six table files (the sixth only confirms EP's id; the grep line's first column must be 3, matching `EP_PRIMARY_TYPE_ID`, or stop and fix it before Step 4) in `~/album-case-dump/mbdump/`, no `.tar.bz2` on disk. Expect this to take a long time (download plus single-threaded bzip2).
 
 - [ ] **Step 3: Fetch and convert the ListenBrainz popularity data**
 
@@ -2027,10 +2028,10 @@ Expected: the live bundle name matches the local build. If Vercel rejects `maxDu
 
 ```bash
 for q in "kid a" "blue lines" "homogenic" "loveless" "illmatic"; do
-  curl -s -o /dev/null -w "%{time_total}s  $q\n" "https://album-case.vercel.app/api/search-album?q=$(printf %s "$q" | sed 's/ /%20/g')%20$RANDOM"
+  curl -s -o /dev/null -w "%{time_total}s  $q\n" "https://album-case.vercel.app/api/search-album?q=$(printf %s "$q" | sed 's/ /%20/g')&cb=$RANDOM"
 done
 ```
-Expected: median under 300ms (was 400-800ms). The random suffix defeats the edge cache; it only affects the last FTS word, so results may differ, but timing is what's measured. Report the numbers to Keith.
+Expected: median under 300ms (was 400-800ms). The `cb` parameter defeats the edge cache without touching `q` (a junk word in `q` would miss the catalog and time the MusicBrainz path instead). If the timings look like MusicBrainz, confirm the edge cache key includes `cb`. Report the numbers to Keith.
 
 - [ ] **Step 7: [Keith approves] Run the weekly job once by hand**
 

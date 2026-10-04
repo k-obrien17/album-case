@@ -25,18 +25,20 @@ curl -s https://data.metabrainz.org/pub/musicbrainz/data/fullexport/LATEST
 # -> e.g. 20260701-002146
 
 MB_DUMP_DIR="20260701-002146"   # substitute the value LATEST printed
-curl -O "https://data.metabrainz.org/pub/musicbrainz/data/fullexport/${MB_DUMP_DIR}/mbdump.tar.bz2"
 
-# Extract ONLY the five release-group-scoped tables this pipeline reads
-# (never `release`, edit history, or cover-art tables -- see
-# ingest_musicbrainz.py's module docstring). tar -x with explicit member
-# names extracts just those files, not the whole multi-GB archive.
-tar -xjf mbdump.tar.bz2 \
+# Stream the ~7GB tarball straight into tar so it never lands on disk, and
+# extract ONLY the release-group-scoped tables this pipeline reads (never
+# `release`, edit history, or cover-art tables -- see
+# ingest_musicbrainz.py's module docstring). release_group_primary_type is
+# not ingested; it's there to confirm EP's type id (EP_PRIMARY_TYPE_ID).
+curl -s "https://data.metabrainz.org/pub/musicbrainz/data/fullexport/${MB_DUMP_DIR}/mbdump.tar.bz2" \
+  | tar -xjf - \
     mbdump/release_group \
     mbdump/release_group_meta \
     mbdump/artist_credit_name \
     mbdump/artist \
-    mbdump/release_group_secondary_type_join
+    mbdump/release_group_secondary_type_join \
+    mbdump/release_group_primary_type
 ```
 
 This produces an `mbdump/` directory containing the five extension-less
