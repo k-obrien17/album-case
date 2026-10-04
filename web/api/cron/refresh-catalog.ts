@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient, type Client } from '@libsql/client';
-import { isAlbumOrEpReleaseGroup } from '../_lp.js';
+import { isAlbumOrEpReleaseGroup, MB_BASE, USER_AGENT } from '../_lp.js';
 import {
   CATALOG_SCHEMA_STATEMENTS,
   catalogUpsertStatement,
@@ -9,13 +9,14 @@ import {
   type SearchReleaseGroup,
 } from '../_catalog.js';
 
-const USER_AGENT = 'AlbumCase/0.1 (keith@totalemphasis.com)';
-const MB_BASE = 'https://musicbrainz.org/ws/2';
 const WINDOW_DAYS = 21;
 const PAGE_SIZE = 100;
-// Bounds a run to roughly 45s at MusicBrainz's 1 request/second limit, inside
-// the 60s maxDuration set in vercel.json.
 const MAX_PAGES = 40;
+// Stop starting new pages after this much wall time. One more page can still
+// take MB_TIMEOUT_MS plus its write, so this leaves headroom inside the 60s
+// maxDuration in vercel.json. Each page is saved as it arrives, so a run cut
+// short keeps everything it fetched.
+const TIME_BUDGET_MS = 40_000;
 const PAGE_DELAY_MS = 1100;
 const MB_TIMEOUT_MS = 8000;
 const IN_CHUNK = 100;
@@ -80,30 +81,10 @@ async function fetchPage(
   }
 }
 
-export async function refreshCatalog(deps: RefreshDeps): Promise<RefreshResult> {
-  for (const sql of CATALOG_SCHEMA_STATEMENTS) await deps.client.execute(sql);
-
-  const { from, to } = releaseWindow(deps.now());
-  const query = `firstreleasedate:[${from} TO ${to}] AND (primarytype:album OR primarytype:ep)`;
-
-  const groups: SearchReleaseGroup[] = [];
-  let pages = 0;
-  let total = Infinity;
-  let partial = false;
-  for (let offset = 0; offset < total && pages < MAX_PAGES; offset += PAGE_SIZE) {
-    if (pages > 0) await deps.sleep(PAGE_DELAY_MS);
-    try {
-      const pageResult = await fetchPage(deps, query, offset);
-      total = pageResult.count;
-      groups.push(...pageResult.groups);
-      pages += 1;
-    } catch {
-      partial = true;
-      break;
-    }
-  }
-  if (!partial && pages * PAGE_SIZE < total) partial = true; // hit MAX_PAGES
-
+async function saveGroups(
+  deps: RefreshDeps,
+  groups: SearchReleaseGroup[],
+): Promise<{ kept: number; added: number }> {
   const byMbid = new Map<string, CatalogAlbum>();
   for (const group of groups) {
     if (!isAlbumOrEpReleaseGroup(group)) continue;
@@ -124,14 +105,40 @@ export async function refreshCatalog(deps: RefreshDeps): Promise<RefreshResult> 
     const loadedAt = deps.now().getTime();
     await deps.client.batch(kept.map((a) => catalogUpsertStatement(a, loadedAt, 'keep-popularity')), 'write');
   }
+  return { kept: kept.length, added: kept.filter((a) => !existing.has(a.mbid)).length };
+}
 
-  return {
-    scanned: groups.length,
-    kept: kept.length,
-    added: kept.filter((a) => !existing.has(a.mbid)).length,
-    pages,
-    partial,
-  };
+export async function refreshCatalog(deps: RefreshDeps): Promise<RefreshResult> {
+  const startedAt = deps.now().getTime();
+  for (const sql of CATALOG_SCHEMA_STATEMENTS) await deps.client.execute(sql);
+
+  const { from, to } = releaseWindow(deps.now());
+  const query = `firstreleasedate:[${from} TO ${to}] AND (primarytype:album OR primarytype:ep)`;
+
+  const result: RefreshResult = { scanned: 0, kept: 0, added: 0, pages: 0, partial: false };
+  let total = Infinity;
+  for (let offset = 0; offset < total && result.pages < MAX_PAGES; offset += PAGE_SIZE) {
+    if (deps.now().getTime() - startedAt >= TIME_BUDGET_MS) break;
+    if (result.pages > 0) await deps.sleep(PAGE_DELAY_MS);
+    let groups: SearchReleaseGroup[];
+    try {
+      const pageResult = await fetchPage(deps, query, offset);
+      total = pageResult.count;
+      groups = pageResult.groups;
+    } catch (err) {
+      console.error('refresh-catalog page failed', { offset, err });
+      result.partial = true;
+      break;
+    }
+    result.pages += 1;
+    result.scanned += groups.length;
+    const saved = await saveGroups(deps, groups);
+    result.kept += saved.kept;
+    result.added += saved.added;
+  }
+  // Out of pages or time before covering the window.
+  if (result.pages * PAGE_SIZE < total) result.partial = true;
+  return result;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {

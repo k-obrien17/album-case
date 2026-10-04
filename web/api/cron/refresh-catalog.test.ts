@@ -88,6 +88,38 @@ describe('refreshCatalog', () => {
     expect(result).toMatchObject({ pages: 1, added: 1, partial: true });
     expect(sleep).toHaveBeenCalledTimes(1); // between pages, never before the first
   });
+
+  it('saves each page before fetching the next', async () => {
+    let savedBeforePage2 = false;
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce(page([group('new-radiohead')], 200))
+      .mockImplementationOnce(async () => {
+        const rows = await client.execute("SELECT mbid FROM catalog_albums WHERE mbid = 'new-radiohead'");
+        savedBeforePage2 = rows.rows.length === 1;
+        return page([group('newer-radiohead')], 200);
+      });
+
+    const result = await refreshCatalog({ client, fetchImpl, sleep: noSleep, now });
+
+    expect(savedBeforePage2).toBe(true);
+    expect(result).toMatchObject({ pages: 2, added: 2, partial: false });
+  });
+
+  it('stops at the time budget, keeps what it saved, and reports partial', async () => {
+    let clock = now().getTime();
+    const tick = () => new Date(clock);
+    const fetchImpl = vi.fn(async () => {
+      clock += 15_000; // each MusicBrainz page takes 15s of wall time
+      return page([group(`rg-${fetchImpl.mock.calls.length}`)], 1000);
+    });
+
+    const result = await refreshCatalog({ client, fetchImpl, sleep: noSleep, now: tick });
+
+    expect(fetchImpl.mock.calls.length).toBeLessThan(10);
+    expect(clock - now().getTime()).toBeLessThanOrEqual(45_000);
+    expect(result.partial).toBe(true);
+    expect(result.added).toBe(result.pages);
+  });
 });
 
 describe('GET /api/cron/refresh-catalog auth', () => {
