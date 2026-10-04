@@ -1922,8 +1922,11 @@ mkdir -p ~/album-case-dump && cd ~/album-case-dump
 MB_DUMP_DIR=$(curl -s https://data.metabrainz.org/pub/musicbrainz/data/fullexport/LATEST)
 echo "dump: $MB_DUMP_DIR"
 curl -s "https://data.metabrainz.org/pub/musicbrainz/data/fullexport/${MB_DUMP_DIR}/mbdump.tar.bz2" \
-  | tar -xjf - mbdump/release_group mbdump/release_group_meta mbdump/artist_credit_name \
+  | tar -xjf - mbdump/release_group mbdump/artist_credit_name \
       mbdump/artist mbdump/release_group_secondary_type_join mbdump/release_group_primary_type
+# release_group_meta ships in the derived archive, not mbdump.tar.bz2.
+curl -s "https://data.metabrainz.org/pub/musicbrainz/data/fullexport/${MB_DUMP_DIR}/mbdump-derived.tar.bz2" \
+  | tar -xjf - mbdump/release_group_meta
 ls -la mbdump/
 grep -P '\tEP\t' mbdump/release_group_primary_type
 ```

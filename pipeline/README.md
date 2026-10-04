@@ -34,11 +34,15 @@ MB_DUMP_DIR="20260701-002146"   # substitute the value LATEST printed
 curl -s "https://data.metabrainz.org/pub/musicbrainz/data/fullexport/${MB_DUMP_DIR}/mbdump.tar.bz2" \
   | tar -xjf - \
     mbdump/release_group \
-    mbdump/release_group_meta \
     mbdump/artist_credit_name \
     mbdump/artist \
     mbdump/release_group_secondary_type_join \
     mbdump/release_group_primary_type
+
+# release_group_meta (first release year) ships in the separate ~500MB
+# derived archive, not mbdump.tar.bz2.
+curl -s "https://data.metabrainz.org/pub/musicbrainz/data/fullexport/${MB_DUMP_DIR}/mbdump-derived.tar.bz2" \
+  | tar -xjf - mbdump/release_group_meta
 ```
 
 This produces an `mbdump/` directory containing the five extension-less
