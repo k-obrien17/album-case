@@ -7,10 +7,13 @@ import type { DiscoveredAlbum, ReleaseGroup } from './_lp.js';
 // Shared reference catalog of MusicBrainz albums and EPs (no secondary
 // types). No session_id: this is reference data, not per-owner data.
 // Triggers keep the external-content FTS index in sync on every write, so
-// neither the bulk load nor the weekly refresh needs a rebuild step.
+// neither the bulk load nor the weekly refresh needs a rebuild step. The
+// explicit integer id is the FTS content_rowid: an implicit rowid can be
+// renumbered by VACUUM, which would point the index at the wrong albums.
 export const CATALOG_SCHEMA_STATEMENTS: string[] = [
   `CREATE TABLE IF NOT EXISTS catalog_albums (
-    mbid TEXT PRIMARY KEY,
+    id INTEGER PRIMARY KEY,
+    mbid TEXT NOT NULL UNIQUE,
     title TEXT NOT NULL,
     primary_artist_name TEXT NOT NULL,
     primary_artist_mbid TEXT,
@@ -23,22 +26,22 @@ export const CATALOG_SCHEMA_STATEMENTS: string[] = [
     ON catalog_albums(primary_artist_mbid)`,
   `CREATE VIRTUAL TABLE IF NOT EXISTS catalog_albums_fts USING fts5(
     title, primary_artist_name,
-    content='catalog_albums', content_rowid='rowid',
+    content='catalog_albums', content_rowid='id',
     tokenize='unicode61 remove_diacritics 2'
   )`,
   `CREATE TRIGGER IF NOT EXISTS catalog_albums_ai AFTER INSERT ON catalog_albums BEGIN
     INSERT INTO catalog_albums_fts(rowid, title, primary_artist_name)
-      VALUES (new.rowid, new.title, new.primary_artist_name);
+      VALUES (new.id, new.title, new.primary_artist_name);
   END`,
   `CREATE TRIGGER IF NOT EXISTS catalog_albums_ad AFTER DELETE ON catalog_albums BEGIN
     INSERT INTO catalog_albums_fts(catalog_albums_fts, rowid, title, primary_artist_name)
-      VALUES ('delete', old.rowid, old.title, old.primary_artist_name);
+      VALUES ('delete', old.id, old.title, old.primary_artist_name);
   END`,
   `CREATE TRIGGER IF NOT EXISTS catalog_albums_au AFTER UPDATE ON catalog_albums BEGIN
     INSERT INTO catalog_albums_fts(catalog_albums_fts, rowid, title, primary_artist_name)
-      VALUES ('delete', old.rowid, old.title, old.primary_artist_name);
+      VALUES ('delete', old.id, old.title, old.primary_artist_name);
     INSERT INTO catalog_albums_fts(rowid, title, primary_artist_name)
-      VALUES (new.rowid, new.title, new.primary_artist_name);
+      VALUES (new.id, new.title, new.primary_artist_name);
   END`,
 ];
 
@@ -121,7 +124,7 @@ export async function searchCatalog(
     sql: `SELECT c.mbid, c.title, c.primary_artist_name, c.primary_artist_mbid,
                  c.release_year, c.listener_count, bm25(catalog_albums_fts) AS relevance
           FROM catalog_albums_fts
-          JOIN catalog_albums c ON c.rowid = catalog_albums_fts.rowid
+          JOIN catalog_albums c ON c.id = catalog_albums_fts.rowid
           WHERE catalog_albums_fts MATCH ?
           ORDER BY relevance
           LIMIT ?`,
