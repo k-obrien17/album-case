@@ -4,7 +4,10 @@ const { client } = await vi.hoisted(async () => {
   const { createClient } = await import('@libsql/client');
   return { client: createClient({ url: 'file::memory:' }) };
 });
-vi.mock('@libsql/client', () => ({ createClient: () => client }));
+// The route closes its client after each search; keep the shared test client open.
+vi.mock('@libsql/client', () => ({
+  createClient: () => ({ execute: (stmt: never) => client.execute(stmt), close: () => {} }),
+}));
 
 import handler from './search-album';
 import { CATALOG_SCHEMA_STATEMENTS, catalogUpsertStatement } from './_catalog';
@@ -140,5 +143,26 @@ describe('/api/search-album catalog-first', () => {
 
     expect(res.statusCode).toBe(200);
     expect((res.body as { albums: unknown[] }).albums).toHaveLength(2);
+    // A degraded answer must not be pinned at the edge for an hour.
+    expect(res.headers['Cache-Control']).toBe('no-store');
+  });
+
+  it('falls back to MusicBrainz when the catalog hangs', async () => {
+    vi.useFakeTimers();
+    try {
+      await seedCatalog(6);
+      const hang = vi.spyOn(client, 'execute').mockImplementation(() => new Promise(() => {}));
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mbResponse(['mb-1'])));
+
+      const pending = search({ q: 'radiohead' });
+      await vi.advanceTimersByTimeAsync(2000);
+      const res = await pending;
+      hang.mockRestore();
+
+      expect(res.statusCode).toBe(200);
+      expect((res.body as { albums: { mbid: string }[] }).albums.map((a) => a.mbid)).toEqual(['mb-1']);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@libsql/client';
-import { isAlbumOrEpReleaseGroup, type DiscoveredAlbum } from './_lp.js';
+import { isAlbumOrEpReleaseGroup, MB_BASE, USER_AGENT, type DiscoveredAlbum } from './_lp.js';
 import {
   mergeAlbums,
   searchCatalog,
@@ -9,8 +9,6 @@ import {
 } from './_catalog.js';
 import { withDbTimeout } from './_dbTimeout.js';
 
-const USER_AGENT = 'AlbumCase/0.1 (keith@totalemphasis.com)';
-const MB_BASE = 'https://musicbrainz.org/ws/2';
 const MAX_RESULTS = 10;
 const MAX_QUERY_LENGTH = 200;
 const MB_SEARCH_LIMIT = 50;
@@ -37,6 +35,8 @@ async function searchCatalogSafely(q: string): Promise<DiscoveredAlbum[]> {
     // Missing table (not loaded yet), timeout, or connection error: behave
     // exactly like the pre-catalog endpoint.
     return [];
+  } finally {
+    client.close();
   }
 }
 
@@ -100,6 +100,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   } catch {
     // Covers a non-ok MusicBrainz response and the abort on a hung upstream.
     if (catalogHits.length > 0) {
+      // Degraded answer: don't let the edge pin it for an hour.
+      res.setHeader('Cache-Control', 'no-store');
       res.status(200).json({ albums: catalogHits });
       return;
     }
