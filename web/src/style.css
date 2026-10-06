@@ -129,6 +129,32 @@ button:active {
 
 .view-filters::-webkit-scrollbar { display: none; }
 
+/* Haven't heard / Don't care: small text links at the bottom of every view. */
+.app-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin-top: auto;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-border-row);
+}
+
+.app-footer-link {
+  min-height: 44px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-faint);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.app-footer-link:hover,
+.app-footer-link-active { color: var(--color-accent); }
+
 /* .view-filters prefix: outranks the base .view-tab rules further down. */
 .view-filters .view-filter {
   flex-shrink: 0;

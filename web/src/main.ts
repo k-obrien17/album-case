@@ -254,7 +254,11 @@ async function main(): Promise<void> {
     },
   });
 
-  shell.append(heading, searchBar.element, syncEngine.bannerElement, nav, stage);
+  // Haven't heard / Don't care: reachable, but kept out of the main nav.
+  const footer = document.createElement('footer');
+  footer.className = 'app-footer';
+
+  shell.append(heading, searchBar.element, syncEngine.bannerElement, nav, stage, footer);
   app.textContent = '';
   app.append(shell);
 
@@ -1401,13 +1405,20 @@ async function main(): Promise<void> {
   function renderNav(): void {
     nav.textContent = '';
     const lists = rankingStore.getLists();
-    const listViews: Array<{ mode: ViewMode; label: string }> = [
+    const mainListViews: Array<{ mode: ViewMode; label: string }> = [
       { mode: 'ranked', label: `Ranked ${rankingStore.getState().ranked.length}` },
       { mode: 'wantToListen', label: `Want to listen ${lists.wantToListen.length}` },
+    ];
+    // Minimized: linked from the footer, and only shown as a filter while open.
+    const minorListViews: Array<{ mode: ViewMode; label: string }> = [
       { mode: 'notHeard', label: `Haven't heard ${lists.notHeard.length}` },
       { mode: 'dontCare', label: `Don't care ${lists.dontCare.length}` },
     ];
-    const onMyList = listViews.some((item) => item.mode === view);
+    const listViews = [
+      ...mainListViews,
+      ...minorListViews.filter((item) => item.mode === view),
+    ];
+    const onMyList = [...mainListViews, ...minorListViews].some((item) => item.mode === view);
 
     const tabButton = (label: string, active: boolean, onClick: () => void): HTMLButtonElement => {
       const btn = document.createElement('button');
@@ -1483,6 +1494,16 @@ async function main(): Promise<void> {
         const overflow = active.offsetLeft - filters.offsetLeft + active.offsetWidth - filters.clientWidth;
         if (overflow > 0) filters.scrollLeft = overflow + 16;
       }
+    }
+
+    footer.textContent = '';
+    for (const { mode, label } of minorListViews) {
+      const link = document.createElement('button');
+      link.type = 'button';
+      link.className = mode === view ? 'app-footer-link app-footer-link-active' : 'app-footer-link';
+      link.textContent = label;
+      link.addEventListener('click', () => showView(mode));
+      footer.append(link);
     }
   }
 
