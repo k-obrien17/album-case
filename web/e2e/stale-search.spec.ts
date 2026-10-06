@@ -19,15 +19,16 @@ test('a slow first search response never overwrites a faster later one', async (
   });
 
   await page.goto('/');
-  await page.getByRole('button', { name: /^Ranked list/ }).click();
 
+  // The search fires on its own once typing pauses; wait until the slow
+  // "aaa" request is actually in flight before moving on to "bbb".
   const searchBox = page.getByLabel('Search your albums or bands');
+  const aaaSent = page.waitForRequest((req) => req.url().includes('/api/search-album') && req.url().includes('q=aaa'));
   await searchBox.fill('aaa');
-  await page.getByRole('button', { name: 'Search MusicBrainz for "aaa"' }).click();
-  await expect(page.getByText('Searching MusicBrainz…')).toBeVisible();
+  await aaaSent;
+  await expect(page.getByText('Searching for new albums…')).toBeVisible();
 
   await searchBox.fill('bbb');
-  await page.getByRole('button', { name: 'Search MusicBrainz for "bbb"' }).click();
 
   await expect(page.getByText('Fresh Bbb Result')).toBeVisible();
 

@@ -102,8 +102,6 @@ export type RankListOptions = {
    *  filtered row back to its global index by mbid, so they are index-safe.
    *  Omit to disable search entirely. */
   getSearchQuery?: () => string;
-  /** Fired on every keystroke of the search input. */
-  onSearchQueryChange?: (query: string) => void;
   /** Fired when the user taps "Search MusicBrainz" -- from the no-local-
    *  matches empty state, or from the "search for more" prompt shown below
    *  local matches (so an artist with one album already ranked can still be
@@ -219,11 +217,9 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
   // this closure) -- referencing it here just stores the callback, it isn't
   // invoked until a search-result rating fails validation, well after
   // mountRankList has finished running.
-  const { buildSearchBox, buildSearchEmptyState, buildSearchMoreRow } = createSearchSection({
+  const { buildSearchEmptyState, buildSearchMoreRow } = createSearchSection({
     getRanked: opts.getRanked,
     getGlobalRanked: opts.getGlobalRanked,
-    getSearchQuery: opts.getSearchQuery,
-    onSearchQueryChange: opts.onSearchQueryChange,
     onSearchMusicBrainz: opts.onSearchMusicBrainz,
     getSearchResults: opts.getSearchResults,
     onRateSearchResult: opts.onRateSearchResult,
@@ -812,19 +808,6 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
   }
 
   function render(): void {
-    // Capture focus/caret state BEFORE clearing the container. render()
-    // rebuilds the DOM from scratch, so the search input is destroyed and
-    // recreated on every call (onSearchQueryChange triggers a re-render on
-    // every keystroke). Naively tracking focus via the input's
-    // own focus/blur listeners doesn't work: removing a focused element from
-    // the DOM (the `container.textContent = ''` below) fires a synchronous
-    // blur first, which would clear that state before it's ever read. Reading
-    // `document.activeElement` here, before anything is torn down, sidesteps
-    // that ordering problem entirely.
-    const prevSearchInput = container.querySelector<HTMLInputElement>('.rank-search-input');
-    const searchWasFocused = !!prevSearchInput && document.activeElement === prevSearchInput;
-    const searchCaret = searchWasFocused ? prevSearchInput!.selectionStart : null;
-
     container.textContent = '';
     indicator.remove();
 
@@ -846,9 +829,6 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
       layout.append(status);
       statusMessage = null;
     }
-
-    const searchBox = buildSearchBox();
-    if (searchBox) layout.append(searchBox);
 
     const listCol = document.createElement('div');
     listCol.className = 'rank-list-col';
@@ -877,6 +857,12 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
         const moreRow = buildSearchMoreRow(query.trim());
         if (moreRow) listEl.append(moreRow);
       }
+    }
+    if (filtered && ranked.length > 0) {
+      const label = document.createElement('p');
+      label.className = 'rank-search-section-label';
+      label.textContent = 'In your list';
+      listCol.append(label);
     }
     listCol.append(listEl);
 
@@ -910,18 +896,6 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
       ...(opts.hideCandidateColumn || filtered ? [listCol] : [candidateCol, listCol])
     );
     container.append(layout);
-
-    // Restore focus + caret to the search input, which render() just
-    // recreated from scratch. Without this, a keystroke-triggered re-render
-    // (onSearchQueryChange triggers one) drops focus after a single
-    // character and the box becomes unusable.
-    if (searchWasFocused) {
-      const input = container.querySelector<HTMLInputElement>('.rank-search-input');
-      if (input) {
-        input.focus();
-        if (searchCaret != null) input.setSelectionRange(searchCaret, searchCaret);
-      }
-    }
   }
 
   function teardown(): void {

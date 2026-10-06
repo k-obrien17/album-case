@@ -425,28 +425,54 @@ button:active {
   font-size: 0.72rem;
 }
 
-/* Search box: filters the ranked list live. Sits above the candidate/list
-   columns, full width. */
-.rank-search {
+/* App-wide search bar: the first control under the heading on every view.
+   Filters your ranked list and searches for new albums. */
+.app-search {
+  position: relative;
   display: flex;
 }
 
-.rank-search-input {
+.app-search-input {
   flex: 1 1 auto;
   min-width: 0;
-  min-height: 44px;
-  padding: 0 10px;
-  border: 1px solid var(--color-border-btn);
+  min-height: 52px;
+  padding: 0 52px 0 44px;
+  border: 2px solid var(--color-fg);
   border-radius: var(--radius-md);
-  background: var(--color-bg);
+  /* Inline magnifier, so no icon asset or innerHTML is needed. */
+  background: var(--color-bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23777' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-4-4'/%3E%3C/svg%3E") no-repeat 14px center;
   color: var(--color-fg);
   font-family: var(--font-mono);
-  font-size: 1rem;
+  font-size: 1.1rem;
 }
 
-.rank-search-input:focus {
+.app-search-input:focus {
   outline: none;
   border-color: var(--color-accent);
+}
+
+/* The bar draws its own clear button. */
+.app-search-input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+
+.app-search-clear {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 44px;
+  height: 44px;
+  border: none;
+  background: transparent;
+  color: var(--color-fg);
+  font: inherit;
+  font-size: 1.4rem;
+  cursor: pointer;
+}
+
+.app-search-clear[hidden] { display: none; }
+
+@media (max-width: 480px) {
+  #app { padding: 16px; }
+  .app-search-input { font-size: 1rem; }
 }
 
 /* Shown in place of the ranked list when a search query matches nothing
@@ -791,21 +817,12 @@ button.rank-rating:hover {
   text-overflow: ellipsis;
 }
 
-/* Wide screens: candidate to the right of the list, list takes the rest.
-   .rank-search is a third flex sibling in .rank-layout (see its own
-   comment: full width, above the candidate/list columns) -- without
-   flex-wrap + a forced 100% basis here, it sat in the same row as the
-   other two and starved .rank-list-col down to ~176px, collapsing
-   .rank-title to 0 width (one-character-per-line rendering at 768px). */
+/* Wide screens: candidate to the right of the list, list takes the rest. */
 @media (min-width: 720px) {
   .rank-layout {
     flex-direction: row-reverse;
     flex-wrap: wrap;
     align-items: flex-start;
-  }
-
-  .rank-search {
-    flex: 1 1 100%;
   }
 
   .candidate-col {

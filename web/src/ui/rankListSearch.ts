@@ -11,6 +11,10 @@ export type SearchResultsState =
   | { status: 'error' }
   | { status: 'done'; albums: Album[]; artists: ArtistResult[] };
 
+/** Shortest query that searches new albums automatically (main.ts debounces
+ *  it); anything shorter only filters your own list. */
+export const MIN_AUTO_SEARCH_CHARS = 3;
+
 export function subtitle(album: Album): string {
   const year = album.release_year != null ? String(album.release_year) : '';
   return year ? `${album.primary_artist_name} · ${year}` : album.primary_artist_name;
@@ -19,8 +23,6 @@ export function subtitle(album: Album): string {
 export type RankListSearchDeps = {
   getRanked: () => RankedAlbum[];
   getGlobalRanked?: () => RankedAlbum[];
-  getSearchQuery?: () => string;
-  onSearchQueryChange?: (query: string) => void;
   onSearchMusicBrainz?: (query: string, options?: { live?: boolean }) => void;
   getSearchResults?: () => SearchResultsState;
   onRateSearchResult?: (album: Album, rating: number) => void;
@@ -33,7 +35,6 @@ export type RankListSearchDeps = {
 };
 
 export type RankListSearchSection = {
-  buildSearchBox: () => HTMLElement | null;
   buildSearchEmptyState: (query: string) => HTMLLIElement;
   buildSearchMoreRow: (query: string) => HTMLLIElement | null;
 };
@@ -49,25 +50,6 @@ export type RankListSearchSection = {
  * buildMusicBrainzFallback are private, only reached through those three.
  */
 export function createSearchSection(deps: RankListSearchDeps): RankListSearchSection {
-  function buildSearchBox(): HTMLElement | null {
-    if (!deps.onSearchQueryChange) return null;
-    const wrap = document.createElement('div');
-    wrap.className = 'rank-search';
-
-    const input = document.createElement('input');
-    input.type = 'search';
-    input.className = 'rank-search-input';
-    input.placeholder = 'Search your albums or bands';
-    input.setAttribute('aria-label', 'Search your albums or bands');
-    input.value = deps.getSearchQuery?.() ?? '';
-    input.addEventListener('input', () => {
-      deps.onSearchQueryChange?.(input.value);
-    });
-    wrap.append(input);
-
-    return wrap;
-  }
-
   /** One MusicBrainz result row: title/artist/year, plus either a rating
    *  input (add-at-rating) or "Already in your list" when the album is
    *  already ranked. Checked against the GLOBAL ranked list (never the
@@ -212,15 +194,19 @@ export function createSearchSection(deps: RankListSearchDeps): RankListSearchSec
 
     const results: SearchResultsState = deps.getSearchResults?.() ?? { status: 'idle' };
 
-    if (results.status === 'idle') {
-      wrap.append(searchBtn(`Search MusicBrainz for "${query}"`));
+    if (results.status === 'idle' && query.length < MIN_AUTO_SEARCH_CHARS) {
+      const hint = document.createElement('p');
+      hint.className = 'rank-search-status';
+      hint.textContent = 'Keep typing to search for new albums.';
+      wrap.append(hint);
       return wrap;
     }
 
-    if (results.status === 'loading') {
+    // Idle at full length means the debounced search is about to fire.
+    if (results.status === 'idle' || results.status === 'loading') {
       const loading = document.createElement('p');
       loading.className = 'rank-search-status';
-      loading.textContent = 'Searching MusicBrainz…';
+      loading.textContent = 'Searching for new albums…';
       wrap.append(loading);
       return wrap;
     }
@@ -229,7 +215,7 @@ export function createSearchSection(deps: RankListSearchDeps): RankListSearchSec
       const err = document.createElement('p');
       err.className = 'rank-search-status';
       err.textContent = "Couldn't reach MusicBrainz. Try again.";
-      wrap.append(err, searchBtn(`Search MusicBrainz for "${query}"`));
+      wrap.append(err, searchBtn('Try again'));
       return wrap;
     }
 
@@ -245,7 +231,7 @@ export function createSearchSection(deps: RankListSearchDeps): RankListSearchSec
     if (results.albums.length > 0) {
       const label = document.createElement('p');
       label.className = 'rank-search-section-label';
-      label.textContent = 'Albums';
+      label.textContent = 'Add to your list';
       const albumsList = document.createElement('ul');
       albumsList.className = 'rank-search-results';
       for (const album of results.albums) albumsList.append(buildSearchResultRow(album));
@@ -289,24 +275,19 @@ export function createSearchSection(deps: RankListSearchDeps): RankListSearchSec
     return empty;
   }
 
-  /** Shown below local matches when filtered: lets the player search
-   *  MusicBrainz for more albums by/matching `query` even though the local
-   *  filter already found something -- otherwise an artist with one album
-   *  already ranked has no way to reach the MusicBrainz fallback, since a
-   *  local match always exists once any of their albums is ranked. Returns
-   *  null when MusicBrainz search is disabled. */
+  /** Shown below local matches when filtered: new-album results for `query`
+   *  even though the local filter already found something -- otherwise an
+   *  artist with one album already ranked could never surface their others.
+   *  Returns null when MusicBrainz search is disabled. */
   function buildSearchMoreRow(query: string): HTMLLIElement | null {
     const fallback = buildMusicBrainzFallback(query);
     if (!fallback) return null;
 
     const li = document.createElement('li');
     li.className = 'rank-empty rank-search-more';
-
-    const message = document.createElement('p');
-    message.textContent = `Search MusicBrainz for more albums matching "${query}".`;
-    li.append(message, fallback);
+    li.append(fallback);
     return li;
   }
 
-  return { buildSearchBox, buildSearchEmptyState, buildSearchMoreRow };
+  return { buildSearchEmptyState, buildSearchMoreRow };
 }

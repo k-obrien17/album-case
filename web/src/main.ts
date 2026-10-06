@@ -15,6 +15,8 @@ import {
   type SavedLists,
 } from './lists';
 import { mountRankList, type SearchResultsState } from './ui/rankList';
+import { MIN_AUTO_SEARCH_CHARS } from './ui/rankListSearch';
+import { createSearchBar } from './ui/searchBar';
 import { searchArtists, type ArtistResult } from './artistSearch';
 import { mountArtistBatchView } from './ui/artistBatchView';
 import { mountSpeedRound } from './ui/speedRound';
@@ -208,6 +210,13 @@ async function main(): Promise<void> {
   let selectingArtistMbid: string | null = null;
   let artistSelectMessage: string | null = null;
 
+  // The app-wide search bar shows results in the ranked view. Typing from any
+  // other view jumps there and remembers where you came from, so clearing
+  // the search (Esc / ×) takes you back.
+  let viewBeforeSearch: ViewMode | null = null;
+  let autoSearchTimer: ReturnType<typeof setTimeout> | null = null;
+  const AUTO_SEARCH_DELAY_MS = 500;
+
   // Curated-list browsing (curatedLists.ts): which list (if any) is selected,
   // which row (if any) is mid-resolve, and a message tied to a specific row.
   let selectedCuratedListId: string | null = null;
@@ -235,7 +244,20 @@ async function main(): Promise<void> {
   const stage = document.createElement('div');
   stage.className = 'app-stage';
 
-  shell.append(heading, syncEngine.bannerElement, nav, stage);
+  const searchBar = createSearchBar({
+    onInput: handleSearchInput,
+    onClear: () => {
+      const back = viewBeforeSearch;
+      resetSearch();
+      if (back && back !== view) showView(back);
+      else {
+        if (view === 'ranked') rankList.render();
+        renderNav();
+      }
+    },
+  });
+
+  shell.append(heading, searchBar.element, syncEngine.bannerElement, nav, stage);
   app.textContent = '';
   app.append(shell);
 
@@ -541,8 +563,7 @@ async function main(): Promise<void> {
     // restoreArtist / the old artist-search flow this replaces.
     if (!candidate) reselectCandidate();
 
-    searchQuery = '';
-    searchResults = { status: 'idle' };
+    resetSearch();
     batchArtistMbid = artist.mbid;
     showView('artistBatch');
   }
@@ -579,6 +600,44 @@ async function main(): Promise<void> {
   }
 
   reselectCandidate();
+
+  function handleSearchInput(query: string): void {
+    searchQuery = query;
+    searchResults = { status: 'idle' }; // a new query invalidates old results
+    artistSelectMessage = null; // and any leftover band-selection message
+    if (autoSearchTimer) clearTimeout(autoSearchTimer);
+    autoSearchTimer = null;
+
+    const trimmed = query.trim();
+    if (trimmed && view !== 'ranked') {
+      viewBeforeSearch = view;
+      showView('ranked');
+    } else {
+      rankList.render();
+      renderNav();
+    }
+
+    // Search new albums once typing pauses. runMusicBrainzSearch discards a
+    // response if the query has moved on by the time it lands.
+    if (trimmed.length >= MIN_AUTO_SEARCH_CHARS) {
+      autoSearchTimer = setTimeout(() => {
+        autoSearchTimer = null;
+        if (view === 'ranked' && searchQuery.trim() === trimmed) runMusicBrainzSearch(trimmed);
+      }, AUTO_SEARCH_DELAY_MS);
+    }
+  }
+
+  /** Clears the query, results, pending auto-search and the bar's text. Does
+   *  not render or navigate; callers do. */
+  function resetSearch(): void {
+    if (autoSearchTimer) clearTimeout(autoSearchTimer);
+    autoSearchTimer = null;
+    searchQuery = '';
+    searchResults = { status: 'idle' };
+    artistSelectMessage = null;
+    viewBeforeSearch = null;
+    searchBar.setValue('');
+  }
 
   function runMusicBrainzSearch(query: string, options: { live?: boolean } = {}): void {
     void (async () => {
@@ -623,19 +682,12 @@ async function main(): Promise<void> {
     getRanked: () => filterAlbums(rankingStore.getState().ranked, searchQuery),
     getGlobalRanked: () => rankingStore.getState().ranked,
     getSearchQuery: () => searchQuery,
-    onSearchQueryChange: (query) => {
-      searchQuery = query;
-      searchResults = { status: 'idle' }; // a new query invalidates old results
-      artistSelectMessage = null; // and any leftover band-selection message
-      rankList.render();
-    },
     onSearchMusicBrainz: runMusicBrainzSearch,
     getSearchResults: () => searchResults,
     onRateSearchResult: (album, rating) => {
       rateAlbum(rankingStore, album, rating);
 
-      searchQuery = '';
-      searchResults = { status: 'idle' };
+      resetSearch();
       persistRankingState();
       persistLists();
       reselectCandidate();
@@ -1282,6 +1334,8 @@ async function main(): Promise<void> {
   }
 
   function showView(next: ViewMode): void {
+    // Results only render in the ranked view; leaving it ends the search.
+    if (next !== 'ranked' && searchQuery) resetSearch();
     if (view === 'backlog' && next !== 'backlog') backlogUndo = null;
     // Leaving the drag view: cancel any in-flight drag / listeners.
     if (view === 'ranked' && next !== 'ranked') {
@@ -1318,6 +1372,9 @@ async function main(): Promise<void> {
   }
 
   function renderNav(): void {
+    // Compact (two tabs + More) on the default screen and while searching,
+    // so search results aren't pushed below the fold by the full menu.
+    const compact = view === 'backlog' || searchQuery.trim() !== '';
     nav.textContent = '';
     const more = document.createElement('details');
     more.className = 'nav-more';
@@ -1344,7 +1401,7 @@ async function main(): Promise<void> {
       btn.className = mode === view ? 'view-tab view-tab-active' : 'view-tab';
       btn.textContent = label;
       btn.addEventListener('click', () => showView(mode));
-      if (mode === 'backlog' || mode === 'ranked' || view !== 'backlog') nav.append(btn);
+      if (mode === 'backlog' || mode === 'ranked' || !compact) nav.append(btn);
       else moreItems.append(btn);
     }
 
@@ -1357,7 +1414,7 @@ async function main(): Promise<void> {
     bulkDiscoverBtn.addEventListener('click', () => {
       void handleBulkDiscover();
     });
-    if (view === 'backlog') moreItems.append(bulkDiscoverBtn);
+    if (compact) moreItems.append(bulkDiscoverBtn);
     else nav.append(bulkDiscoverBtn);
 
     const exportBtn = document.createElement('button');
@@ -1366,7 +1423,7 @@ async function main(): Promise<void> {
     exportBtn.textContent = 'Export backup';
     exportBtn.title = 'Download your ranking and lists as a JSON file';
     exportBtn.addEventListener('click', handleExportBackup);
-    if (view === 'backlog') {
+    if (compact) {
       moreItems.append(exportBtn);
       nav.append(more);
     } else nav.append(exportBtn);
