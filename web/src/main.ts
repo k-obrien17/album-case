@@ -450,9 +450,15 @@ async function main(): Promise<void> {
         renderArtistBatchView();
       },
       onRemoveRanked: (album) => {
+        rememberRemoval();
         setAside(rankingStore, album, 'dontCare');
         persistLists();
         persistRankingState();
+        renderArtistBatchView();
+        renderNav();
+      },
+      onUndoRemove: () => {
+        if (!undoRemoval()) return;
         renderArtistBatchView();
         renderNav();
       },
@@ -601,6 +607,24 @@ async function main(): Promise<void> {
 
   reselectCandidate();
 
+  // The list as it was before the last ranked-row removal (×), for its Undo
+  // toast. Same whole-state snapshot approach as backlogUndo.
+  let removeUndo: { state: RankingState; lists: SavedLists } | null = null;
+
+  function rememberRemoval(): void {
+    removeUndo = { state: rankingStore.getState(), lists: rankingStore.getLists() };
+  }
+
+  function undoRemoval(): boolean {
+    if (!removeUndo) return false;
+    rankingStore.setState(removeUndo.state);
+    rankingStore.setLists(removeUndo.lists);
+    removeUndo = null;
+    persistLists();
+    persistRankingState();
+    return true;
+  }
+
   function handleSearchInput(query: string): void {
     searchQuery = query;
     searchResults = { status: 'idle' }; // a new query invalidates old results
@@ -738,9 +762,16 @@ async function main(): Promise<void> {
       rankList.render();
     },
     onRemoveRanked: (album) => {
+      rememberRemoval();
       setAside(rankingStore, album, 'dontCare');
       persistLists();
       persistRankingState();
+      reselectCandidate();
+      rankList.render();
+      renderNav();
+    },
+    onUndoRemove: () => {
+      if (!undoRemoval()) return;
       reselectCandidate();
       rankList.render();
       renderNav();

@@ -40,6 +40,9 @@ export type RankListOptions = {
   onReorder: (from: number, to: number) => void;
   /** Remove a ranked album from the list and keep it out of future candidates. */
   onRemoveRanked?: (album: Album) => void;
+  /** Restores the list as it was before the last onRemoveRanked. When set,
+   *  removal is one tap with an Undo toast instead of a confirm dialog. */
+  onUndoRemove?: () => void;
   /** Move the album currently at global index `from` to post-removal global
    *  index `to`. Unlike `onReorder`, both indices are always in the full
    *  global ranked array's space, never a filtered subset's -- this powers
@@ -183,6 +186,7 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
   indicator.setAttribute('aria-hidden', 'true');
 
   let statusMessage: string | null = null;
+  let statusAction: { label: string; onClick: () => void } | null = null;
   // Active assisted this-or-that placement (long lists only). Reset whenever
   // the candidate changes or the list drops below the assist threshold.
   let assist: AssistPlacement | null = null;
@@ -325,13 +329,16 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
       removeBtn.className = 'rank-remove';
       removeBtn.setAttribute('aria-label', `Remove ${album.title} from ranked list`);
       removeBtn.textContent = '×';
-      // A single tap here used to remove-and-blacklist immediately with no
-      // way back short of hunting through the "Don't care" tab. Require
-      // confirmation so a mis-tap can't silently exile an album.
+      // A mis-tap must never silently exile an album: with an undo handler
+      // it's one tap plus an Undo toast, otherwise a confirm dialog.
       removeBtn.addEventListener('click', () => {
-        if (!window.confirm(`Remove "${album.title}" from your ranked list?`)) return;
+        const undo = opts.onUndoRemove;
+        if (!undo && !window.confirm(`Remove "${album.title}" from your ranked list?`)) return;
         opts.onRemoveRanked?.(album);
-        showStatus(`Removed "${album.title}". Find it under Don't care to rate it back in.`);
+        showStatus(
+          `Removed "${album.title}". Find it under Don't care to rate it back in.`,
+          undo ? { label: 'Undo', onClick: undo } : undefined
+        );
       });
       li.append(removeBtn);
     }
@@ -847,11 +854,27 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     layout.className = 'rank-layout';
 
     if (statusMessage) {
-      const status = document.createElement('p');
-      status.className = 'rank-status';
-      status.textContent = statusMessage;
+      const status = document.createElement('div');
+      // With an action (Undo) it's a toast pinned to the bottom of the
+      // screen, since the row that triggered it may be far down the list.
+      status.className = statusAction ? 'rank-status rank-status-toast' : 'rank-status';
+      status.setAttribute('role', 'status');
+      const text = document.createElement('span');
+      text.textContent = statusMessage;
+      status.append(text);
+      if (statusAction) {
+        const { label, onClick } = statusAction;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'rank-status-action';
+        btn.textContent = label;
+        btn.addEventListener('click', onClick);
+        status.append(btn);
+      }
       layout.append(status);
+      // One render only: the next change (including the undo itself) clears it.
       statusMessage = null;
+      statusAction = null;
     }
 
     const listCol = document.createElement('div');
@@ -931,8 +954,9 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     activeMicStop = null;
   }
 
-  function showStatus(message: string): void {
+  function showStatus(message: string, action?: { label: string; onClick: () => void }): void {
     statusMessage = message;
+    statusAction = action ?? null;
     render();
   }
 

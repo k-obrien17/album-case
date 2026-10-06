@@ -16,6 +16,7 @@ export type ArtistBatchViewOptions = {
   getPool: () => Album[];
   onReorder: (from: number, to: number) => void;
   onRemoveRanked?: (album: Album) => void;
+  onUndoRemove?: () => void;
   /** Move the album at global index `from` to post-removal global index
    *  `to`. Always global-space, regardless of this view's filtered
    *  rendering -- distinct from `onReorder`, which exists for the
@@ -242,6 +243,7 @@ export function mountArtistBatchView(
         opts.onSetRating?.(from, rating);
       },
       onRemoveRanked: opts.onRemoveRanked,
+      onUndoRemove: opts.onUndoRemove,
       onSetAside: () => {},
       onSkip: () => {},
       onBlockArtist: () => {},

@@ -796,6 +796,41 @@ button.rank-rating:hover {
   font-size: 0.85rem;
 }
 
+/* Undo toast: pinned to the bottom, since the row that triggered it may be
+   far down the list. */
+.rank-status-toast {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  z-index: 10;
+  max-width: 560px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 8px 8px 16px;
+  border: 1px solid var(--color-fg);
+  border-radius: var(--radius-md);
+  background: var(--color-fg);
+  color: var(--color-bg);
+}
+
+.rank-status-toast span { flex: 1; }
+
+.rank-status-action {
+  flex-shrink: 0;
+  min-width: 64px;
+  min-height: 44px;
+  border: 1px solid var(--color-bg);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-bg);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  cursor: pointer;
+}
+
 /* Insertion indicator: a thin accent line showing the drop position. */
 .rank-indicator {
   list-style: none;
