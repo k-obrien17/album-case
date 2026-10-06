@@ -698,6 +698,44 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     return actions;
   }
 
+  // Whether the candidate card's secondary controls are expanded. null until
+  // the owner toggles it: then the default is open on wide screens and closed
+  // on phones, where the sticky card would otherwise cover most of the list.
+  // Kept across re-renders, since render() rebuilds the card every time.
+  let extrasOpen: boolean | null = null;
+
+  function buildExtras(children: HTMLElement[]): HTMLDetailsElement {
+    const details = document.createElement('details');
+    details.className = 'candidate-more';
+    const wide = typeof window !== 'undefined' && window.matchMedia?.('(min-width: 720px)').matches;
+    details.open = extrasOpen ?? !!wide;
+    const summary = document.createElement('summary');
+    summary.className = 'candidate-more-toggle';
+    summary.textContent = 'More ways to rank';
+    details.append(summary, ...children);
+    details.addEventListener('toggle', () => {
+      extrasOpen = details.open;
+    });
+    return details;
+  }
+
+  /** A this-or-that button: album title, plus artist so two same-named
+   *  albums (or an unfamiliar title) are still recognizable. */
+  function buildAssistChoice(album: Album, onPick: () => void): HTMLButtonElement {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'assist-choice';
+    const title = document.createElement('span');
+    title.className = 'assist-choice-title';
+    title.textContent = album.title;
+    const artist = document.createElement('span');
+    artist.className = 'assist-choice-artist';
+    artist.textContent = album.primary_artist_name;
+    btn.append(title, artist);
+    btn.addEventListener('click', onPick);
+    return btn;
+  }
+
   /** A draggable candidate body (title + artist/year). touch-action:none via CSS. */
   function buildDragBody(album: Album): HTMLElement {
     const body = document.createElement('div');
@@ -725,9 +763,7 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     card.append(
       label,
       buildDragBody(album),
-      buildNumberPlace(),
-      ...(directRate ? [directRate] : []),
-      buildActions(album)
+      buildExtras([buildNumberPlace(), ...(directRate ? [directRate] : []), buildActions(album)])
     );
     return card;
   }
@@ -757,7 +793,7 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
 
     const label = document.createElement('p');
     label.className = 'candidate-label';
-    label.textContent = 'Which do you prefer?';
+    label.textContent = `Which do you prefer? · Step ${assistStep + 1} of ~${assistTotal}`;
 
     const opponent = assist ? assistOpponent(assist) : null;
     if (!opponent) {
@@ -771,23 +807,10 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     const choose = document.createElement('div');
     choose.className = 'assist-choose';
 
-    const preferCandidate = document.createElement('button');
-    preferCandidate.type = 'button';
-    preferCandidate.className = 'assist-choice';
-    preferCandidate.textContent = album.title;
-    preferCandidate.addEventListener('click', () => answerAssist(album.mbid));
-
-    const preferOpponent = document.createElement('button');
-    preferOpponent.type = 'button';
-    preferOpponent.className = 'assist-choice';
-    preferOpponent.textContent = opponent.title;
-    preferOpponent.addEventListener('click', () => answerAssist(opponent.mbid));
-
-    choose.append(preferCandidate, preferOpponent);
-
-    const progress = document.createElement('p');
-    progress.className = 'assist-progress';
-    progress.textContent = `Step ${assistStep + 1} of ~${assistTotal}`;
+    choose.append(
+      buildAssistChoice(album, () => answerAssist(album.mbid)),
+      buildAssistChoice(opponent, () => answerAssist(opponent.mbid))
+    );
 
     const hint = document.createElement('p');
     hint.className = 'assist-hint';
@@ -796,13 +819,14 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     const directRate = buildDirectRate(album);
     card.append(
       label,
-      progress,
       choose,
-      buildDragBody(album),
-      hint,
-      buildNumberPlace(),
-      ...(directRate ? [directRate] : []),
-      buildActions(album)
+      buildExtras([
+        buildDragBody(album),
+        hint,
+        buildNumberPlace(),
+        ...(directRate ? [directRate] : []),
+        buildActions(album),
+      ])
     );
     return card;
   }

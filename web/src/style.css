@@ -389,12 +389,6 @@ button:active {
 }
 
 /* Assisted this-or-that placement (long lists): two large prefer buttons. */
-.assist-progress {
-  margin: 0 0 4px;
-  color: var(--color-faint);
-  font-size: 0.72rem;
-}
-
 .assist-choose {
   display: flex;
   flex-wrap: wrap;
@@ -402,6 +396,11 @@ button:active {
 }
 
 .assist-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
   flex: 1 1 45%;
   min-height: 56px;
   padding: 8px 12px;
@@ -412,6 +411,37 @@ button:active {
   font-family: var(--font-mono);
   font-size: 0.85rem;
   cursor: pointer;
+}
+
+.assist-choice-title { font-weight: 600; }
+
+.assist-choice-artist {
+  color: var(--color-muted);
+  font-size: 0.72rem;
+}
+
+/* Secondary candidate controls (drag, place by number, rate, set aside):
+   collapsed by default on phones so the sticky card stays short. */
+/* Margins, not flex gap: <details> doesn't reliably lay out as flex. */
+.candidate-more > * + * { margin-top: 8px; }
+
+.candidate-more-toggle {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--color-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.candidate-more-toggle::-webkit-details-marker { display: none; }
+.candidate-more-toggle::after { content: ' +'; margin-left: 6px; }
+.candidate-more[open] > .candidate-more-toggle::after { content: ' −'; }
+
+.candidate-more-toggle:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .assist-choice:hover {
@@ -1036,4 +1066,35 @@ button.rank-rating:hover {
   border: 1px solid var(--color-border-row);
   border-radius: var(--radius-md);
   background: var(--color-bg);
+}
+
+/* Phones (kept last so it overrides the base .rank-row rules above): once
+   expanded, the card stops sticking so the list can scroll out
+   from under it. Rows put the title and subtitle on full-width lines and the
+   rating + buttons on one line beneath, instead of squeezing the text into a
+   narrow column beside the buttons. */
+@media (max-width: 719px) {
+  .candidate-col:has(.candidate-more[open]) { position: static; }
+
+  .rank-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) repeat(4, auto);
+    column-gap: 8px;
+    row-gap: 0;
+  }
+
+  .rank-row .rank-meta { display: contents; }
+  .rank-row .rank-num { grid-column: 1; grid-row: 1 / span 4; }
+  .rank-row .rank-title,
+  .rank-row .rank-sub { grid-column: 2 / -1; }
+  .rank-row .rank-title { grid-row: 1; }
+  .rank-row .rank-sub { grid-row: 2; }
+  .rank-row .rank-arranged { grid-column: 2 / -1; grid-row: 3; }
+  .rank-row .rank-overall-row,
+  .rank-row .rank-meta > .rank-rating,
+  .rank-row .rank-meta > .rank-rating-edit { grid-column: 2; grid-row: 4; }
+  .rank-row .rank-discover,
+  .rank-row .rank-lock,
+  .rank-row .rank-remove,
+  .rank-row .rank-grip { grid-row: 4; }
 }
