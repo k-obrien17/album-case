@@ -15,7 +15,7 @@ test('a rating changed in the artist-batch view is reflected back in the main ra
   });
 
   await page.goto('/');
-  await page.getByRole('button', { name: /^Ranked list/ }).click();
+  await page.getByRole('button', { name: /^My list/ }).click();
 
   // exact: true throughout -- "Fixture Album 1" is otherwise a substring
   // match of "Fixture Album 11" (the unranked candidate sharing this artist).

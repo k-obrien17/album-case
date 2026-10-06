@@ -20,7 +20,8 @@ test('removing a saved-list album requires confirmation and can be cancelled', a
 
   await page.goto('/');
   await page.locator('.nav-more summary').click();
-  await page.locator('.nav-more-items').getByRole('button', { name: /^Want to listen/ }).click();
+  await page.getByRole('button', { name: /^My list/ }).click();
+  await page.locator('.view-filters').getByRole('button', { name: /^Want to listen/ }).click();
 
   const titles = page.locator('.saved-title');
   await expect(titles).toHaveText(['Fixture Album 1', 'Fixture Album 2']);
@@ -39,7 +40,8 @@ test('confirming removal takes the album out of the saved list', async ({ page }
 
   await page.goto('/');
   await page.locator('.nav-more summary').click();
-  await page.locator('.nav-more-items').getByRole('button', { name: /^Want to listen/ }).click();
+  await page.getByRole('button', { name: /^My list/ }).click();
+  await page.locator('.view-filters').getByRole('button', { name: /^Want to listen/ }).click();
 
   const titles = page.locator('.saved-title');
   await expect(titles).toHaveText(['Fixture Album 1', 'Fixture Album 2']);

@@ -250,10 +250,7 @@ async function main(): Promise<void> {
       const back = viewBeforeSearch;
       resetSearch();
       if (back && back !== view) showView(back);
-      else {
-        if (view === 'ranked') rankList.render();
-        renderNav();
-      }
+      else if (view === 'ranked') rankList.render();
     },
   });
 
@@ -638,7 +635,6 @@ async function main(): Promise<void> {
       showView('ranked');
     } else {
       rankList.render();
-      renderNav();
     }
 
     // Search new albums once typing pauses. runMusicBrainzSearch discards a
@@ -1403,61 +1399,91 @@ async function main(): Promise<void> {
   }
 
   function renderNav(): void {
-    // Compact (two tabs + More) on the default screen and while searching,
-    // so search results aren't pushed below the fold by the full menu.
-    const compact = view === 'backlog' || searchQuery.trim() !== '';
     nav.textContent = '';
+    const lists = rankingStore.getLists();
+    const listViews: Array<{ mode: ViewMode; label: string }> = [
+      { mode: 'ranked', label: `Ranked ${rankingStore.getState().ranked.length}` },
+      { mode: 'wantToListen', label: `Want to listen ${lists.wantToListen.length}` },
+      { mode: 'notHeard', label: `Haven't heard ${lists.notHeard.length}` },
+      { mode: 'dontCare', label: `Don't care ${lists.dontCare.length}` },
+    ];
+    const onMyList = listViews.some((item) => item.mode === view);
+
+    const tabButton = (label: string, active: boolean, onClick: () => void): HTMLButtonElement => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = active ? 'view-tab view-tab-active' : 'view-tab';
+      btn.textContent = label;
+      btn.addEventListener('click', onClick);
+      return btn;
+    };
+
+    const tabs = document.createElement('div');
+    tabs.className = 'view-tabs';
+    tabs.append(
+      tabButton('Find albums', view === 'backlog', () => showView('backlog')),
+      // From another tab, My list opens the ranked list; it stays highlighted
+      // on all four list views below.
+      tabButton(`My list (${rankingStore.getState().ranked.length})`, onMyList, () => {
+        if (!onMyList) showView('ranked');
+      })
+    );
+
+    // Everything else lives behind More.
     const more = document.createElement('details');
     more.className = 'nav-more';
     const moreLabel = document.createElement('summary');
-    moreLabel.className = 'view-tab';
+    const moreModes: ViewMode[] = ['blockedArtists', 'speedRound', 'curatedLists'];
+    moreLabel.className = moreModes.includes(view) ? 'view-tab view-tab-active' : 'view-tab';
     moreLabel.textContent = 'More';
     const moreItems = document.createElement('div');
     moreItems.className = 'nav-more-items';
     more.append(moreLabel, moreItems);
-    const items: Array<{ mode: ViewMode; label: string }> = [
-      { mode: 'backlog', label: 'Find missing albums' },
-      { mode: 'ranked', label: `Ranked list (${rankingStore.getState().ranked.length})` },
-      { mode: 'wantToListen', label: `Want to listen (${rankingStore.getLists().wantToListen.length})` },
-      { mode: 'notHeard', label: `Haven't heard (${rankingStore.getLists().notHeard.length})` },
-      { mode: 'dontCare', label: `Don't care (${rankingStore.getLists().dontCare.length})` },
+
+    const moreViews: Array<{ mode: ViewMode; label: string }> = [
       { mode: 'blockedArtists', label: `Blocked artists (${rankingStore.getBlockedArtists().length})` },
       { mode: 'speedRound', label: 'Voice speed round' },
       { mode: 'curatedLists', label: 'Curated lists' },
     ];
-
-    for (const { mode, label } of items) {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = mode === view ? 'view-tab view-tab-active' : 'view-tab';
-      btn.textContent = label;
-      btn.addEventListener('click', () => showView(mode));
-      if (mode === 'backlog' || mode === 'ranked' || !compact) nav.append(btn);
-      else moreItems.append(btn);
+    for (const { mode, label } of moreViews) {
+      moreItems.append(tabButton(label, mode === view, () => showView(mode)));
     }
 
-    const bulkDiscoverBtn = document.createElement('button');
-    bulkDiscoverBtn.type = 'button';
-    bulkDiscoverBtn.className = 'view-tab';
-    bulkDiscoverBtn.textContent = bulkDiscoveryInFlight ? 'Discovering…' : 'Fill in more albums';
+    const bulkDiscoverBtn = tabButton(
+      bulkDiscoveryInFlight ? 'Discovering…' : 'Fill in more albums',
+      false,
+      () => void handleBulkDiscover()
+    );
     bulkDiscoverBtn.disabled = bulkDiscoveryInFlight;
     bulkDiscoverBtn.title = `Bulk-discover the remaining catalog for your top ${TOP_ARTIST_DISCOVERY_COUNT} ranked artists`;
-    bulkDiscoverBtn.addEventListener('click', () => {
-      void handleBulkDiscover();
-    });
-    if (compact) moreItems.append(bulkDiscoverBtn);
-    else nav.append(bulkDiscoverBtn);
 
-    const exportBtn = document.createElement('button');
-    exportBtn.type = 'button';
-    exportBtn.className = 'view-tab';
-    exportBtn.textContent = 'Export backup';
+    const exportBtn = tabButton('Export backup', false, handleExportBackup);
     exportBtn.title = 'Download your ranking and lists as a JSON file';
-    exportBtn.addEventListener('click', handleExportBackup);
-    if (compact) {
-      moreItems.append(exportBtn);
-      nav.append(more);
-    } else nav.append(exportBtn);
+
+    moreItems.append(bulkDiscoverBtn, exportBtn);
+    tabs.append(more);
+    nav.append(tabs);
+
+    // My list's filters: the ranked list and the three saved lists.
+    if (onMyList) {
+      const filters = document.createElement('div');
+      filters.className = 'view-filters';
+      for (const { mode, label } of listViews) {
+        const chip = tabButton(label, mode === view, () => showView(mode));
+        chip.classList.add('view-filter');
+        chip.setAttribute('aria-pressed', String(mode === view));
+        filters.append(chip);
+      }
+      nav.append(filters);
+      // The row can overflow at phone width: keep the active filter in view.
+      // Sets the row's own scrollLeft (not scrollIntoView, which would also
+      // scroll the page up to the nav on every re-render).
+      const active = filters.querySelector<HTMLElement>('.view-tab-active');
+      if (active) {
+        const overflow = active.offsetLeft - filters.offsetLeft + active.offsetWidth - filters.clientWidth;
+        if (overflow > 0) filters.scrollLeft = overflow + 16;
+      }
+    }
   }
 
   showView('backlog');

@@ -107,8 +107,42 @@ button:active {
 
 .view-switcher {
   display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Find albums / My list / More. */
+.view-tabs {
+  display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+/* My list's filters: one row that scrolls sideways on its own if it ever
+   overflows, rather than scrolling the page. */
+.view-filters {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.view-filters::-webkit-scrollbar { display: none; }
+
+/* .view-filters prefix: outranks the base .view-tab rules further down. */
+.view-filters .view-filter {
+  flex-shrink: 0;
+  padding: 0 8px;
+  border-color: transparent;
+  background: var(--color-bg-alt);
+  color: var(--color-muted);
+  font-size: 0.72rem;
+}
+
+.view-filters .view-filter.view-tab-active {
+  border-color: var(--color-accent);
+  background: var(--color-bg);
+  color: var(--color-accent);
 }
 
 .view-tab {

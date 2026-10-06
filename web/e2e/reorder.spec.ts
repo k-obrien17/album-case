@@ -8,7 +8,7 @@ test('dragging an existing row by its grip reorders the list and re-syncs', asyn
   });
 
   await page.goto('/');
-  await page.getByRole('button', { name: /^Ranked list/ }).click();
+  await page.getByRole('button', { name: /^My list/ }).click();
 
   const rows = page.locator('.rank-row .rank-title');
   await expect(rows).toHaveText(['Fixture Album 1', 'Fixture Album 2', 'Fixture Album 3']);

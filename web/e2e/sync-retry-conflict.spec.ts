@@ -7,7 +7,7 @@ import { ranked, snapshot } from './support/fixtures';
  *  "rate it directly" control, which also fires persistLists() alongside it
  *  and would make two saves race each other. */
 async function editRating(page: Page, title: string, rating: string): Promise<void> {
-  await page.getByRole('button', { name: /^Ranked list/ }).click();
+  await page.getByRole('button', { name: /^My list/ }).click();
   await page.getByLabel(`Edit rating for ${title}`).click();
   const input = page.getByLabel(`Rating for ${title}`);
   await input.fill(rating);

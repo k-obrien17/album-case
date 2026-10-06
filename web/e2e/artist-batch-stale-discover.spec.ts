@@ -19,7 +19,7 @@ test('leaving the artist-batch view before discovery resolves does not clobber t
   });
 
   await page.goto('/');
-  await page.getByRole('button', { name: /^Ranked list/ }).click();
+  await page.getByRole('button', { name: /^My list/ }).click();
 
   await page.getByRole('button', { name: 'View all 2 Fixture Artist 1 albums' }).click();
   await expect(page.getByRole('heading', { name: "Fixture Artist 1's albums" })).toBeVisible();

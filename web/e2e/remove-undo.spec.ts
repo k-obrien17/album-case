@@ -8,7 +8,7 @@ test('removing a ranked row is one tap and can be undone', async ({ page }) => {
   });
 
   await page.goto('/');
-  await page.getByRole('button', { name: /^Ranked list/ }).click();
+  await page.getByRole('button', { name: /^My list/ }).click();
 
   const rows = page.locator('.rank-row .rank-title');
   await expect(rows).toHaveText(['Fixture Album 1', 'Fixture Album 2']);
@@ -29,7 +29,7 @@ test('removal takes the row out of the ranked list and says where it went', asyn
   });
 
   await page.goto('/');
-  await page.getByRole('button', { name: /^Ranked list/ }).click();
+  await page.getByRole('button', { name: /^My list/ }).click();
 
   const rows = page.locator('.rank-row .rank-title');
   await expect(rows).toHaveText(['Fixture Album 1', 'Fixture Album 2']);
@@ -38,5 +38,5 @@ test('removal takes the row out of the ranked list and says where it went', asyn
 
   await expect(rows).toHaveText(['Fixture Album 2']);
   await expect(page.locator('.rank-status')).toContainText("Don't care");
-  await expect(page.getByRole('button', { name: /^Don't care \(1\)/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Don't care 1$/ })).toBeVisible();
 });
