@@ -78,14 +78,18 @@ try {
   //    same knob export-collect-albums.mjs and export-album-of-year.mjs
   //    already support) -- never Keith's live working copy.
   const [albumsOut, albumOfYearOut] = FILES.map((f) => `${KRO_CLONE_DIR}/${f}`);
+  // process.execPath, not the bare "node" string: cron's PATH doesn't
+  // include wherever node actually lives, so a PATH-based lookup for a
+  // nested spawn fails with ENOENT even though this script itself was
+  // launched fine via node-cron's absolute path.
   run(
-    "node",
+    process.execPath,
     ["--env-file=web/.env.local", "web/scripts/export-collect-albums.mjs"],
     ALBUM_CASE_DIR,
     { COLLECT_OUT: albumsOut },
   );
   run(
-    "node",
+    process.execPath,
     ["--env-file=web/.env.local", "web/scripts/export-album-of-year.mjs"],
     ALBUM_CASE_DIR,
     { COLLECT_OUT: albumOfYearOut },
