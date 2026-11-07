@@ -98,6 +98,12 @@ export type RankListOptions = {
   hideCandidateColumn?: boolean;
   /** Override the empty-ranked-list message. */
   emptyRankedMessage?: string;
+  /** Render rows exactly as the search-filtered mode does -- no drag grips,
+   *  no candidate column, drop-index machinery off -- while the mbid-resolved
+   *  rating and overall-rank editors stay active. For instances that render a
+   *  static subset (slice views) where a drop index against a partial list
+   *  would compute a wrong rating. Search chrome stays query-driven. */
+  suppressReorder?: boolean;
   /** The live search query. When non-empty, this instance is rendering a
    *  FILTERED subset: row grips and the candidate card are suppressed, because
    *  a drop index computed against a partial list would produce a wrong rating.
@@ -848,7 +854,11 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     // rating/overall-rank editors stay available -- both resolve a filtered
     // row back to its global index by mbid.
     const query = opts.getSearchQuery?.() ?? '';
-    const filtered = query.trim() !== '';
+    // `searching` gates search-specific chrome only; `filtered` gates the
+    // partial-list safety rules (grips/candidate/drop-index suppression),
+    // which slice views opt into via suppressReorder without a query.
+    const searching = query.trim() !== '';
+    const filtered = searching || opts.suppressReorder === true;
 
     const layout = document.createElement('div');
     layout.className = 'rank-layout';
@@ -884,7 +894,7 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     listEl.textContent = '';
     const ranked = opts.getRanked();
     if (ranked.length === 0) {
-      if (filtered) {
+      if (searching) {
         listEl.append(buildSearchEmptyState(query.trim()));
       } else {
         const empty = document.createElement('li');
@@ -900,12 +910,12 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
       ranked.forEach((album, i) =>
         listEl.append(buildRow(album, i, subRanks, lockedArtists, filtered))
       );
-      if (filtered) {
+      if (searching) {
         const moreRow = buildSearchMoreRow(query.trim());
         if (moreRow) listEl.append(moreRow);
       }
     }
-    if (filtered && ranked.length > 0) {
+    if (searching && ranked.length > 0) {
       const label = document.createElement('p');
       label.className = 'rank-search-section-label';
       label.textContent = 'In your list';
