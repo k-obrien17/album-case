@@ -1,5 +1,5 @@
 import './style.css';
-import type { Album, RankingState } from './ranking/types';
+import type { Album, RankedAlbum, RankingState } from './ranking/types';
 import { pickCandidate } from './seed';
 import { saveRanking } from './storage';
 import { filterAlbums } from './search';
@@ -21,6 +21,7 @@ import { MIN_AUTO_SEARCH_CHARS } from './ui/rankListSearch';
 import { createSearchBar } from './ui/searchBar';
 import { searchArtists, type ArtistResult } from './artistSearch';
 import { mountArtistBatchView } from './ui/artistBatchView';
+import { mountSliceView } from './ui/sliceView';
 import { mountSpeedRound } from './ui/speedRound';
 import { artistAlbumsFor } from './artistLockAlbums';
 import { renderSavedList } from './ui/savedList';
@@ -60,7 +61,7 @@ import { createRankingStore } from './rankingStore';
 import { rateAlbum, reRateAt, setRatingAt, directRate, setAside, placeAt } from './rankingActions';
 import { bootstrapApp } from './bootstrap';
 
-type ViewMode = 'ranked' | ListName | 'blockedArtists' | 'artistBatch' | 'speedRound' | 'curatedLists' | 'backlog';
+type ViewMode = 'ranked' | ListName | 'blockedArtists' | 'artistBatch' | 'speedRound' | 'curatedLists' | 'backlog' | 'slice';
 
 type RestoreSnapshot = { state: RankingState; lists: SavedLists };
 
@@ -506,6 +507,61 @@ async function main(): Promise<void> {
       },
       onClose: () => {
         batchArtistMbid = null;
+        showView('ranked');
+      },
+    });
+  }
+
+  // The open browse slice (year/decade/genre section). Resolved back to its
+  // albums by key on every render, so edits that move albums out of the
+  // slice are reflected immediately.
+  let sliceState: { dimension: GroupDimension; key: string; label: string } | null = null;
+  let sliceController: ReturnType<typeof mountSliceView> | null = null;
+
+  function sliceAlbumsFor(dimension: GroupDimension, key: string): RankedAlbum[] {
+    return (
+      groupRanked(rankingStore.getState().ranked, dimension).find((s) => s.key === key)?.albums ??
+      []
+    );
+  }
+
+  function renderSliceView(): void {
+    if (!sliceState) {
+      showView('ranked');
+      return;
+    }
+    const slice = sliceState;
+    sliceController?.teardown();
+    stage.textContent = '';
+    sliceController = mountSliceView(stage, {
+      label: slice.label,
+      getRanked: () => rankingStore.getState().ranked,
+      getSliceAlbums: () => sliceAlbumsFor(slice.dimension, slice.key),
+      onSetRating: (from, rating) => {
+        setRatingAt(rankingStore, from, rating);
+        persistRankingState();
+        renderSliceView();
+      },
+      onSetOverallRank: (from, to) => {
+        reRateAt(rankingStore, from, to);
+        persistRankingState();
+        renderSliceView();
+      },
+      onRemoveRanked: (album) => {
+        rememberRemoval();
+        setAside(rankingStore, album, 'dontCare');
+        persistLists();
+        persistRankingState();
+        renderSliceView();
+        renderNav();
+      },
+      onUndoRemove: () => {
+        if (!undoRemoval()) return;
+        renderSliceView();
+        renderNav();
+      },
+      onClose: () => {
+        sliceState = null;
         showView('ranked');
       },
     });
@@ -1393,6 +1449,11 @@ async function main(): Promise<void> {
     if (view === 'artistBatch' && next !== 'artistBatch') {
       artistBatchController?.teardown();
     }
+    if (view === 'slice' && next !== 'slice') {
+      sliceController?.teardown();
+      sliceController = null;
+      if (next !== 'ranked') sliceState = null; // Back keeps browse context; other nav clears it
+    }
     if (view === 'speedRound' && next !== 'speedRound') {
       speedRoundController?.teardown();
     }
@@ -1406,6 +1467,8 @@ async function main(): Promise<void> {
       renderBlockedArtists();
     } else if (view === 'artistBatch') {
       renderArtistBatchView();
+    } else if (view === 'slice') {
+      renderSliceView();
     } else if (view === 'speedRound') {
       renderSpeedRound();
     } else if (view === 'curatedLists') {
@@ -1424,10 +1487,13 @@ async function main(): Promise<void> {
    *  unranked stack already is the artist slice); other dimensions get a
    *  slice view (Task 4 of the browse plan). */
   function handleOpenSection(section: RankedSection): void {
-    if (section.key.startsWith('artist:') && section.albums[0]) {
-      handleOpenArtistBatch(section.albums[0]);
+    if (section.key.startsWith('artist:')) {
+      if (section.albums[0]) handleOpenArtistBatch(section.albums[0]);
+      return;
     }
-    // Year/decade/genre slices arrive with the slice view (Task 4).
+    if (browseDimension === 'list') return; // sections only exist while browsing
+    sliceState = { dimension: browseDimension, key: section.key, label: section.label };
+    showView('slice');
   }
 
   /** My list's stage: the Browse control plus either the flat ranked list
