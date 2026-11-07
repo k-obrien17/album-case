@@ -319,7 +319,7 @@ async function main(): Promise<void> {
     persistBlockedArtists();
     removeBlockedFromPriorityQueue();
     reselectCandidate();
-    rankList.showStatus(`No more ${album.primary_artist_name} albums.`);
+    showRankedStatus(`No more ${album.primary_artist_name} albums.`);
     renderNav();
   }
 
@@ -327,7 +327,7 @@ async function main(): Promise<void> {
     const artistName = album.primary_artist_name;
     const artistMbid = album.primary_artist_mbid;
     if (!artistMbid) {
-      rankList.showStatus(`Refresh Album Case to discover more ${artistName} albums.`);
+      showRankedStatus(`Refresh Album Case to discover more ${artistName} albums.`);
       return;
     }
     const knownMbids = pool
@@ -341,11 +341,11 @@ async function main(): Promise<void> {
       knownMbids
     );
     if (discoveredResult.status === 'error') {
-      rankList.showStatus(`Could not discover more ${artistName} albums.`);
+      showRankedStatus(`Could not discover more ${artistName} albums.`);
       return;
     }
     if (discoveredResult.status === 'empty') {
-      rankList.showStatus(`No more ${artistName} albums found.`);
+      showRankedStatus(`No more ${artistName} albums found.`);
       return;
     }
 
@@ -370,7 +370,7 @@ async function main(): Promise<void> {
       const deps = {
         discover: (name: string, mbid: string, known: string[]) =>
           discoverArtistDetailed(session.session_id, name, mbid, known),
-        onProgress: (msg: string) => rankList.showStatus(msg),
+        onProgress: (msg: string) => showRankedStatus(msg),
       };
       const result = await runBulkDiscovery(rankingStore.getState().ranked, pool, priorityQueue, deps);
       priorityQueue = result.priorityQueue;
@@ -407,7 +407,7 @@ async function main(): Promise<void> {
 
       reselectCandidate();
       rankList.render();
-      rankList.showStatus(summary);
+      showRankedStatus(summary);
     } finally {
       bulkDiscoveryInFlight = false;
       renderNav();
@@ -648,7 +648,7 @@ async function main(): Promise<void> {
 
   function handleOpenArtistBatch(album: Album): void {
     if (!album.primary_artist_mbid) {
-      rankList.showStatus(`Refresh Album Case to view ${album.primary_artist_name}'s albums.`);
+      showRankedStatus(`Refresh Album Case to view ${album.primary_artist_name}'s albums.`);
       return;
     }
     batchArtistMbid = album.primary_artist_mbid;
@@ -854,6 +854,23 @@ async function main(): Promise<void> {
   // flat view; the rest are section headers from groupRanked. A live search
   // always shows the list (search results render inside rankList).
   let browseDimension: 'list' | GroupDimension = 'list';
+  // One-shot status for the browse-sections view, cleared on its next
+  // render -- the browse-mode counterpart of rankList.showStatus, which is
+  // invisible whenever rankedListHost is detached from the stage.
+  let browseStatusMessage: string | null = null;
+
+  /** Status feedback for the ranked surface, wherever it currently renders:
+   *  the flat list's own status area when its host is on the stage, the
+   *  browse-sections status line otherwise (shown on the next ranked
+   *  render when another view is up). */
+  function showRankedStatus(message: string): void {
+    if (rankedListHost.isConnected) {
+      rankList.showStatus(message);
+      return;
+    }
+    browseStatusMessage = message;
+    if (view === 'ranked') renderRankedView();
+  }
 
   const rankList = mountRankList(rankedListHost, {
     getRanked: () => filterAlbums(rankingStore.getState().ranked, searchQuery),
@@ -1632,7 +1649,9 @@ async function main(): Promise<void> {
       dimension: browseDimension,
       sections: groupRanked(rankingStore.getState().ranked, browseDimension),
       onOpenSection: handleOpenSection,
+      statusMessage: browseStatusMessage,
     });
+    browseStatusMessage = null; // one render only, same convention as rankList
     stage.append(browseHost);
   }
 

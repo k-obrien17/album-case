@@ -48,6 +48,17 @@ describe('renderBrowseView', () => {
     expect(onOpenSection).toHaveBeenCalledWith(sections[0]);
   });
 
+  test('renders a status line when a message is passed, and none otherwise', () => {
+    const container = document.createElement('div');
+    const sections = [section('year:1994', '1994', [8])];
+    renderBrowseView(container, { dimension: 'year', sections, onOpenSection: () => {}, statusMessage: 'Refresh Album Case to view this artist.' });
+    const status = container.querySelector('[role="status"]');
+    expect(status).not.toBeNull();
+    expect(status!.textContent).toContain('Refresh Album Case');
+    renderBrowseView(container, { dimension: 'year', sections, onOpenSection: () => {} });
+    expect(container.querySelector('[role="status"]')).toBeNull();
+  });
+
   test('renders a message, not a blank container, when there are no sections', () => {
     const container = document.createElement('div');
     renderBrowseView(container, { dimension: 'genre', sections: [], onOpenSection: () => {} });

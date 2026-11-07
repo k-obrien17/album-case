@@ -4,6 +4,10 @@ export type BrowseViewOptions = {
   dimension: GroupDimension;
   sections: RankedSection[];
   onOpenSection: (section: RankedSection) => void;
+  /** One-shot feedback line (e.g. a section that can't open, a bulk-discovery
+   *  summary). rankList's own status can't show here: its host is detached
+   *  while sections are on screen. The caller owns the one-shot clearing. */
+  statusMessage?: string | null;
 };
 
 const EMPTY_MESSAGES: Record<GroupDimension, string> = {
@@ -20,6 +24,14 @@ const EMPTY_MESSAGES: Record<GroupDimension, string> = {
  */
 export function renderBrowseView(container: HTMLElement, opts: BrowseViewOptions): void {
   container.textContent = '';
+
+  if (opts.statusMessage) {
+    const status = document.createElement('p');
+    status.className = 'rank-status';
+    status.setAttribute('role', 'status');
+    status.textContent = opts.statusMessage;
+    container.append(status);
+  }
 
   if (opts.sections.length === 0) {
     const empty = document.createElement('p');
