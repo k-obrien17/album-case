@@ -15,6 +15,10 @@ export type BacklogViewOptions = {
   suggestion: Suggestion | null;
   suggestionLoading: boolean;
   suggestionUnavailable: boolean;
+  /** Active "Find more from <slice>" constraint, e.g. "1990s"; renders a
+   *  dismissable chip on the suggestions shelf. Null when unconstrained. */
+  sliceFilterLabel: string | null;
+  onClearSliceFilter: () => void;
   onSkipSuggestion: () => void;
   onShelf: (shelf: BacklogShelf) => void;
   onArtist: (id: string) => void;
@@ -131,6 +135,13 @@ export function renderBacklogView(container: HTMLElement, opts: BacklogViewOptio
 
   if (opts.shelf === 'suggestions') {
     wrap.append(text('h3', 'One album you might like'));
+    if (opts.sliceFilterLabel) {
+      const chip = text('div', `Only ${opts.sliceFilterLabel} `, 'suggestion-slice-chip');
+      const clear = button('×', opts.onClearSliceFilter, 'slice-filter:clear');
+      clear.setAttribute('aria-label', `Stop filtering to ${opts.sliceFilterLabel}`);
+      chip.append(clear);
+      wrap.append(chip);
+    }
     wrap.append(text('p', 'Mostly familiar artists, with an occasional related discovery. Skip moves on for this visit.', 'backlog-hint'));
     if (opts.suggestion) {
       const grid = document.createElement('ul');

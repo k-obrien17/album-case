@@ -1202,3 +1202,10 @@ button.rank-rating:hover {
 .browse-section-label { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
 .browse-section-meta { font-size: 0.75rem; opacity: 0.75; white-space: nowrap; }
 .browse-empty { font-size: 0.85rem; }
+
+/* Slice pages' discovery strip + the suggestion shelf's slice-filter chip. */
+.slice-candidates-section { margin-top: 20px; }
+.slice-candidates-empty { font-size: 0.85rem; }
+.slice-find-more { margin-top: 12px; }
+.suggestion-slice-chip { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 4px 4px 4px 12px; border: 1px solid var(--color-border-btn); border-radius: 999px; font-size: 0.8rem; margin-bottom: 8px; }
+.suggestion-slice-chip .backlog-button { min-height: 36px; border-radius: 999px; }

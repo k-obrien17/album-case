@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, test, vi } from 'vitest';
-import type { RankedAlbum } from '../ranking/types';
+import type { Album, RankedAlbum } from '../ranking/types';
+import type { Suggestion } from '../suggestions';
 import { mountSliceView, type SliceViewOptions } from './sliceView';
 
 function rankedAlbum(mbid: string, rating: number, year = 1994): RankedAlbum {
@@ -55,6 +56,71 @@ describe('mountSliceView', () => {
     const { container } = mount();
     expect(container.querySelectorAll('.rank-row')).toHaveLength(2);
     expect(container.querySelector('.rank-grip')).toBeNull();
+  });
+
+  test('renders candidate cards with rate, want-to-listen, and skip wired through', () => {
+    const plainAlbum = (mbid: string): Album => {
+      const { rating: _rating, ...rest } = rankedAlbum(mbid, 0);
+      return rest;
+    };
+    const toSuggestion = (album: Album, reason: string): Suggestion => ({ album, reason, kind: 'familiar', score: 1 });
+    const candidates = [
+      toSuggestion(plainAlbum('X'), 'Because you love 1994.'),
+      toSuggestion(plainAlbum('Y'), 'Another 1994 pick.'),
+    ];
+    const onRate = vi.fn();
+    const onWantToListen = vi.fn();
+    const onSkip = vi.fn();
+    const { container } = mount({
+      candidates: {
+        title: 'Unranked picks for 1994',
+        get: () => candidates,
+        onRate,
+        onWantToListen,
+        onSkip,
+        onFindMore: () => {},
+      },
+    });
+    const cards = container.querySelectorAll('.slice-candidates .backlog-card');
+    expect(cards).toHaveLength(2);
+    expect(cards[0].textContent).toContain('Title X');
+    expect(cards[0].textContent).toContain('Because you love 1994.');
+    const form = cards[0].querySelector('form')!;
+    const input = form.querySelector('input')!;
+    input.value = '8.25';
+    form.dispatchEvent(new Event('submit', { cancelable: true }));
+    expect(onRate).toHaveBeenCalledWith(candidates[0].album, 8.25);
+    const buttons = [...cards[0].querySelectorAll('button')];
+    buttons.find((b) => b.textContent === 'Want to listen')!.click();
+    expect(onWantToListen).toHaveBeenCalledWith(candidates[0].album);
+    buttons.find((b) => b.textContent === 'Skip')!.click();
+    expect(onSkip).toHaveBeenCalledWith(candidates[0].album);
+  });
+
+  test('with no candidates, shows a message and still offers Find more', () => {
+    const onFindMore = vi.fn();
+    const { container } = mount({
+      candidates: {
+        title: 'Unranked picks for 1994',
+        get: () => [],
+        onRate: () => {},
+        onWantToListen: () => {},
+        onSkip: () => {},
+        onFindMore,
+      },
+    });
+    expect(container.querySelector('.slice-candidates-empty')).not.toBeNull();
+    expect(container.querySelectorAll('.backlog-card')).toHaveLength(0);
+    const findMore = [...container.querySelectorAll('button')].find((b) => b.textContent!.startsWith('Find more'));
+    expect(findMore).not.toBeUndefined();
+    findMore!.click();
+    expect(onFindMore).toHaveBeenCalled();
+  });
+
+  test('renders no candidate strip when the slice has no candidate source', () => {
+    const { container } = mount();
+    expect(container.querySelector('.slice-candidates')).toBeNull();
+    expect([...container.querySelectorAll('button')].some((b) => b.textContent!.startsWith('Find more'))).toBe(false);
   });
 
   test('rating edit resolves ties against the global list, not the slice', () => {

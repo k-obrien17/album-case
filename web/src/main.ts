@@ -54,7 +54,7 @@ import type { CuratedAlbumEntry } from './data/curatedLists';
 import { buildArtistGaps, decideAlbum, albumKey } from './backlog';
 import { emptyBacklog } from '../shared/backlog';
 import { renderBacklogView, type BacklogShelf } from './ui/backlogView';
-import { suggestAlbum, loadSuggestionConnections, type Suggestion, type RelatedArtist } from './suggestions';
+import { suggestAlbum, loadSuggestionConnections, type Suggestion, type RelatedArtist, type SliceFilter } from './suggestions';
 import { normalize } from './curatedListMatch';
 import { createSyncEngine, resolveInitialState } from './syncEngine';
 import { createRankingStore } from './rankingStore';
@@ -517,6 +517,48 @@ async function main(): Promise<void> {
   // slice are reflected immediately.
   let sliceState: { dimension: GroupDimension; key: string; label: string } | null = null;
   let sliceController: ReturnType<typeof mountSliceView> | null = null;
+  // Candidates skipped on the open slice page, for this visit only.
+  let sliceSeen: Album[] = [];
+  // Active "Find more from <slice>" constraint on the backlog's Suggest one
+  // shelf. Session-only; cleared by its chip or by leaving the shelf.
+  let suggestionSliceFilter: { filter: SliceFilter; label: string } | null = null;
+
+  /** The SliceFilter a browse section key maps to, or null for pseudo-slices
+   *  (Year unknown, No genre yet, More genres) that have no candidate
+   *  source: their pages show no discovery strip. */
+  function sliceFilterFor(slice: { dimension: GroupDimension; key: string }): SliceFilter | null {
+    if (slice.key === 'year:unknown' || slice.key === 'genre:none' || slice.key === 'genre:more') return null;
+    if (slice.dimension === 'year') return { dimension: 'year', year: Number(slice.key.slice('year:'.length)) };
+    if (slice.dimension === 'decade') return { dimension: 'decade', decade: Number(slice.key.slice('decade:'.length)) };
+    return { dimension: 'genre', genre: slice.key.slice('genre:'.length) };
+  }
+
+  /** Up to 3 distinct slice-matching suggestions for the strip, excluding
+   *  this visit's skips. Same pool and signals as the backlog's Suggest one. */
+  function sliceCandidates(filter: SliceFilter): Suggestion[] {
+    const picks: Suggestion[] = [];
+    const seen = [...sliceSeen];
+    for (let i = 0; i < 3; i += 1) {
+      const pick = suggestAlbum({
+        pool: [...pool, ...suggestionAlbums, ...suggestionCuratedAlbums],
+        ranked: rankingStore.getState().ranked,
+        lists: rankingStore.getLists(),
+        preferred,
+        blocked: rankingStore.getBlockedArtists(),
+        skipped: skippedAlbums,
+        seen,
+        recentArtists: [],
+        related: suggestionRelated,
+        discoveryTurn: false,
+        curated: suggestionCurated,
+        sliceFilter: filter,
+      });
+      if (!pick) break;
+      picks.push(pick);
+      seen.push(pick.album);
+    }
+    return picks;
+  }
 
   function sliceAlbumsFor(dimension: GroupDimension, key: string): RankedAlbum[] {
     return (
@@ -564,7 +606,44 @@ async function main(): Promise<void> {
         sliceState = null;
         showView('ranked');
       },
+      candidates: buildSliceCandidatesOptions(slice),
     });
+  }
+
+  function buildSliceCandidatesOptions(slice: { dimension: GroupDimension; key: string; label: string }) {
+    const filter = sliceFilterFor(slice);
+    if (!filter) return undefined;
+    return {
+      title: `Unranked picks for ${slice.label}`,
+      get: () => sliceCandidates(filter),
+      onRate: (album: Album, rating: number) => {
+        rateAlbum(rankingStore, album, rating);
+        persistRankingState();
+        persistLists();
+        reselectCandidate();
+        renderSliceView();
+        renderNav();
+      },
+      onWantToListen: (album: Album) => {
+        rankingStore.setLists(decideAlbum(rankingStore.getLists(), album, 'wantToListen'));
+        persistLists();
+        reselectCandidate();
+        renderSliceView();
+        renderNav();
+      },
+      onSkip: (album: Album) => {
+        sliceSeen = [...sliceSeen, album];
+        renderSliceView();
+      },
+      onFindMore: () => {
+        suggestionSliceFilter = { filter, label: slice.label };
+        backlogShelf = 'suggestions';
+        chooseSuggestion();
+        if (suggestionUnavailable) suggestionLoaded = false;
+        void enrichSuggestions();
+        showView('backlog');
+      },
+    };
   }
 
   function handleOpenArtistBatch(album: Album): void {
@@ -1314,6 +1393,7 @@ async function main(): Promise<void> {
       recentArtists: suggestionState.recent, related: suggestionRelated,
       discoveryTurn: suggestionState.count % 4 === 3,
       curated: suggestionCurated,
+      sliceFilter: suggestionSliceFilter?.filter,
     }) };
   }
 
@@ -1369,8 +1449,15 @@ async function main(): Promise<void> {
       artists, lists: rankingStore.getLists(), selectedArtistId, shelf: backlogShelf, showOther: backlogShowOther,
       message: backlogMessage, canUndo: !!backlogUndo,
       suggestion: suggestionState.current, suggestionLoading, suggestionUnavailable,
+      sliceFilterLabel: suggestionSliceFilter?.label ?? null,
+      onClearSliceFilter: () => {
+        suggestionSliceFilter = null;
+        chooseSuggestion();
+        renderBacklog();
+      },
       onShelf: (shelf) => {
         backlogShelf = shelf;
+        if (shelf !== 'suggestions') suggestionSliceFilter = null;
         if (shelf === 'suggestions') {
           chooseSuggestion();
           if (suggestionUnavailable) suggestionLoaded = false;
@@ -1441,7 +1528,10 @@ async function main(): Promise<void> {
   function showView(next: ViewMode): void {
     // Results only render in the ranked view; leaving it ends the search.
     if (next !== 'ranked' && searchQuery) resetSearch();
-    if (view === 'backlog' && next !== 'backlog') backlogUndo = null;
+    if (view === 'backlog' && next !== 'backlog') {
+      backlogUndo = null;
+      suggestionSliceFilter = null; // the slice constraint never outlives the shelf
+    }
     // Leaving the drag view: cancel any in-flight drag / listeners.
     if (view === 'ranked' && next !== 'ranked') {
       rankList.teardown();
@@ -1493,6 +1583,7 @@ async function main(): Promise<void> {
     }
     if (browseDimension === 'list') return; // sections only exist while browsing
     sliceState = { dimension: browseDimension, key: section.key, label: section.label };
+    sliceSeen = [];
     showView('slice');
   }
 
