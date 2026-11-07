@@ -1193,3 +1193,12 @@ button.rank-rating:hover {
   .rank-row .rank-remove,
   .rank-row .rank-grip { grid-row: 4; }
 }
+
+/* Browse-by-category (groups.ts / browseView.ts): dimension chips reuse the
+   .view-filters chip styling; section headers are full-width tap targets. */
+.browse-dimensions { margin-bottom: 12px; }
+.browse-sections { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.browse-section { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 10px 12px; border: 1px solid var(--color-border-btn); border-radius: var(--radius-md); background: var(--color-bg); color: var(--color-fg); font: inherit; cursor: pointer; text-align: left; }
+.browse-section-label { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.browse-section-meta { font-size: 0.75rem; opacity: 0.75; white-space: nowrap; }
+.browse-empty { font-size: 0.85rem; }

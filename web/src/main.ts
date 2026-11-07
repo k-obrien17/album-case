@@ -15,6 +15,8 @@ import {
   type SavedLists,
 } from './lists';
 import { mountRankList, type SearchResultsState } from './ui/rankList';
+import { groupRanked, type GroupDimension, type RankedSection } from './ranking/groups';
+import { renderBrowseView } from './ui/browseView';
 import { MIN_AUTO_SEARCH_CHARS } from './ui/rankListSearch';
 import { createSearchBar } from './ui/searchBar';
 import { searchArtists, type ArtistResult } from './artistSearch';
@@ -250,7 +252,7 @@ async function main(): Promise<void> {
       const back = viewBeforeSearch;
       resetSearch();
       if (back && back !== view) showView(back);
-      else if (view === 'ranked') rankList.render();
+      else if (view === 'ranked') renderRankedView();
     },
   });
 
@@ -637,6 +639,11 @@ async function main(): Promise<void> {
     if (trimmed && view !== 'ranked') {
       viewBeforeSearch = view;
       showView('ranked');
+    } else if (view === 'ranked') {
+      // Entering or leaving a search swaps between the list and any active
+      // browse sections, so re-render the whole ranked stage, not just the
+      // list host.
+      renderRankedView();
     } else {
       rankList.render();
     }
@@ -702,7 +709,18 @@ async function main(): Promise<void> {
     })();
   }
 
-  const rankList = mountRankList(stage, {
+  // The ranked list renders into its own persistent host, not `stage`
+  // directly, so renderRankedView can show the Browse control above it (or
+  // swap in section headers) without rankList.render() wiping them.
+  const rankedListHost = document.createElement('div');
+  rankedListHost.className = 'ranked-list-host';
+
+  // Which projection of the ranked list My list shows. 'list' is today's
+  // flat view; the rest are section headers from groupRanked. A live search
+  // always shows the list (search results render inside rankList).
+  let browseDimension: 'list' | GroupDimension = 'list';
+
+  const rankList = mountRankList(rankedListHost, {
     getRanked: () => filterAlbums(rankingStore.getState().ranked, searchQuery),
     getGlobalRanked: () => rankingStore.getState().ranked,
     getSearchQuery: () => searchQuery,
@@ -1381,7 +1399,7 @@ async function main(): Promise<void> {
     view = next;
 
     if (view === 'ranked') {
-      rankList.render();
+      renderRankedView();
     } else if (view === 'backlog') {
       renderBacklog();
     } else if (view === 'blockedArtists') {
@@ -1400,6 +1418,65 @@ async function main(): Promise<void> {
 
   function handleExportBackup(): void {
     syncEngine.exportBackup();
+  }
+
+  /** Open a browse section: artists reuse the batch view (its ranked +
+   *  unranked stack already is the artist slice); other dimensions get a
+   *  slice view (Task 4 of the browse plan). */
+  function handleOpenSection(section: RankedSection): void {
+    if (section.key.startsWith('artist:') && section.albums[0]) {
+      handleOpenArtistBatch(section.albums[0]);
+    }
+    // Year/decade/genre slices arrive with the slice view (Task 4).
+  }
+
+  /** My list's stage: the Browse control plus either the flat ranked list
+   *  (rankList's own host) or one dimension's section headers. A live
+   *  search always shows the list -- results render inside rankList. */
+  function renderRankedView(): void {
+    stage.textContent = '';
+    const searching = searchQuery.trim() !== '';
+
+    if (!searching) {
+      const chips = document.createElement('div');
+      chips.className = 'view-filters browse-dimensions';
+      const dims: Array<{ value: 'list' | GroupDimension; label: string }> = [
+        { value: 'list', label: 'List' },
+        { value: 'artist', label: 'Artist' },
+        { value: 'year', label: 'Year' },
+        { value: 'decade', label: 'Decade' },
+        { value: 'genre', label: 'Genre' },
+      ];
+      for (const { value, label } of dims) {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        const active = browseDimension === value;
+        chip.className = active ? 'view-tab view-filter view-tab-active' : 'view-tab view-filter';
+        chip.setAttribute('aria-pressed', String(active));
+        chip.textContent = label;
+        chip.addEventListener('click', () => {
+          browseDimension = value;
+          renderRankedView();
+        });
+        chips.append(chip);
+      }
+      stage.append(chips);
+    }
+
+    if (searching || browseDimension === 'list') {
+      stage.append(rankedListHost);
+      rankList.render();
+      return;
+    }
+
+    const browseHost = document.createElement('div');
+    browseHost.className = 'browse-host';
+    renderBrowseView(browseHost, {
+      dimension: browseDimension,
+      sections: groupRanked(rankingStore.getState().ranked, browseDimension),
+      onOpenSection: handleOpenSection,
+    });
+    stage.append(browseHost);
   }
 
   function renderNav(): void {
