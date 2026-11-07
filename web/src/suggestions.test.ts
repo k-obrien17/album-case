@@ -99,3 +99,71 @@ describe('one-at-a-time suggestions', () => {
     expect(suggestAlbum(options())).not.toBeNull();
   });
 });
+
+describe('slice filters and gap bonus', () => {
+  const withGenres = (a: Album, genres: string[]): Album => ({ ...a, genres });
+  /** N ranked 'Favorite' albums rated `rating`, plus one 'Other' album
+   *  tagged shoegaze at `sliceRating`. */
+  const rankedWithShoegaze = (favoriteCount: number, sliceRating: number) => [
+    ...Array.from({ length: favoriteCount }, (_, i) => ({ ...album(200 + i, 'Favorite', 2000), rating: 8 })),
+    { ...withGenres(album(300, 'Second', 2000), ['shoegaze']), rating: sliceRating },
+  ];
+
+  it('genre sliceFilter excludes untagged candidates', () => {
+    const tagged = withGenres(album(2, 'Favorite', 2001), ['shoegaze']);
+    const untagged = album(3, 'Favorite', 2001);
+    const filter = { dimension: 'genre', genre: 'shoegaze' } as const;
+    expect(suggestAlbum(options({ pool: [tagged, untagged], sliceFilter: filter }))?.album.mbid).toBe(id(2));
+    expect(suggestAlbum(options({ pool: [untagged], sliceFilter: filter }))).toBeNull();
+  });
+
+  it('decade sliceFilter matches by year range', () => {
+    const filter = { dimension: 'decade', decade: 1990 } as const;
+    expect(
+      suggestAlbum(options({ pool: [album(2, 'Favorite', 1994)], sliceFilter: filter }))?.album.mbid
+    ).toBe(id(2));
+    expect(suggestAlbum(options({ pool: [album(2, 'Favorite', 2001)], sliceFilter: filter }))).toBeNull();
+  });
+
+  it('year sliceFilter matches the exact year', () => {
+    const filter = { dimension: 'year', year: 1994 } as const;
+    expect(
+      suggestAlbum(options({ pool: [album(2, 'Favorite', 1994)], sliceFilter: filter }))?.album.mbid
+    ).toBe(id(2));
+    expect(suggestAlbum(options({ pool: [album(2, 'Favorite', 1995)], sliceFilter: filter }))).toBeNull();
+  });
+
+  it('gap bonus fires, names the gap, and outranks an identical candidate without it', () => {
+    const gapCandidate = withGenres(album(2, 'Favorite', 2001), ['shoegaze']);
+    const twin = album(3, 'Favorite', 2001);
+    const result = suggestAlbum(options({ pool: [twin, gapCandidate], ranked: rankedWithShoegaze(24, 8) }));
+    expect(result?.album.mbid).toBe(id(2));
+    expect(result?.reason).toMatch(
+      /You rate shoegaze 8\.0 on average but have only ranked 1 shoegaze album\.$/
+    );
+  });
+
+  it('stays silent when the slice mean is below the engagement floor', () => {
+    const result = suggestAlbum(options({
+      pool: [withGenres(album(2, 'Favorite', 2001), ['shoegaze'])],
+      ranked: rankedWithShoegaze(24, 6),
+    }));
+    expect(result?.reason).not.toContain('only ranked');
+  });
+
+  it('stays silent on small lists', () => {
+    const result = suggestAlbum(options({
+      pool: [withGenres(album(2, 'Favorite', 2001), ['shoegaze'])],
+      ranked: rankedWithShoegaze(9, 8),
+    }));
+    expect(result?.reason).not.toContain('only ranked');
+  });
+
+  it('adds nothing at the exact share threshold (zero bonus)', () => {
+    const result = suggestAlbum(options({
+      pool: [withGenres(album(2, 'Favorite', 2001), ['shoegaze'])],
+      ranked: rankedWithShoegaze(19, 8),
+    }));
+    expect(result?.reason).not.toContain('only ranked');
+  });
+});

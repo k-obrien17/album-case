@@ -9,12 +9,83 @@ import { parseAlbumArray } from './album';
 
 export type RelatedArtist = { mbid: string; name: string; strength: number; sources: string[] };
 export type Suggestion = { album: Album; reason: string; kind: 'familiar' | 'discovery'; score: number };
+/** Restrict candidates to one browse slice ("Find more from 1994"). Decade
+ *  1990 covers 1990-1999. Genre matching needs the candidate tagged, so
+ *  untagged albums never match a genre slice. */
+export type SliceFilter =
+  | { dimension: 'year'; year: number }
+  | { dimension: 'decade'; decade: number }
+  | { dimension: 'genre'; genre: string };
 export type SuggestionOptions = {
   pool: Album[]; ranked: RankedAlbum[]; lists: SavedLists; preferred: ArtistPlays[];
   blocked: string[]; skipped: Set<string>; seen: Album[]; recentArtists: string[];
   related: RelatedArtist[]; discoveryTurn: boolean;
   curated?: { artist: string; title: string; source: string }[];
+  sliceFilter?: SliceFilter;
 };
+
+function matchesSlice(album: Album, filter: SliceFilter): boolean {
+  if (filter.dimension === 'year') return album.release_year === filter.year;
+  if (filter.dimension === 'decade') {
+    return album.release_year != null && Math.floor(album.release_year / 10) * 10 === filter.decade;
+  }
+  return (album.genres ?? []).includes(filter.genre);
+}
+
+// A slice is a gap when the list is big enough to have shape, the owner
+// clearly likes the slice, and it is still a sliver of the list. The bonus
+// is bounded and relative to list size (friends' lists will be small; a
+// fixed count would always or never fire).
+const GAP_MIN_RANKED = 20;
+const GAP_MIN_MEAN = 7.5;
+const GAP_MAX_SHARE = 0.05;
+const GAP_MAX_BONUS = 8;
+
+type GapStats = { decades: Map<number, { n: number; sum: number }>; genres: Map<string, { n: number; sum: number }> };
+
+function collectGapStats(ranked: RankedAlbum[]): GapStats {
+  const decades = new Map<number, { n: number; sum: number }>();
+  const genres = new Map<string, { n: number; sum: number }>();
+  for (const a of ranked) {
+    if (a.release_year != null) {
+      const decade = Math.floor(a.release_year / 10) * 10;
+      const d = decades.get(decade) ?? { n: 0, sum: 0 };
+      d.n += 1; d.sum += a.rating;
+      decades.set(decade, d);
+    }
+    for (const g of a.genres ?? []) {
+      const e = genres.get(g) ?? { n: 0, sum: 0 };
+      e.n += 1; e.sum += a.rating;
+      genres.set(g, e);
+    }
+  }
+  return { decades, genres };
+}
+
+/** The strongest qualifying gap this album would fill, or null. Artist gaps
+ *  are deliberately out of scope: the Artist gaps shelf already owns them. */
+function gapFor(album: Album, stats: GapStats, total: number): { bonus: number; label: string; n: number; mean: number } | null {
+  if (total < GAP_MIN_RANKED) return null;
+  const slices: { label: string; n: number; sum: number }[] = [];
+  if (album.release_year != null) {
+    const decade = Math.floor(album.release_year / 10) * 10;
+    const d = stats.decades.get(decade);
+    if (d) slices.push({ label: `${decade}s`, ...d });
+  }
+  for (const g of album.genres ?? []) {
+    const e = stats.genres.get(g);
+    if (e) slices.push({ label: g, ...e });
+  }
+  let best: { bonus: number; label: string; n: number; mean: number } | null = null;
+  for (const { label, n, sum } of slices) {
+    const share = n / total;
+    const mean = sum / n;
+    if (mean < GAP_MIN_MEAN || share > GAP_MAX_SHARE) continue;
+    const bonus = GAP_MAX_BONUS * (1 - share / GAP_MAX_SHARE);
+    if (bonus > 0 && (!best || bonus > best.bonus)) best = { bonus, label, n, mean };
+  }
+  return best;
+}
 
 export function suggestAlbum(opts: SuggestionOptions): Suggestion | null {
   const excluded = [...opts.ranked, ...allSavedAlbums(opts.lists), ...opts.seen];
@@ -29,11 +100,13 @@ export function suggestAlbum(opts: SuggestionOptions): Suggestion | null {
     ratings.set(name, [...(ratings.get(name) ?? []), a]);
   }
   const seenKeys = new Set<string>();
+  const gapStats = collectGapStats(opts.ranked);
   const candidates: Suggestion[] = [];
   for (const album of [...(opts.lists.backlog?.pendingReview ?? []), ...opts.pool]) {
     const name = normalize(album.primary_artist_name);
     const identity = albumKey(album);
     const source = curated.get(identity);
+    if (opts.sliceFilter && !matchesSlice(album, opts.sliceFilter)) continue;
     if (ids.has(album.mbid) || keys.has(identity) || blocked.has(name) || seenKeys.has(identity) || (otherReleaseReason(album) && !source)) continue;
     seenKeys.add(identity);
     const rated = ratings.get(name) ?? [];
@@ -67,6 +140,11 @@ export function suggestAlbum(opts: SuggestionOptions): Suggestion | null {
     if (source) {
       score += 20;
       reason += ` Featured in ${source}.`;
+    }
+    const gap = gapFor(album, gapStats, opts.ranked.length);
+    if (gap) {
+      score += gap.bonus;
+      reason += ` You rate ${gap.label} ${gap.mean.toFixed(1)} on average but have only ranked ${gap.n} ${gap.label} album${gap.n === 1 ? '' : 's'}.`;
     }
     // Keep seasonal releases and alternate editions behind ordinary albums.
     if (/\b(christmas|holiday|deluxe|anniversary|expanded|remaster)\b/i.test(album.title)) score -= 25;
