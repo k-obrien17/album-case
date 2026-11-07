@@ -28,13 +28,16 @@ function fakeLocalStorage() {
 
 type RankingRoute = { ok: boolean; status?: number; body?: unknown; reject?: boolean };
 
-function stubFetch(rankingRoute: RankingRoute) {
+function stubFetch(
+  rankingRoute: RankingRoute,
+  extra: { seed?: Album[]; discovered?: Album[] } = {}
+) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input.toString();
       if (url.includes('/seed/albums.json')) {
-        return { ok: true, json: async () => [album('seed1')] } as unknown as Response;
+        return { ok: true, json: async () => extra.seed ?? [album('seed1')] } as unknown as Response;
       }
       if (url.includes('/seed/preferred-artists.json')) {
         return { ok: true, json: async () => ({ by_plays: [] }) } as unknown as Response;
@@ -43,7 +46,7 @@ function stubFetch(rankingRoute: RankingRoute) {
         return { ok: false, status: 404 } as unknown as Response;
       }
       if (url.includes('/api/discover-artist')) {
-        return { ok: true, json: async () => ({ albums: [] }) } as unknown as Response;
+        return { ok: true, json: async () => ({ albums: extra.discovered ?? [] }) } as unknown as Response;
       }
       if (url.includes('/api/ranking')) {
         if (rankingRoute.reject) throw new Error('offline');
@@ -114,6 +117,42 @@ describe('bootstrapApp', () => {
     expect(result.snapshotBaseUpdatedAt).toBeUndefined();
     expect(result.blockedArtists).toEqual([]);
     expect(result.curatedSkips).toEqual(new Set());
+  });
+
+  // loadSeedPool caches module-level, so tests that need their own seed pool
+  // re-import bootstrap against a fresh module registry.
+  async function freshBootstrapApp(ownerId: string) {
+    vi.resetModules();
+    const { bootstrapApp: fresh } = await import('./bootstrap');
+    return fresh(ownerId);
+  }
+
+  it('overlays discovered genres onto a seed-pool album that has none', async () => {
+    stubFetch(
+      { ok: true, body: {} },
+      { seed: [album('seed1')], discovered: [{ ...album('seed1'), genres: ['shoegaze'] }] }
+    );
+
+    const result = await freshBootstrapApp('11111111-1111-4111-8111-111111111111');
+
+    const seedEntry = result.pool.find((a) => a.mbid === 'seed1');
+    expect(seedEntry?.genres).toEqual(['shoegaze']);
+    // Still one pool entry: the discovered row overlays, never duplicates.
+    expect(result.pool.filter((a) => a.mbid === 'seed1')).toHaveLength(1);
+  });
+
+  it('keeps a pool album\'s own genres when a discovered row differs', async () => {
+    stubFetch(
+      { ok: true, body: {} },
+      {
+        seed: [{ ...album('seed1'), genres: ['folk'] }],
+        discovered: [{ ...album('seed1'), genres: ['rock'] }],
+      }
+    );
+
+    const result = await freshBootstrapApp('11111111-1111-4111-8111-111111111111');
+
+    expect(result.pool.find((a) => a.mbid === 'seed1')?.genres).toEqual(['folk']);
   });
 
   it('does not let a found server response overwrite blocked/curated lists when a local edit is pending', async () => {

@@ -120,11 +120,17 @@ export async function bootstrapApp(ownerId: string): Promise<BootstrapResult> {
         ? null
         : loadSyncBase();
   const discovered = await loadDiscoveredAlbums(ownerId);
-  const knownPoolIds = new Set(pool.map((album) => album.mbid));
+  const poolByMbid = new Map(pool.map((album) => [album.mbid, album]));
   for (const album of discovered) {
-    if (!knownPoolIds.has(album.mbid)) {
+    const existing = poolByMbid.get(album.mbid);
+    if (!existing) {
       pool.push(album);
-      knownPoolIds.add(album.mbid);
+      poolByMbid.set(album.mbid, album);
+    } else if (!existing.genres?.length && album.genres?.length) {
+      // Seed-pool records carry no genres; the genre backfill writes them to
+      // discovered_albums. Overlay (never overwrite) so hydrateAlbums can
+      // push genres into ranked records downstream.
+      existing.genres = album.genres;
     }
   }
   try {
