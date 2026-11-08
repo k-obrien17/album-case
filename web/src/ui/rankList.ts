@@ -717,6 +717,49 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
   // Kept across re-renders, since render() rebuilds the card every time.
   let extrasOpen: boolean | null = null;
 
+  // Whether the whole candidate card is expanded. Same convention as
+  // extrasOpen: open by default on wide screens, collapsed to a one-line
+  // pill on phones, where the sticky card would ride along the entire list.
+  let candidateOpen: boolean | null = null;
+
+  function wideViewport(): boolean {
+    return typeof window !== 'undefined' && !!window.matchMedia?.('(min-width: 720px)').matches;
+  }
+
+  /** One-line stand-in for the collapsed candidate card. */
+  function buildCandidatePill(album: Album): HTMLButtonElement {
+    const pill = document.createElement('button');
+    pill.type = 'button';
+    pill.className = 'candidate-pill';
+    pill.setAttribute('aria-expanded', 'false');
+    const label = document.createElement('span');
+    label.className = 'candidate-pill-label';
+    label.textContent = 'Place next:';
+    const name = document.createElement('span');
+    name.className = 'candidate-pill-name';
+    name.textContent = `${album.title} · ${album.primary_artist_name}`;
+    pill.append(label, name);
+    pill.addEventListener('click', () => {
+      candidateOpen = true;
+      render();
+    });
+    return pill;
+  }
+
+  /** Collapse control shown inside the expanded card. */
+  function buildCandidateCollapse(): HTMLButtonElement {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'candidate-collapse';
+    btn.setAttribute('aria-expanded', 'true');
+    btn.textContent = 'Hide';
+    btn.addEventListener('click', () => {
+      candidateOpen = false;
+      render();
+    });
+    return btn;
+  }
+
   function buildExtras(children: HTMLElement[]): HTMLDetailsElement {
     const details = document.createElement('details');
     details.className = 'candidate-more';
@@ -927,7 +970,9 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     candidateCol.className = 'candidate-col';
     if (!opts.hideCandidateColumn && !filtered) {
       const candidate = opts.getCandidate();
-      if (candidate) {
+      if (candidate && !(candidateOpen ?? wideViewport())) {
+        candidateCol.append(buildCandidatePill(candidate));
+      } else if (candidate) {
         // Long list -> assisted this-or-that by default; short list -> drag/tap.
         if (ranked.length >= ASSIST_THRESHOLD) {
           if (assistNeedsRestart(assist, candidate, ranked)) {
@@ -935,10 +980,10 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
             assistStep = 0;
             assistTotal = Math.max(1, Math.ceil(Math.log2(ranked.length + 1)));
           }
-          candidateCol.append(buildAssisted(candidate));
+          candidateCol.append(buildCandidateCollapse(), buildAssisted(candidate));
         } else {
           assist = null;
-          candidateCol.append(buildCandidate(candidate));
+          candidateCol.append(buildCandidateCollapse(), buildCandidate(candidate));
         }
       } else {
         assist = null;

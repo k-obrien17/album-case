@@ -103,6 +103,21 @@ button:active {
 }
 .sync-banner button { margin: 8px 8px 0 0; max-width: 100%; }
 
+/* Sticky chrome: search + view tabs stay reachable from any scroll depth.
+   z-index above .candidate-col (2), which is itself sticky below this bar. */
+.app-chrome {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--color-bg);
+  padding: 8px 0;
+  margin: -8px 0 0;
+  border-bottom: 1px solid var(--color-border-btn);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 /* View switcher (Ranked list / Want to listen / Haven't heard) */
 
 .view-switcher {
@@ -283,7 +298,8 @@ button:active {
    it moves to the right of the list. */
 .candidate-col {
   position: sticky;
-  top: 0;
+  /* Stick just below the app chrome; main.ts keeps the var current. */
+  top: var(--app-chrome-height, 0px);
   z-index: 2;
   background: var(--color-bg);
   padding: 8px 0;
@@ -952,7 +968,7 @@ button.rank-rating:hover {
 
   .candidate-col {
     position: sticky;
-    top: 16px;
+    top: calc(var(--app-chrome-height, 0px) + 16px);
     flex: 0 0 260px;
   }
 
@@ -1209,3 +1225,44 @@ button.rank-rating:hover {
 .slice-find-more { margin-top: 12px; }
 .suggestion-slice-chip { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 4px 4px 4px 12px; border: 1px solid var(--color-border-btn); border-radius: 999px; font-size: 0.8rem; margin-bottom: 8px; }
 .suggestion-slice-chip .backlog-button { min-height: 36px; border-radius: 999px; }
+
+/* Collapsed candidate: one line until tapped, so the sticky placement card
+   stops riding along the whole list on phones. */
+.candidate-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  box-sizing: border-box;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-alt);
+  color: var(--color-fg);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-align: left;
+}
+.candidate-pill-label { color: var(--color-faint); font-size: 0.72rem; white-space: nowrap; }
+.candidate-pill-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.candidate-collapse {
+  display: block;
+  margin-left: auto;
+  min-height: 32px;
+  margin-bottom: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--color-border-btn);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-muted);
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+}

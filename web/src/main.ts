@@ -261,7 +261,21 @@ async function main(): Promise<void> {
   const footer = document.createElement('footer');
   footer.className = 'app-footer';
 
-  shell.append(heading, searchBar.element, syncEngine.bannerElement, nav, stage, footer);
+  // Search and the view tabs stay reachable from any scroll depth: the
+  // ranked list alone is ~100k px tall on a phone, and the correction loop
+  // (find an album, fix it) starts at the search field.
+  const chrome = document.createElement('div');
+  chrome.className = 'app-chrome';
+  chrome.append(searchBar.element, nav);
+
+  shell.append(heading, chrome, syncEngine.bannerElement, stage, footer);
+  // Sticky children below the chrome (the candidate column) offset by its
+  // real height, which changes with tab wrap and the My-list filter row.
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(() => {
+      document.documentElement.style.setProperty('--app-chrome-height', `${chrome.offsetHeight}px`);
+    }).observe(chrome);
+  }
   app.textContent = '';
   app.append(shell);
 
