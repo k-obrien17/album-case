@@ -4,15 +4,16 @@
 Browse-by-category views + gap-aware discovery (spec `docs/superpowers/specs/2026-11-07-browse-and-discovery-design.md`, plan `docs/superpowers/plans/2026-11-07-browse-and-discovery.md`). All 8 tasks implemented, final-reviewed (verdict: ready to merge), review fix applied, merged to main.
 
 ## Status
-- Merged to local main at 5e389e4 (9 commits, fast-forward). 426 unit tests green, build clean. NOT pushed, NOT deployed.
+- Merged to main at 5e389e4, pushed to origin (bbe96bc), and DEPLOYED to production 2026-11-08 (bundle `assets/index-DlxIf_zF.js` verified live). 426 unit tests green.
+- Vercel CLI note: the project lives under account `k-obrien17` (team keith-obriens-projects), not `eighthchair-8983`. A wrong login 403s on deploy; fix with `vercel login`.
 - My list now has List / Artist / Year / Decade / Genre browse chips; year/decade/genre sections open a slice view (rating/overall edits mbid-resolved to global indices, reorder suppressed); artist sections open the existing artist batch view.
 - Slice pages show up to 3 unranked candidates (rate-in-place) plus "Find more from <slice>", which constrains the backlog's Suggest one shelf (dismissable "Only <slice> ×" chip).
 - `suggestAlbum` gained `sliceFilter` and a bounded gap bonus (N>=20, slice mean>=7.5, share<=5%, max +8, artist excluded).
-- Genre backfill script `web/scripts/backfill-genres.mjs` (resumable, 1 req/s, `[]` = checked-none sentinel, `--session/--pool/--limit/--write`). A full default run (~5,200 mbids, ~96 min) was launched 2026-11-07 in the background; if interrupted, just rerun — it skips written rows. Verify with the dry run (prints remaining NULL count).
+- Genre backfill COMPLETE: 5,227/5,230 discovered rows have genres; the 3 NULLs are permanent MusicBrainz 404s (deleted release-groups). All 826 ranked albums covered (813 with genres, 13 checked-none). Script `web/scripts/backfill-genres.mjs` stays resumable (`--session/--pool/--limit/--write`, dry run prints remaining NULL count).
 - Bootstrap now overlays discovered genres onto seed-pool albums; snapshots self-heal genres on the next save.
 
 ## Next concrete step
-When the backfill finishes (dry run shows ~0 missing), open the app, Browse → Genre, confirm real genre sections. Then ask Keith about deploying: `vercel deploy --prod --yes` from `web/` (no auto-deploy; main also had 2 unpushed commits predating this session — do not push without Keith).
+Shipped and verified on production 2026-11-08 (Genre view shows real sections: rock 333, electronic 188, indie rock 186...; art rock slice renders 52 rows with global ranks, no grips, 3 candidates + Find more). Remaining: Keith to decide whether to commit the untracked plan file `docs/superpowers/plans/2026-11-07-browse-and-discovery.md`; a phone-width sanity check (Chrome window refused to resize below ~1200px, so true 360px media queries are still unexercised).
 
 ## Deferred review minors (ledgered in the final review, workspace since deleted)
 - Backfill re-fetches 404'd mbids each rerun; write `[]` on 404 next time the script is touched.
@@ -25,10 +26,10 @@ When the backfill finishes (dry run shows ~0 missing), open the app, Browse → 
 - Agreed order: (1) streamlined Rank screen + listening-history import spec, (2) friend accounts/per-user data last.
 
 ## Git state
-- Branch: main, clean. Local main is ahead of origin by 11 commits (2 pre-existing + 9 from this work). Feature branch deleted after merge.
+- Branch: main, pushed through bbe96bc; only this handoff commit may trail origin. Untracked: `docs/superpowers/plans/2026-11-07-browse-and-discovery.md` (Keith's call).
 
 ## Reason for handoff
-Implementation session wrapped; backfill running in background.
+Implementation session wrapped: merged, pushed, backfilled, deployed, verified.
 
 ## Updated
-2026-11-07
+2026-11-08
