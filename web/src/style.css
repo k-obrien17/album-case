@@ -1266,3 +1266,18 @@ button.rank-rating:hover {
   font-size: 0.72rem;
   cursor: pointer;
 }
+
+/* Route to a slice's discovery strip, which otherwise sits below every
+   ranked row. */
+.slice-candidates-jump {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-btn);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-alt);
+  color: var(--color-fg);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}

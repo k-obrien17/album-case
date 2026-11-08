@@ -71,6 +71,27 @@ export function mountSliceView(
     header.append(backBtn, heading);
     wrap.append(header);
 
+    // The candidate strip renders below every ranked row, which in a long
+    // slice puts it several screens down; this link is how anyone finds it.
+    if (opts.candidates) {
+      const picks = opts.candidates.get();
+      const jump = document.createElement('button');
+      jump.type = 'button';
+      jump.className = 'slice-candidates-jump';
+      if (picks.length > 0) {
+        jump.textContent = `${picks.length} unranked pick${picks.length === 1 ? '' : 's'} for ${opts.label} ↓`;
+        jump.addEventListener('click', () => {
+          wrap.querySelector('.slice-candidates-section')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+        });
+      } else {
+        // Nothing to scroll to: the header control does the strip's one
+        // useful action directly.
+        jump.textContent = `Find more from ${opts.label}`;
+        jump.addEventListener('click', opts.candidates.onFindMore);
+      }
+      wrap.append(jump);
+    }
+
     const listCol = document.createElement('div');
     listCol.className = 'lock-ranked-col';
     listController = mountRankList(listCol, {

@@ -121,6 +121,53 @@ describe('mountSliceView', () => {
     const { container } = mount();
     expect(container.querySelector('.slice-candidates')).toBeNull();
     expect([...container.querySelectorAll('button')].some((b) => b.textContent!.startsWith('Find more'))).toBe(false);
+    expect(container.querySelector('.slice-candidates-jump')).toBeNull();
+  });
+
+  test('header offers a jump link to the candidate strip, naming the count', () => {
+    const plainAlbum = (mbid: string): Album => {
+      const { rating: _rating, ...rest } = rankedAlbum(mbid, 0);
+      return rest;
+    };
+    const picks: Suggestion[] = ['X', 'Y', 'Z'].map((m) => ({
+      album: plainAlbum(m), reason: 'r', kind: 'familiar', score: 1,
+    }));
+    const { container } = mount({
+      candidates: {
+        title: 'Unranked picks for 1994',
+        get: () => picks,
+        onRate: () => {},
+        onWantToListen: () => {},
+        onSkip: () => {},
+        onFindMore: () => {},
+      },
+    });
+    const jump = container.querySelector<HTMLButtonElement>('.slice-candidates-jump');
+    expect(jump).not.toBeNull();
+    expect(jump!.textContent).toContain('3 unranked picks');
+    // The link lives in the header, above the ranked rows.
+    expect(jump!.compareDocumentPosition(container.querySelector('.rank-row')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const strip = container.querySelector<HTMLElement>('.slice-candidates-section')!;
+    let scrolled = false;
+    strip.scrollIntoView = () => { scrolled = true; };
+    jump!.click();
+    expect(scrolled).toBe(true);
+  });
+
+  test('jump link still appears with zero picks, pointing at Find more', () => {
+    const { container } = mount({
+      candidates: {
+        title: 'Unranked picks for 1994',
+        get: () => [],
+        onRate: () => {},
+        onWantToListen: () => {},
+        onSkip: () => {},
+        onFindMore: () => {},
+      },
+    });
+    const jump = container.querySelector<HTMLButtonElement>('.slice-candidates-jump');
+    expect(jump).not.toBeNull();
+    expect(jump!.textContent).toContain('Find more');
   });
 
   test('rating edit resolves ties against the global list, not the slice', () => {
