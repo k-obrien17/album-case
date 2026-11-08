@@ -261,14 +261,15 @@ async function main(): Promise<void> {
   const footer = document.createElement('footer');
   footer.className = 'app-footer';
 
-  // Search and the view tabs stay reachable from any scroll depth: the
-  // ranked list alone is ~100k px tall on a phone, and the correction loop
-  // (find an album, fix it) starts at the search field.
+  // Search stays reachable from any scroll depth: the ranked list alone is
+  // ~100k px tall on a phone, and the correction loop (find an album, fix
+  // it) starts at the search field. Only search sticks -- adding the tab
+  // rows would pin more chrome than the old always-open candidate card.
   const chrome = document.createElement('div');
   chrome.className = 'app-chrome';
-  chrome.append(searchBar.element, nav);
+  chrome.append(searchBar.element);
 
-  shell.append(heading, chrome, syncEngine.bannerElement, stage, footer);
+  shell.append(heading, chrome, syncEngine.bannerElement, nav, stage, footer);
   // Sticky children below the chrome (the candidate column) offset by its
   // real height, which changes with tab wrap and the My-list filter row.
   if (typeof ResizeObserver !== 'undefined') {
