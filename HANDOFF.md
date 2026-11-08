@@ -22,6 +22,7 @@ Keith phone-sessions the shipped teardown fixes (search from depth, pill, slice 
 - Backfill duplicates USER_AGENT instead of importing from `web/api/_lp.ts`.
 - `groups.ts` More-genres collapse uses a side-effecting filter predicate; fine at this scale.
 - ~~True 360px media queries unexercised~~ RESOLVED 2026-11-08: verified with Playwright at 360x740 against production.
+- Search/discovery reject release-groups with ANY secondary type (`isAlbumOrEpReleaseGroup`, `web/api/_lp.ts:30`), so soundtrack-typed classics (e.g. Purple Rain, Album+Soundtrack on MB) can't be added via search; Curated lists is the one surface that still carries them. Purple Rain was spliced in directly 2026-11-08 (exact insertAtRating semantics, versioned write). Consider admitting Soundtrack as a sole secondary type in explicit search.
 
 ## Codex second-opinion findings (2026-11-08, verified against code)
 - ~~Candidate strip invisible in long slices~~ RESOLVED 2026-11-08: jump link shipped (2eaaade).
