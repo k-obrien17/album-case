@@ -13,30 +13,34 @@ function album(overrides: Partial<RankedAlbum> & { mbid: string; rating: number 
 }
 
 describe('groupRanked', () => {
-  it('groups by decade with best-album section order', () => {
+  it('groups by decade in chronological order, newest first', () => {
     const a1994 = album({ mbid: 'a', rating: 9.5, release_year: 1994 });
     const a2001 = album({ mbid: 'b', rating: 9.0, release_year: 2001 });
     const a1991 = album({ mbid: 'c', rating: 8.0, release_year: 1991 });
+    // The best album lives in the 1990s; the 2000s still come first.
     const sections = groupRanked([a1994, a2001, a1991], 'decade');
-    expect(sections.map((s) => s.key)).toEqual(['decade:1990', 'decade:2000']);
-    expect(sections[0].label).toBe('1990s');
-    expect(sections[0].albums).toEqual([a1994, a1991]);
-    expect(sections[0].count).toBe(2);
-    expect(sections[0].meanRating).toBe(8.75);
+    expect(sections.map((s) => s.key)).toEqual(['decade:2000', 'decade:1990']);
+    expect(sections[1].label).toBe('1990s');
+    expect(sections[1].albums).toEqual([a1994, a1991]);
+    expect(sections[1].count).toBe(2);
+    expect(sections[1].meanRating).toBe(8.75);
   });
 
-  it('groups by year with best-album section order', () => {
+  it('groups by year in chronological order, newest first', () => {
     const sections = groupRanked(
       [
-        album({ mbid: 'a', rating: 9.0, release_year: 2007 }),
-        album({ mbid: 'b', rating: 8.0, release_year: 1999 }),
+        album({ mbid: 'a', rating: 9.0, release_year: 1999 }),
+        album({ mbid: 'b', rating: 8.0, release_year: 2007 }),
         album({ mbid: 'c', rating: 7.0, release_year: 2007 }),
       ],
       'year'
     );
+    // Best album is from 1999, but years read chronologically.
     expect(sections.map((s) => s.key)).toEqual(['year:2007', 'year:1999']);
     expect(sections[0].label).toBe('2007');
     expect(sections[0].count).toBe(2);
+    // Global rating order still holds inside a section.
+    expect(sections[0].albums.map((a) => a.mbid)).toEqual(['b', 'c']);
   });
 
   it('groups by artist using the mbid-first key rule', () => {

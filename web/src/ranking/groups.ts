@@ -53,8 +53,10 @@ function bucketsFor(album: RankedAlbum, dimension: GroupDimension): { key: strin
  * dimension. Album order inside every section is the global rating order;
  * sections never re-sort albums.
  *
- * Section order: artist/year/decade sort by the global rank of their best
- * album. Genre sorts by count descending (ties alphabetical), collapses
+ * Section order: artist sorts by the global rank of its best album; year
+ * and decade read chronologically, newest first (best-album order looks
+ * random on a time axis). Genre sorts by count descending (ties
+ * alphabetical), collapses
  * single-album genres into one trailing "More genres" section (deduped),
  * and ends with "No genre yet" for untagged albums. Year/decade end with
  * "Year unknown" for null-year albums.
@@ -94,8 +96,10 @@ export function groupRanked(ranked: RankedAlbum[], dimension: GroupDimension): R
     return sections;
   }
 
-  if ((dimension === 'year' || dimension === 'decade') && unbucketed.length > 0) {
-    sections.push(section('year:unknown', 'Year unknown', unbucketed));
+  if (dimension === 'year' || dimension === 'decade') {
+    // Keys are `year:<n>` / `decade:<n>`; compare the numeric part.
+    sections.sort((a, b) => Number(b.key.split(':')[1]) - Number(a.key.split(':')[1]));
+    if (unbucketed.length > 0) sections.push(section('year:unknown', 'Year unknown', unbucketed));
   }
   return sections;
 }
