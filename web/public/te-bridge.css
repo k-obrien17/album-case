@@ -6,6 +6,12 @@
    ========================================================================== */
 
 :root {
+  /* Contrast overrides: the TE values (#7a786e, #82806e) compute 4.43:1
+     and 3.99:1 on white, under the 4.5:1 AA bar for small text. These
+     darker steps hit 6.0:1 and 5.3:1 while keeping faint < muted < body. */
+  --color-muted: #65635a;
+  --color-faint: #6e6c5e;
+
   /* Surfaces & text → TE tokens */
   --bg: var(--color-bg);              /* white */
   --bg-secondary: var(--color-bg-alt); /* warm faint panel */
