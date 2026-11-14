@@ -43,12 +43,22 @@ function makeRes() {
   return res;
 }
 
-function postReq(body: unknown) {
+function postRawReq(body: unknown) {
   return {
     method: 'POST',
     headers: { 'x-album-case-write-key': 'secret-123' },
     body,
   };
+}
+
+// Most tests are about snapshot content, so default them to a first insert;
+// base_updated_at is required by the API (see the missing-base test).
+function postReq(body: unknown) {
+  const withBase =
+    body && typeof body === 'object' && !('base_updated_at' in body)
+      ? { ...(body as Record<string, unknown>), base_updated_at: null }
+      : body;
+  return postRawReq(withBase);
 }
 
 function getReq(query: Record<string, string>, headers: Record<string, string> = {}) {
@@ -104,6 +114,27 @@ describe('/api/ranking', () => {
         }),
       ])
     );
+  });
+
+  it('rejects a write with no base_updated_at instead of overwriting unconditionally', async () => {
+    vi.stubEnv('TURSO_DATABASE_URL', 'libsql://example.test');
+    vi.stubEnv('TURSO_AUTH_TOKEN', 'token');
+    vi.stubEnv('ALBUM_CASE_WRITE_KEY', 'secret-123');
+    dbMock.execute.mockResolvedValue({ rows: [] });
+    const res = makeRes();
+
+    await handler(
+      postRawReq({
+        session_id: '11111111-1111-4111-8111-111111111111',
+        ranked: [],
+        lists: { wantToListen: [], notHeard: [], dontCare: [] },
+      }) as never,
+      res as never
+    );
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toEqual({ error: 'missing_base_updated_at' });
+    expect(dbMock.batch).not.toHaveBeenCalled();
   });
 
   it('round-trips artist_locks_json through POST then GET', async () => {

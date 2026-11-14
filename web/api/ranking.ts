@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@libsql/client';
 import allowlist from './_allowlist.json' with { type: 'json' };
-import { SCHEMA_STATEMENTS, alterTableAddColumnIfMissing } from './_schema.js';
+import { ensureSchema } from './_ensureSchema.js';
 import { requireWriteKey } from './_writeKey.js';
 import { withDbTimeout } from './_dbTimeout.js';
 import { parseBacklog, type Backlog } from '../shared/backlog.js';
@@ -49,32 +49,15 @@ type RankingBody = {
   artist_locks?: unknown;
   blocked_artists?: unknown;
   curated_skips?: unknown;
+  skipped_albums?: unknown;
   base_updated_at?: unknown;
 };
-
-let schemaReady: Promise<void> | null = null;
 
 function db() {
   const url = process.env.TURSO_DATABASE_URL;
   const authToken = process.env.TURSO_AUTH_TOKEN;
   if (!url || !authToken) throw new Error('missing_turso_env');
   return createClient({ url, authToken });
-}
-
-function ensureSchema(): Promise<void> {
-  const client = db();
-  schemaReady ??= (async () => {
-    for (const sql of SCHEMA_STATEMENTS) {
-      await withDbTimeout(client.execute(sql));
-    }
-    for (const column of ['artist_locks_json', 'blocked_artists_json', 'curated_skips_json']) {
-      await alterTableAddColumnIfMissing(
-        client,
-        `ALTER TABLE ranking_snapshots ADD COLUMN ${column} TEXT`,
-      );
-    }
-  })();
-  return schemaReady;
 }
 
 function parseBody(req: VercelRequest): RankingBody | null {
@@ -239,8 +222,16 @@ function exceedsMaxEntriesSomewhere(body: RankingBody): boolean {
   );
 }
 
+// Skipped albums grow with every hide and are only mbid strings, so they get a
+// higher cap than the album-record arrays.
+const MAX_SKIPPED_ALBUMS = 20000;
+function parseSkippedAlbums(value: unknown): string[] | null {
+  if (!Array.isArray(value) || value.length > MAX_SKIPPED_ALBUMS) return null;
+  if (!value.every((v) => typeof v === 'string' && v.length > 0 && v.length <= 100)) return null;
+  return [...new Set(value as string[])];
+}
+
 function parseBaseUpdatedAt(value: unknown): number | null | undefined {
-  if (value === undefined) return undefined;
   if (value === null) return null;
   return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : undefined;
 }
@@ -254,7 +245,9 @@ function validate(body: RankingBody | null):
       artistLocks: ArtistLock[];
       blockedArtists: string[];
       curatedSkips: string[];
-      baseUpdatedAt: number | null | undefined;
+      /** undefined = an older client that doesn't send it; keep what is stored. */
+      skippedAlbums: string[] | undefined;
+      baseUpdatedAt: number | null;
     }
   | { ok: false; message: string } {
   if (!body) return { ok: false, message: 'invalid_json' };
@@ -274,10 +267,18 @@ function validate(body: RankingBody | null):
     }
     return { ok: false, message: 'invalid_snapshot' };
   }
-  const baseUpdatedAt = parseBaseUpdatedAt(body.base_updated_at);
-  if (body.base_updated_at !== undefined && baseUpdatedAt === undefined) {
-    return { ok: false, message: 'invalid_base_updated_at' };
+  // Required: a write with no base would be an unconditional overwrite that
+  // bypasses the compare-and-set below. null means "first insert", a number is
+  // the revision the client last saw.
+  let skippedAlbums: string[] | undefined;
+  if (body.skipped_albums !== undefined) {
+    const parsed = parseSkippedAlbums(body.skipped_albums);
+    if (!parsed) return { ok: false, message: 'invalid_skipped_albums' };
+    skippedAlbums = parsed;
   }
+  if (body.base_updated_at === undefined) return { ok: false, message: 'missing_base_updated_at' };
+  const baseUpdatedAt = parseBaseUpdatedAt(body.base_updated_at);
+  if (baseUpdatedAt === undefined) return { ok: false, message: 'invalid_base_updated_at' };
 
   const rankedIds = new Set(ranked.map((album) => album.mbid));
   if (rankedIds.size !== ranked.length) {
@@ -304,6 +305,7 @@ function validate(body: RankingBody | null):
     artistLocks,
     blockedArtists,
     curatedSkips,
+    skippedAlbums,
     baseUpdatedAt,
   };
 }
@@ -315,11 +317,11 @@ async function handleGet(req: VercelRequest, res: VercelResponse): Promise<void>
     return;
   }
 
-  await ensureSchema();
+  await ensureSchema(db());
   const rows = await withDbTimeout(
     db().execute({
       sql: `
-SELECT ranking_json, lists_json, artist_locks_json, blocked_artists_json, curated_skips_json, updated_at
+SELECT ranking_json, lists_json, artist_locks_json, blocked_artists_json, curated_skips_json, skipped_albums_json, updated_at
 FROM ranking_snapshots
 WHERE session_id = ?
 `,
@@ -337,6 +339,7 @@ WHERE session_id = ?
   const artistLocks = row.artist_locks_json ? (JSON.parse(String(row.artist_locks_json)) as ArtistLock[]) : [];
   const blockedArtists = row.blocked_artists_json ? (JSON.parse(String(row.blocked_artists_json)) as string[]) : [];
   const curatedSkips = row.curated_skips_json ? (JSON.parse(String(row.curated_skips_json)) as string[]) : [];
+  const skippedAlbums = row.skipped_albums_json ? (JSON.parse(String(row.skipped_albums_json)) as string[]) : [];
   res.status(200).json({
     snapshot: {
       ranked,
@@ -349,6 +352,7 @@ WHERE session_id = ?
       artist_locks: artistLocks,
       blocked_artists: blockedArtists,
       curated_skips: curatedSkips,
+      skipped_albums: skippedAlbums,
       updated_at: Number(row.updated_at),
     },
   });
@@ -363,7 +367,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse): Promise<void
     return;
   }
 
-  await ensureSchema();
+  await ensureSchema(db());
   const now = Date.now();
   const snapshotArgs = [
     validated.sessionId,
@@ -372,38 +376,27 @@ async function handlePost(req: VercelRequest, res: VercelResponse): Promise<void
     JSON.stringify(validated.artistLocks),
     JSON.stringify(validated.blockedArtists),
     JSON.stringify(validated.curatedSkips),
+    // null leaves the stored value alone (COALESCE below) for clients that predate this field.
+    validated.skippedAlbums === undefined ? null : JSON.stringify(validated.skippedAlbums),
     now,
   ];
   const snapshotSql =
     validated.baseUpdatedAt === null
       ? `
-INSERT INTO ranking_snapshots (session_id, ranking_json, lists_json, artist_locks_json, blocked_artists_json, curated_skips_json, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO ranking_snapshots (session_id, ranking_json, lists_json, artist_locks_json, blocked_artists_json, curated_skips_json, skipped_albums_json, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(session_id) DO NOTHING
 `
-      : validated.baseUpdatedAt === undefined
-        ? `
-INSERT INTO ranking_snapshots (session_id, ranking_json, lists_json, artist_locks_json, blocked_artists_json, curated_skips_json, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+      : `
+INSERT INTO ranking_snapshots (session_id, ranking_json, lists_json, artist_locks_json, blocked_artists_json, curated_skips_json, skipped_albums_json, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(session_id) DO UPDATE SET
   ranking_json = excluded.ranking_json,
   lists_json = excluded.lists_json,
   artist_locks_json = excluded.artist_locks_json,
   blocked_artists_json = excluded.blocked_artists_json,
   curated_skips_json = excluded.curated_skips_json,
-  updated_at = excluded.updated_at
-WHERE json_type(ranking_snapshots.lists_json, '$.backlog') IS NULL
-   OR json_type(excluded.lists_json, '$.backlog') IS NOT NULL
-`
-        : `
-INSERT INTO ranking_snapshots (session_id, ranking_json, lists_json, artist_locks_json, blocked_artists_json, curated_skips_json, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT(session_id) DO UPDATE SET
-  ranking_json = excluded.ranking_json,
-  lists_json = excluded.lists_json,
-  artist_locks_json = excluded.artist_locks_json,
-  blocked_artists_json = excluded.blocked_artists_json,
-  curated_skips_json = excluded.curated_skips_json,
+  skipped_albums_json = COALESCE(excluded.skipped_albums_json, ranking_snapshots.skipped_albums_json),
   updated_at = excluded.updated_at
 WHERE ranking_snapshots.updated_at = ?
   AND (json_type(ranking_snapshots.lists_json, '$.backlog') IS NULL
@@ -453,7 +446,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     res.status(405).json({ error: 'method_not_allowed' });
   } catch (err) {
     console.error('ranking_error', err);
-    schemaReady = null;
     res.status(500).json({ error: 'store_error' });
   }
 }

@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@libsql/client';
-import { SCHEMA_STATEMENTS, alterTableAddColumnIfMissing } from './_schema.js';
+import { ensureSchema } from './_ensureSchema.js';
 import { mergeDiscovered, browseArtistLps, type DiscoveredAlbum } from './_lp.js';
 import { requireWriteKey } from './_writeKey.js';
 import { withDbTimeout } from './_dbTimeout.js';
@@ -17,31 +17,11 @@ type DiscoverBody = {
   known_mbids?: unknown;
 };
 
-let schemaReady: Promise<void> | null = null;
-
 function db(): ReturnType<typeof createClient> {
   const url = process.env.TURSO_DATABASE_URL;
   const authToken = process.env.TURSO_AUTH_TOKEN;
   if (!url || !authToken) throw new Error('missing_turso_env');
   return createClient({ url, authToken });
-}
-
-function ensureSchema(): Promise<void> {
-  const client = db();
-  schemaReady ??= (async () => {
-    for (const sql of SCHEMA_STATEMENTS) {
-      await withDbTimeout(client.execute(sql));
-    }
-    await alterTableAddColumnIfMissing(
-      client,
-      'ALTER TABLE discovered_albums ADD COLUMN primary_artist_mbid TEXT',
-    );
-    await alterTableAddColumnIfMissing(
-      client,
-      'ALTER TABLE discovered_albums ADD COLUMN genres_json TEXT',
-    );
-  })();
-  return schemaReady;
 }
 
 function parseBody(req: VercelRequest): DiscoverBody | null {
@@ -159,7 +139,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse): Promise<void>
     return;
   }
 
-  await ensureSchema();
+  await ensureSchema(db());
   const albums = await discoveredForSession(db(), sessionId);
   res.status(200).json({ albums });
 }
@@ -173,7 +153,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse): Promise<void
     return;
   }
 
-  await ensureSchema();
+  await ensureSchema(db());
   const client = db();
   const known = new Set(validated.knownMbids);
   const previouslyUnranked = await discoveredForArtist(
@@ -240,7 +220,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     res.status(405).json({ error: 'method_not_allowed' });
   } catch (err) {
     console.error('discover_error', err);
-    schemaReady = null;
     res.status(500).json({ error: 'discover_error' });
   }
 }

@@ -32,10 +32,11 @@ describe('backlog snapshot with real SQLite', () => {
 
   it('protects review decisions from older clients that omit the new field', async () => {
     const loaded = await request('GET');
-    for (const version of [loaded.body.snapshot.updated_at, undefined]) {
-      const res = await request('POST', { session_id: session, ranked: [], lists: emptyLists, base_updated_at: version });
-      expect(res.statusCode).toBe(409);
-    }
+    const stale = await request('POST', { session_id: session, ranked: [], lists: emptyLists, base_updated_at: loaded.body.snapshot.updated_at });
+    expect(stale.statusCode).toBe(409);
+    const baseless = await request('POST', { session_id: session, ranked: [], lists: emptyLists });
+    expect(baseless.statusCode).toBe(400);
+    expect(baseless.body).toEqual({ error: 'missing_base_updated_at' });
     expect((await request('GET')).body.snapshot.lists.backlog).toEqual(backlog);
   });
 
@@ -44,8 +45,8 @@ describe('backlog snapshot with real SQLite', () => {
       { ...emptyLists, backlog: { ...backlog, readyToRank: 'bad' } },
       { ...emptyLists, wantToListen: [album], backlog },
       { ...emptyLists, backlog: { ...backlog, needsRefresher: [album] } },
-    ]) expect((await request('POST', { session_id: session, ranked: [], lists })).statusCode).toBe(400);
-    expect((await request('POST', { session_id: session, ranked: [{ ...album, rating: 8 }], lists: { ...emptyLists, backlog } })).statusCode).toBe(400);
+    ]) expect((await request('POST', { session_id: session, ranked: [], lists, base_updated_at: null })).statusCode).toBe(400);
+    expect((await request('POST', { session_id: session, ranked: [{ ...album, rating: 8 }], lists: { ...emptyLists, backlog }, base_updated_at: null })).statusCode).toBe(400);
   });
 
   it('moves a ready album into ranking and rejects stale versions', async () => {

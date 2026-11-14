@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@libsql/client';
 import allowlist from './_allowlist.json' with { type: 'json' };
-import { SCHEMA_STATEMENTS } from './_schema.js';
+import { ensureSchema } from './_ensureSchema.js';
 import { requireWriteKey } from './_writeKey.js';
 import { withDbTimeout } from './_dbTimeout.js';
 
@@ -16,23 +16,11 @@ type AtomBody = {
   session_id?: unknown;
 };
 
-let schemaReady: Promise<void> | null = null;
-
 function db() {
   const url = process.env.TURSO_DATABASE_URL;
   const authToken = process.env.TURSO_AUTH_TOKEN;
   if (!url || !authToken) throw new Error('missing_turso_env');
   return createClient({ url, authToken });
-}
-
-function ensureSchema(): Promise<void> {
-  const client = db();
-  schemaReady ??= (async () => {
-    for (const sql of SCHEMA_STATEMENTS) {
-      await withDbTimeout(client.execute(sql));
-    }
-  })();
-  return schemaReady;
 }
 
 function parseBody(req: VercelRequest): AtomBody | null {
@@ -98,7 +86,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   }
 
   try {
-    await ensureSchema();
+    await ensureSchema(db());
     const client = db();
 
     const [aKnown, bKnown] = await Promise.all([
@@ -142,7 +130,6 @@ VALUES (?, ?, ?, ?, ?, ?)
     res.status(201).json({ ok: true });
   } catch (err) {
     console.error('atom_error', err);
-    schemaReady = null;
     res.status(500).json({ error: 'store_error' });
   }
 }
