@@ -216,6 +216,35 @@ describe('insertAtRating (splice at the computed index, not sort-after-append)',
     expect(result[1].mbid).toBe('E');
     expect(result[1].rating).toBe(10);
   });
+
+  it('lands after every incumbent it ties with in the middle of the list, leaving the rest untouched', () => {
+    const ranked: RankedAlbum[] = [rankedAlbum('A', 10), rankedAlbum('B', 8), rankedAlbum('C', 8), rankedAlbum('D', 6)];
+
+    const result = insertAtRating(ranked, album('E'), 8);
+
+    expect(result.map((a) => a.mbid)).toEqual(['A', 'B', 'C', 'E', 'D']);
+  });
+
+  it('inserts into an empty list', () => {
+    const result = insertAtRating([], album('A'), 7.5);
+
+    expect(result.map((a) => [a.mbid, a.rating])).toEqual([['A', 7.5]]);
+  });
+
+  it('appends when the rating is below the lowest, and prepends when above the highest', () => {
+    const ranked: RankedAlbum[] = [rankedAlbum('A', 9), rankedAlbum('B', 5)];
+
+    expect(insertAtRating(ranked, album('LOW'), 1).map((a) => a.mbid)).toEqual(['A', 'B', 'LOW']);
+    expect(insertAtRating(ranked, album('HIGH'), 9.5).map((a) => a.mbid)).toEqual(['HIGH', 'A', 'B']);
+  });
+
+  it('never duplicates an album that is already ranked, and uses the new rating', () => {
+    const ranked: RankedAlbum[] = [rankedAlbum('A', 9), rankedAlbum('B', 5)];
+
+    const result = insertAtRating(ranked, album('B'), 9.5);
+
+    expect(result.map((a) => [a.mbid, a.rating])).toEqual([['B', 9.5], ['A', 9]]);
+  });
 });
 
 describe('setRating (remove-then-reinsert via insertAtRating, 0-10 range)', () => {
@@ -355,7 +384,24 @@ describe('performRankingSync (sync/conflict-resolution state machine)', () => {
     artistLocks: [] as ArtistLock[],
     blockedArtists: [] as string[],
     curatedSkips: [] as string[],
+    skippedAlbums: [] as string[],
   };
+
+  it('reports a locked session without scheduling a retry-worthy pending outcome', async () => {
+    const save = vi.fn().mockResolvedValue({ status: 'locked' } as RankingSnapshotSave);
+
+    const result = await performRankingSync({ ...baseInput, baseUpdatedAt: 10 }, { loadFresh: vi.fn(), save });
+
+    expect(result).toEqual({ outcome: 'locked', nextBaseUpdatedAt: 10 });
+  });
+
+  it('reports a permanently rejected snapshot with its HTTP status', async () => {
+    const save = vi.fn().mockResolvedValue({ status: 'rejected', httpStatus: 413 } as RankingSnapshotSave);
+
+    const result = await performRankingSync({ ...baseInput, baseUpdatedAt: 10 }, { loadFresh: vi.fn(), save });
+
+    expect(result).toEqual({ outcome: 'rejected', httpStatus: 413, nextBaseUpdatedAt: 10 });
+  });
 
   it('saves directly when the base version is already known', async () => {
     const loadFresh = vi.fn();
@@ -371,7 +417,8 @@ describe('performRankingSync (sync/conflict-resolution state machine)', () => {
       baseInput.artistLocks,
       baseInput.blockedArtists,
       baseInput.curatedSkips,
-      10
+      10,
+      baseInput.skippedAlbums
     );
     expect(result).toEqual({ outcome: 'saved', updatedAt: 42 });
   });
@@ -414,7 +461,8 @@ describe('performRankingSync (sync/conflict-resolution state machine)', () => {
       baseInput.artistLocks,
       baseInput.blockedArtists,
       baseInput.curatedSkips,
-      null
+      null,
+      baseInput.skippedAlbums
     );
   });
 

@@ -8,6 +8,8 @@ import { saveArtistLocks } from './artistLocksStorage';
 import { saveBlockedArtists } from './artistBlocks';
 import { saveCuratedSkips } from './curatedSkipsStorage';
 import { loadRankingSnapshotDetailed, saveRankingSnapshot } from './rankingSync';
+import { setWriteKey } from './writeKey';
+import { saveSkippedAlbums } from './skippedAlbums';
 import {
   clearPendingSync,
   hasPendingSync,
@@ -106,12 +108,17 @@ export interface SyncSnapshotInput {
   artistLocks: ArtistLock[];
   blockedArtists: string[];
   curatedSkips: string[];
+  skippedAlbums: string[];
   baseUpdatedAt: number | null | undefined;
 }
 
 export type SyncSnapshotResult =
   | { outcome: 'saved'; updatedAt: number }
   | { outcome: 'conflict' }
+  /** Needs a write key; stop retrying until the user unlocks. */
+  | { outcome: 'locked'; nextBaseUpdatedAt: number | null | undefined }
+  /** The server permanently refuses this snapshot; stop retrying. */
+  | { outcome: 'rejected'; httpStatus: number; nextBaseUpdatedAt: number | null | undefined }
   | { outcome: 'pending'; nextBaseUpdatedAt: number | null | undefined };
 
 export interface SyncSnapshotDeps {
@@ -154,13 +161,18 @@ export async function performRankingSync(
     input.artistLocks,
     input.blockedArtists,
     input.curatedSkips,
-    resolvedBase
+    resolvedBase,
+    input.skippedAlbums
   );
 
   if (result.status === 'saved') {
     return { outcome: 'saved', updatedAt: result.updatedAt };
   }
   if (result.status === 'conflict') return { outcome: 'conflict' };
+  if (result.status === 'locked') return { outcome: 'locked', nextBaseUpdatedAt: resolvedBase };
+  if (result.status === 'rejected') {
+    return { outcome: 'rejected', httpStatus: result.httpStatus, nextBaseUpdatedAt: resolvedBase };
+  }
   // 'error' (network/server): the base we resolved is still presumed valid,
   // so it carries forward unchanged for the next retry.
   return {
@@ -171,6 +183,10 @@ export async function performRankingSync(
 
 const SYNC_RETRY_MS = 4000;
 
+function unionStrings(a: string[], b: string[]): string[] {
+  return [...new Set([...a, ...b])];
+}
+
 export type SyncEngineDeps = {
   session: Session;
   getState: () => RankingState;
@@ -178,6 +194,9 @@ export type SyncEngineDeps = {
   getArtistLocks: () => ArtistLock[];
   getBlockedArtists: () => string[];
   getCuratedSkips: () => Set<string>;
+  /** Albums the owner removed for good; saved with the snapshot so a new
+   *  device or a discarded conflict cannot bring them back. */
+  getSkippedAlbums: () => Set<string>;
   /** Seeded from the bootstrap load-on-open flow in main.ts. */
   baseUpdatedAt: number | null | undefined;
 };
@@ -191,6 +210,7 @@ export type SyncEngine = {
   persistLists: () => void;
   persistBlockedArtists: () => void;
   persistCuratedSkips: () => void;
+  persistSkippedAlbums: () => void;
   updateSyncBanner: () => void;
   exportBackup: () => void;
   /** Append this wherever the banner belongs in the DOM; the engine owns and
@@ -211,15 +231,29 @@ export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
   let snapshotSaveChain: Promise<void> = Promise.resolve();
   let saveRevision = 0;
   let syncRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  // Set when a save can't succeed by retrying: the server wants a write key
+  // ('locked') or permanently refuses this snapshot ('rejected'). While set,
+  // the retry loop is stopped and the banner says so instead of "Retrying...".
+  let syncProblem: { kind: 'locked' } | { kind: 'rejected'; httpStatus: number } | null = null;
+  // True when the server holds a newer revision than this tab last saw and
+  // there is nothing unsaved locally, so reloading is safe and lossless.
+  let serverAhead = false;
 
   // Visible, persistent (not a transient rankList.showStatus toast) warning
   // for a save that hasn't reached the server yet -- e.g. a network hiccup.
   const bannerElement = document.createElement('p');
   bannerElement.className = 'sync-banner';
+  bannerElement.setAttribute('role', 'status');
+  bannerElement.setAttribute('aria-live', 'polite');
   bannerElement.hidden = true;
 
   function exportBackup(): void {
-    const json = createRankingBackup(deps.getState(), deps.getLists());
+    const json = createRankingBackup(deps.getState(), deps.getLists(), {
+      blocked_artists: deps.getBlockedArtists(),
+      curated_skips: [...deps.getCuratedSkips()],
+      skipped_albums: [...deps.getSkippedAlbums()],
+      artist_locks: deps.getArtistLocks(),
+    });
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -231,55 +265,135 @@ export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
     URL.revokeObjectURL(url);
   }
 
-  // Write-key enforcement is dropped for now, so the only thing left to
-  // warn about is a genuine save failure (network/server), not a locked
-  // session -- there's no more "locked" state.
+  function bannerButton(label: string, onClick: () => void): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.className = 'view-tab';
+    button.textContent = label;
+    button.addEventListener('click', onClick);
+    return button;
+  }
+
+  function adoptServerCopy(fresh: Extract<Awaited<ReturnType<typeof loadRankingSnapshotDetailed>>, { status: 'found' }>): void {
+    // Hidden artists, curated skips and removed albums only ever grow, so keep
+    // everything hidden on either side instead of letting the server copy
+    // erase hides made here. Anything only this browser had is saved right
+    // after the reload.
+    const blocked = unionStrings(deps.getBlockedArtists(), fresh.blockedArtists);
+    const curated = unionStrings([...deps.getCuratedSkips()], fresh.curatedSkips);
+    const skipped = unionStrings([...deps.getSkippedAlbums()], fresh.skippedAlbums);
+    const hasLocalOnly =
+      blocked.length > fresh.blockedArtists.length ||
+      curated.length > fresh.curatedSkips.length ||
+      skipped.length > fresh.skippedAlbums.length;
+    saveRanking({ ranked: fresh.ranked, pending: null });
+    saveLists(fresh.lists);
+    saveArtistLocks(fresh.artistLocks);
+    saveBlockedArtists(blocked);
+    saveCuratedSkips(curated);
+    saveSkippedAlbums(new Set(skipped));
+    saveSyncBase(fresh.updatedAt);
+    clearSyncConflict();
+    if (hasLocalOnly) markPendingSync();
+    else clearPendingSync();
+    window.location.reload();
+  }
+
+  function renderUnlockControls(): void {
+    const input = document.createElement('input');
+    input.type = 'password';
+    input.className = 'sync-key-input';
+    input.autocomplete = 'off';
+    input.placeholder = 'Write key';
+    input.setAttribute('aria-label', 'Write key');
+    const unlock = () => {
+      if (!input.value.trim()) return;
+      setWriteKey(input.value);
+      syncProblem = null;
+      updateSyncBanner();
+      queueSave();
+    };
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') unlock();
+    });
+    bannerElement.append(input, bannerButton('Unlock & save', unlock), bannerButton('Export unsaved backup', exportBackup));
+  }
+
   function updateSyncBanner(): void {
-    if (!hasPendingSync()) {
+    const unsaved = hasPendingSync();
+    if (!unsaved && !serverAhead) {
       bannerElement.hidden = true;
       bannerElement.textContent = '';
       return;
     }
     bannerElement.hidden = false;
+    if (!unsaved && serverAhead) {
+      bannerElement.textContent = 'The saved copy changed on another device. Reload to see the latest.';
+      bannerElement.append(bannerButton('Reload', () => window.location.reload()));
+      return;
+    }
     if (hasSyncConflict()) {
       bannerElement.textContent = 'The saved copy changed in another tab or device. Your unsaved work is kept here. Export it before discarding it.';
-      const backup = document.createElement('button');
-      backup.className = 'view-tab';
-      backup.textContent = 'Export unsaved backup';
-      backup.addEventListener('click', exportBackup);
-      const reload = document.createElement('button');
-      reload.className = 'view-tab';
-      reload.textContent = 'Discard unsaved changes & load saved copy';
-      reload.addEventListener('click', () => {
+      const reload = bannerButton('Discard unsaved changes & load saved copy', () => {
+        // Two taps: the first only arms the button, so a stray tap can't
+        // throw away unsaved work.
+        if (reload.dataset.armed !== '1') {
+          reload.dataset.armed = '1';
+          reload.textContent = 'Tap again to discard your unsaved changes';
+          return;
+        }
         void (async () => {
           reload.disabled = true;
           const fresh = await loadRankingSnapshotDetailed(deps.session.session_id);
           if (fresh.status !== 'found') {
             reload.disabled = false;
+            reload.dataset.armed = '';
             reload.textContent = 'Could not load saved copy. Try again';
             return;
           }
-          saveRanking({ ranked: fresh.ranked, pending: null });
-          saveLists(fresh.lists);
-          saveArtistLocks(fresh.artistLocks);
-          saveBlockedArtists(fresh.blockedArtists);
-          saveCuratedSkips(fresh.curatedSkips);
-          saveSyncBase(fresh.updatedAt);
-          clearSyncConflict();
-          clearPendingSync();
-          window.location.reload();
+          adoptServerCopy(fresh);
         })();
       });
-      bannerElement.append(backup, reload);
+      bannerElement.append(bannerButton('Export unsaved backup', exportBackup), reload);
+      return;
+    }
+    if (syncProblem?.kind === 'locked') {
+      bannerElement.textContent = 'Saving is locked on this device. Your changes are kept here, not saved. Enter the write key to save them.';
+      renderUnlockControls();
+      return;
+    }
+    if (syncProblem?.kind === 'rejected') {
+      bannerElement.textContent = `The server refused to save your list (error ${syncProblem.httpStatus}). Your changes are kept here, not saved. Export a backup.`;
+      bannerElement.append(bannerButton('Export unsaved backup', exportBackup));
       return;
     }
     bannerElement.textContent = 'Not saved to the server yet. Retrying...';
   }
 
+  // Stale-tab detection used to happen only on the next write. When the tab
+  // comes back into view (or the network returns) with nothing unsaved,
+  // compare against the server and offer a lossless reload if it moved on.
+  async function checkServerAhead(): Promise<void> {
+    if (hasPendingSync() || syncProblem || typeof snapshotBaseUpdatedAt !== 'number') return;
+    const fresh = await loadRankingSnapshotDetailed(deps.session.session_id);
+    if (fresh.status !== 'found' || hasPendingSync()) return;
+    const ahead = typeof snapshotBaseUpdatedAt === 'number' && fresh.updatedAt > snapshotBaseUpdatedAt;
+    if (ahead !== serverAhead) {
+      serverAhead = ahead;
+      updateSyncBanner();
+    }
+  }
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') void checkServerAhead();
+    });
+    window.addEventListener('online', () => void checkServerAhead());
+  }
+
   async function syncRankingSnapshot(): Promise<void> {
     // Nothing outstanding -- e.g. a queued retry fired after an earlier
     // call in the chain already resolved things. Skip the redundant round-trip.
-    if (!hasPendingSync() || hasSyncConflict()) return;
+    if (!hasPendingSync() || hasSyncConflict() || syncProblem) return;
     const revision = saveRevision;
 
     const result = await performRankingSync({
@@ -289,6 +403,7 @@ export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
       artistLocks: deps.getArtistLocks(),
       blockedArtists: deps.getBlockedArtists(),
       curatedSkips: [...deps.getCuratedSkips()],
+      skippedAlbums: [...deps.getSkippedAlbums()],
       baseUpdatedAt: snapshotBaseUpdatedAt,
     });
 
@@ -300,6 +415,11 @@ export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
       if (revision === saveRevision) clearPendingSync();
     } else if (result.outcome === 'conflict') {
       markSyncConflict();
+      markPendingSync();
+    } else if (result.outcome === 'locked' || result.outcome === 'rejected') {
+      // Retrying can't fix either: stop the loop and tell the user why.
+      syncProblem = result.outcome === 'locked' ? { kind: 'locked' } : { kind: 'rejected', httpStatus: result.httpStatus };
+      snapshotBaseUpdatedAt = result.nextBaseUpdatedAt;
       markPendingSync();
     } else {
       // 'pending': neither a refetch failure nor a save (error/conflict)
@@ -323,6 +443,11 @@ export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
     }, SYNC_RETRY_MS);
   }
 
+  function retryRejectedOnEdit(): void {
+    if (syncProblem?.kind === 'rejected') syncProblem = null;
+    serverAhead = false;
+  }
+
   function queueSave(): void {
     saveRevision += 1;
     snapshotSaveChain = snapshotSaveChain.then(syncRankingSnapshot, syncRankingSnapshot);
@@ -330,6 +455,7 @@ export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
   }
 
   function persistRankingState(): void {
+    retryRejectedOnEdit();
     saveRanking(deps.getState());
     markPendingSync();
     updateSyncBanner();
@@ -337,6 +463,7 @@ export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
   }
 
   function persistLists(): void {
+    retryRejectedOnEdit();
     saveLists(deps.getLists());
     markPendingSync();
     updateSyncBanner();
@@ -344,13 +471,23 @@ export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
   }
 
   function persistBlockedArtists(): void {
+    retryRejectedOnEdit();
     saveBlockedArtists(deps.getBlockedArtists());
     markPendingSync();
     updateSyncBanner();
     queueSave();
   }
 
+  function persistSkippedAlbums(): void {
+    retryRejectedOnEdit();
+    saveSkippedAlbums(deps.getSkippedAlbums());
+    markPendingSync();
+    updateSyncBanner();
+    queueSave();
+  }
+
   function persistCuratedSkips(): void {
+    retryRejectedOnEdit();
     saveCuratedSkips([...deps.getCuratedSkips()]);
     markPendingSync();
     updateSyncBanner();
@@ -363,6 +500,7 @@ export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
     persistLists,
     persistBlockedArtists,
     persistCuratedSkips,
+    persistSkippedAlbums,
     updateSyncBanner,
     exportBackup,
     bannerElement,

@@ -110,3 +110,35 @@ describe('artist backlog', () => {
     expect(parseRankingBackup(createRankingBackup(state, lists), [])).toEqual({ ok: true, state, lists });
   });
 });
+
+describe('artist navigation', () => {
+  const gap = (id: string, remaining = 1) => ({ id, name: id, ranked: [], albums: [], remaining: Array.from({ length: remaining }, (_, i) => album(`${id}-${i}`)), plays: 0, reviewed: false });
+
+  it('stays on the requested artist while it still has albums', async () => {
+    const { pickSelectedArtistId } = await import('./backlog');
+    expect(pickSelectedArtistId('b', [gap('a'), gap('b'), gap('c')], ['a', 'b', 'c'])).toBe('b');
+  });
+
+  it('moves to the artist that followed a vanished one, not back to the top of the list', async () => {
+    const { pickSelectedArtistId } = await import('./backlog');
+    // b was fully triaged and dropped out of the list.
+    expect(pickSelectedArtistId('b', [gap('a'), gap('c'), gap('d')], ['a', 'b', 'c', 'd'])).toBe('c');
+  });
+
+  it('skips over several vanished artists and falls back to the top only when nothing follows', async () => {
+    const { pickSelectedArtistId } = await import('./backlog');
+    expect(pickSelectedArtistId('b', [gap('a'), gap('d')], ['a', 'b', 'c', 'd'])).toBe('d');
+    expect(pickSelectedArtistId('d', [gap('a'), gap('c')], ['a', 'b', 'c', 'd'])).toBe('a');
+    expect(pickSelectedArtistId('x', [gap('a')], [])).toBe('a');
+    expect(pickSelectedArtistId(null, [], [])).toBeNull();
+  });
+
+  it('finishing an artist goes to the next unreviewed artist after it, wrapping only at the end', async () => {
+    const { nextArtistAfter } = await import('./backlog');
+    const artists = [gap('a'), gap('b'), gap('c'), gap('d')];
+    expect(nextArtistAfter(artists, 'b', ['b'])?.id).toBe('c');
+    expect(nextArtistAfter(artists, 'b', ['b', 'c'])?.id).toBe('d');
+    expect(nextArtistAfter(artists, 'd', ['d'])?.id).toBe('a');
+    expect(nextArtistAfter(artists, 'a', ['a', 'b', 'c', 'd'])).toBeUndefined();
+  });
+});

@@ -51,7 +51,7 @@ import { CURATED_LISTS } from './data/curatedLists';
 import { curatedEntryKey, unrankedFromCuratedList } from './curatedListMatch';
 import { renderCuratedListView } from './ui/curatedListView';
 import type { CuratedAlbumEntry } from './data/curatedLists';
-import { buildArtistGaps, decideAlbum, albumKey } from './backlog';
+import { buildArtistGaps, decideAlbum, albumKey, pickSelectedArtistId, nextArtistAfter } from './backlog';
 import { emptyBacklog } from '../shared/backlog';
 import { renderBacklogView, type BacklogShelf } from './ui/backlogView';
 import { suggestAlbum, loadSuggestionConnections, type Suggestion, type RelatedArtist, type SliceFilter } from './suggestions';
@@ -60,6 +60,7 @@ import { createSyncEngine, resolveInitialState } from './syncEngine';
 import { createRankingStore } from './rankingStore';
 import { rateAlbum, reRateAt, setRatingAt, directRate, setAside, placeAt } from './rankingActions';
 import { bootstrapApp } from './bootstrap';
+import { extractKeyFromFragment, setWriteKey } from './writeKey';
 
 type ViewMode = 'ranked' | ListName | 'blockedArtists' | 'artistBatch' | 'speedRound' | 'curatedLists' | 'backlog' | 'slice';
 
@@ -118,6 +119,15 @@ async function main(): Promise<void> {
     throw new Error('#app mount point not found');
   }
 
+  // Bookmarkable unlock link: open `/#key=...` once per device. A fragment
+  // never reaches the server or its logs; strip it from the address bar after
+  // storing the key. Only matters once ALBUM_CASE_WRITE_KEY is set server-side.
+  const fragmentKey = extractKeyFromFragment(window.location.hash);
+  if (fragmentKey) {
+    setWriteKey(fragmentKey);
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+  }
+
   const session = getOrCreateSession();
   void flushAtomQueue();
 
@@ -157,6 +167,20 @@ async function main(): Promise<void> {
     curatedSkips,
   });
 
+  // Persisted, permanent excludes: an album the owner explicitly removed
+  // from a saved list (see removeFromSavedList) never resurfaces as a
+  // candidate, even across reloads. Saved with the snapshot (merged with the
+  // server's copy here) so a second device or a discarded conflict cannot
+  // bring removed albums back.
+  const skippedAlbums = loadSkippedAlbums();
+  let skippedOnlyHere = false;
+  if (bootstrap.serverSkippedAlbums) {
+    const onServer = new Set(bootstrap.serverSkippedAlbums);
+    skippedOnlyHere = [...skippedAlbums].some((mbid) => !onServer.has(mbid));
+    for (const mbid of onServer) skippedAlbums.add(mbid);
+    saveSkippedAlbums(skippedAlbums);
+  }
+
   // Owns the steady-state save/retry/banner engine (was closure locals here
   // in main()); bootstrap above now lives in bootstrapApp() -- see
   // bootstrap.ts's module doc comment.
@@ -167,8 +191,12 @@ async function main(): Promise<void> {
     getArtistLocks: rankingStore.getArtistLocks,
     getBlockedArtists: rankingStore.getBlockedArtists,
     getCuratedSkips: rankingStore.getCuratedSkips,
+    getSkippedAlbums: () => skippedAlbums,
     baseUpdatedAt: snapshotBaseUpdatedAt,
   });
+  // First save after this field shipped (or after a second device hid
+  // something): push removed albums the server does not have yet.
+  if (skippedOnlyHere) syncEngine.persistSkippedAlbums();
 
   if (initial.fromServer) {
     saveRanking(rankingStore.getState());
@@ -191,10 +219,6 @@ async function main(): Promise<void> {
   // are the fallback.
   let candidate: Album | null = null;
 
-  // Persisted, permanent excludes: an album the owner explicitly removed
-  // from a saved list (see removeFromSavedList) never resurfaces as a
-  // candidate, even across reloads.
-  const skippedAlbums = loadSkippedAlbums();
   // "Skip for now" (rankList.ts's onSkip / the speed-round wiring below) is
   // session-scoped only, per its own doc comment: kept in memory for the
   // running session so it doesn't resurface immediately, but never
@@ -1039,7 +1063,7 @@ async function main(): Promise<void> {
     // placement -- skippedAlbums already keeps it out of candidate selection
     // (see reselectCandidate), so there's nothing new to offer.
     skippedAlbums.add(album.mbid);
-    saveSkippedAlbums(skippedAlbums);
+    syncEngine.persistSkippedAlbums();
     renderNav();
     renderCurrentSavedList(which);
   }
@@ -1416,6 +1440,8 @@ async function main(): Promise<void> {
   let suggestionLoading = false;
   let suggestionLoaded = false;
   let suggestionUnavailable = false;
+  // Artist order from the previous render, so a vanished artist hands over to the one after it.
+  let lastArtistOrder: string[] = [];
   let backlogUndo: { state: RankingState; lists: SavedLists; suggestions: typeof suggestionState; persist: boolean } | null = null;
 
   function chooseSuggestion(): void {
@@ -1463,7 +1489,16 @@ async function main(): Promise<void> {
       skippedAlbums.has(suggested.mbid) || rankingStore.getBlockedArtists().some(name => normalize(name) === normalize(suggested.primary_artist_name))
     )) chooseSuggestion();
     const artists = buildArtistGaps(pool, rankingStore.getState().ranked, rankingStore.getLists(), preferred, rankingStore.getBlockedArtists(), skippedAlbums);
-    const selectedArtistId = rankingStore.getLists().backlog?.currentArtistId ?? artists[0]?.id ?? null;
+    const requestedArtistId = rankingStore.getLists().backlog?.currentArtistId ?? null;
+    const selectedArtistId = pickSelectedArtistId(requestedArtistId, artists, lastArtistOrder);
+    lastArtistOrder = artists.map((a) => a.id);
+    // The artist we were on is gone (everything triaged): remember where we
+    // moved to, so a reload resumes there rather than back at the top.
+    if (selectedArtistId !== requestedArtistId && selectedArtistId) {
+      const backlog = rankingStore.getLists().backlog ?? emptyBacklog<Album>();
+      rankingStore.setLists({ ...rankingStore.getLists(), backlog: { ...backlog, currentArtistId: selectedArtistId } });
+      persistLists();
+    }
     const remember = (persist = true) => { backlogUndo = { state: rankingStore.getState(), lists: rankingStore.getLists(), suggestions: suggestionState, persist }; };
     // Shared by onArtist and onDecide, both of which only ever change which
     // artist is showing -- onFinish changes reviewedArtistIds at the same
@@ -1534,7 +1569,7 @@ async function main(): Promise<void> {
         remember();
         const backlog = rankingStore.getLists().backlog ?? emptyBacklog<Album>();
         const reviewed = [...new Set([...backlog.reviewedArtistIds, id])];
-        const next = artists.find((a) => !reviewed.includes(a.id));
+        const next = nextArtistAfter(artists, id, reviewed);
         rankingStore.setLists({ ...rankingStore.getLists(), backlog: { ...backlog, reviewedArtistIds: reviewed, currentArtistId: next?.id ?? id } });
         backlogShowOther = false;
         backlogMessage = next ? 'Artist reviewed. Here’s the next one.' : 'You’ve reviewed every artist in this pass. Your familiar albums are waiting in Ready to rank.';

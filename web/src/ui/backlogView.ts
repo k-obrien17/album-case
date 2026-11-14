@@ -184,9 +184,9 @@ export function renderBacklogView(container: HTMLElement, opts: BacklogViewOptio
     const artistHeading = document.createElement('div');
     artistHeading.className = 'backlog-artist-heading';
     artistHeading.append(text('h3', selected.name));
-    const index = opts.artists.indexOf(selected);
-    const next = opts.artists[(index + 1) % opts.artists.length];
-    artistHeading.append(button('Next artist →', () => opts.onArtist(next.id)));
+    // Skipping marks the artist reviewed (it moves to the end of the list), so
+    // the same artists stop coming back first each time you move on.
+    artistHeading.append(button('Skip artist →', () => opts.onFinish(selected.id)));
     wrap.append(artistHeading);
     const other = selected.remaining.filter((a) => otherReleaseReason(a));
     const albums = selected.remaining.filter((a) => opts.showOther || !otherReleaseReason(a));

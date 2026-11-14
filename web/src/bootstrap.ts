@@ -42,6 +42,8 @@ export interface BootstrapResult {
   pendingSync: boolean;
   blockedArtists: string[];
   curatedSkips: Set<string>;
+  /** The server's removed-album ids, or null when the server copy was not loaded. */
+  serverSkippedAlbums: string[] | null;
   serverSnapshot: { ranked: RankedAlbum[]; lists: SavedLists; artistLocks: ArtistLock[] } | null;
   serverLoadStatus: RankingSnapshotLoad['status'];
   snapshotBaseUpdatedAt: number | null | undefined;
@@ -179,6 +181,7 @@ export async function bootstrapApp(ownerId: string): Promise<BootstrapResult> {
     pendingSync,
     blockedArtists,
     curatedSkips,
+    serverSkippedAlbums: serverLoad.status === 'found' ? serverLoad.skippedAlbums : null,
     serverSnapshot,
     serverLoadStatus: serverLoad.status,
     snapshotBaseUpdatedAt,

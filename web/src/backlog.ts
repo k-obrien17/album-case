@@ -69,6 +69,33 @@ export function buildArtistGaps(
     .sort((a, b) => Number(a.reviewed) - Number(b.reviewed) || b.ranked.length - a.ranked.length || b.plays - a.plays || a.name.localeCompare(b.name));
 }
 
+/**
+ * Which artist the gaps view should show. The requested artist wins. If it just
+ * disappeared (its last album was triaged), move on to the artist that followed
+ * it in the previous list order instead of snapping back to the top of the
+ * list, which kept landing on the same artists every time.
+ */
+export function pickSelectedArtistId(requested: string | null, artists: ArtistGap[], previousOrder: string[]): string | null {
+  if (requested && artists.some((a) => a.id === requested)) return requested;
+  if (requested) {
+    const at = previousOrder.indexOf(requested);
+    if (at >= 0) {
+      const present = new Set(artists.map((a) => a.id));
+      const following = previousOrder.slice(at + 1).find((id) => present.has(id));
+      if (following) return following;
+    }
+  }
+  return artists[0]?.id ?? null;
+}
+
+/** After finishing or skipping an artist: the next unreviewed artist after it
+ *  in list order, falling back to the first unreviewed artist overall. */
+export function nextArtistAfter(artists: ArtistGap[], finishedId: string, reviewedIds: string[]): ArtistGap | undefined {
+  const at = artists.findIndex((a) => a.id === finishedId);
+  const unreviewed = (a: ArtistGap) => !reviewedIds.includes(a.id);
+  return (at >= 0 ? artists.slice(at + 1).find(unreviewed) : undefined) ?? artists.find(unreviewed);
+}
+
 export function decideAlbum(lists: SavedLists, album: Album, decision: ReviewDecision | null): SavedLists {
   const next = removeFromAllLists(lists, album);
   if (!decision) {

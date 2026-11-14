@@ -24,6 +24,7 @@ type SnapshotPayload = {
   artist_locks: ArtistLock[];
   blocked_artists: string[];
   curated_skips: string[];
+  skipped_albums?: string[];
   base_updated_at?: number | null;
 };
 
@@ -42,6 +43,7 @@ type SnapshotResponse = {
     artist_locks?: ArtistLock[];
     blocked_artists?: string[];
     curated_skips?: string[];
+    skipped_albums?: string[];
     updated_at: number;
   };
 };
@@ -54,6 +56,7 @@ export type RankingSnapshotLoad =
       artistLocks: ArtistLock[];
       blockedArtists: string[];
       curatedSkips: string[];
+      skippedAlbums: string[];
       updatedAt: number;
     }
   | { status: 'missing' }
@@ -62,6 +65,10 @@ export type RankingSnapshotLoad =
 export type RankingSnapshotSave =
   | { status: 'saved'; updatedAt: number }
   | { status: 'conflict' }
+  /** 401: the server wants a write key this browser doesn't have. */
+  | { status: 'locked' }
+  /** A permanent 4xx (bad snapshot, too large): retrying cannot succeed. */
+  | { status: 'rejected'; httpStatus: number }
   | { status: 'error' };
 
 export function snapshotPayload(
@@ -71,7 +78,8 @@ export function snapshotPayload(
   artistLocks: ArtistLock[],
   blockedArtists: string[],
   curatedSkips: string[],
-  baseUpdatedAt?: number | null
+  baseUpdatedAt?: number | null,
+  skippedAlbums?: string[]
 ): SnapshotPayload {
   const payload: SnapshotPayload = {
     session_id: sessionId,
@@ -85,6 +93,8 @@ export function snapshotPayload(
     artist_locks: artistLocks,
     blocked_artists: blockedArtists,
     curated_skips: curatedSkips,
+    // Omitted (not []) when unknown so an older caller never empties the stored set.
+    ...(skippedAlbums && { skipped_albums: skippedAlbums }),
   };
   if (baseUpdatedAt !== undefined) payload.base_updated_at = baseUpdatedAt;
   return payload;
@@ -97,17 +107,25 @@ export async function saveRankingSnapshot(
   artistLocks: ArtistLock[],
   blockedArtists: string[],
   curatedSkips: string[],
-  baseUpdatedAt?: number | null
+  baseUpdatedAt?: number | null,
+  skippedAlbums?: string[]
 ): Promise<RankingSnapshotSave> {
   try {
     const response = await fetch('/api/ranking', {
       method: 'POST',
       headers: { 'content-type': 'application/json', ...writeKeyHeaders() },
       body: JSON.stringify(
-        snapshotPayload(sessionId, state, lists, artistLocks, blockedArtists, curatedSkips, baseUpdatedAt)
+        snapshotPayload(sessionId, state, lists, artistLocks, blockedArtists, curatedSkips, baseUpdatedAt, skippedAlbums)
       ),
     });
     if (response.status === 409) return { status: 'conflict' };
+    if (response.status === 401) return { status: 'locked' };
+    // 408 and 429 are transient; every other 4xx means the server will keep
+    // refusing this exact snapshot, so surface it instead of retrying forever.
+    if (response.status >= 400 && response.status < 500 && response.status !== 408 && response.status !== 429) {
+      console.warn('tastetest: ranking snapshot rejected', response.status);
+      return { status: 'rejected', httpStatus: response.status };
+    }
     // Fire-and-forget, but not silently-blind: surface a non-2xx so a 400/500
     // is distinguishable from success. The offline cache stays usable either way.
     if (!response.ok) {
@@ -191,6 +209,9 @@ export async function loadRankingSnapshotDetailed(sessionId: string): Promise<Ra
     artistLocks: Array.isArray(body.snapshot.artist_locks) ? body.snapshot.artist_locks : [],
     blockedArtists: Array.isArray(body.snapshot.blocked_artists) ? body.snapshot.blocked_artists : [],
     curatedSkips: Array.isArray(body.snapshot.curated_skips) ? body.snapshot.curated_skips : [],
+    skippedAlbums: Array.isArray(body.snapshot.skipped_albums)
+      ? body.snapshot.skipped_albums.filter((v): v is string => typeof v === 'string')
+      : [],
     updatedAt: body.snapshot.updated_at,
   };
 }

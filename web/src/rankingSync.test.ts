@@ -99,6 +99,36 @@ describe('ranking snapshot payload', () => {
 
     expect(result).toEqual({ status: 'conflict' });
   });
+
+  async function saveWithStatus(status: number) {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status } as unknown as Response));
+    return saveRankingSnapshot(
+      '11111111-1111-4111-8111-111111111111',
+      { ranked: [rankedAlbum('a')], pending: null },
+      { wantToListen: [], notHeard: [], dontCare: [] },
+      [],
+      [],
+      [],
+      123
+    );
+  }
+
+  it('reports a 401 as locked rather than a retryable error', async () => {
+    expect(await saveWithStatus(401)).toEqual({ status: 'locked' });
+  });
+
+  it('reports permanent 4xx responses as rejected, with the status', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(await saveWithStatus(400)).toEqual({ status: 'rejected', httpStatus: 400 });
+    expect(await saveWithStatus(413)).toEqual({ status: 'rejected', httpStatus: 413 });
+  });
+
+  it('keeps transient failures (408, 429, 5xx) retryable', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    for (const status of [408, 429, 500, 503]) {
+      expect(await saveWithStatus(status)).toEqual({ status: 'error' });
+    }
+  });
 });
 
 describe('loadRankingSnapshot', () => {

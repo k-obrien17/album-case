@@ -4,12 +4,22 @@ import { parseAlbum } from './album';
 import { ratingForDropIndex } from './ranking/rating';
 import { parseBacklog } from '../shared/backlog';
 
+/** Settings that live beside the ranking and are not part of `lists`. Exported
+ *  so a manual merge after a sync conflict does not lose them; restoring
+ *  ignores them (parseRankingBackup only reads ranking and lists). */
+export type BackupExtras = {
+  blocked_artists: string[];
+  curated_skips: string[];
+  skipped_albums: string[];
+  artist_locks: unknown[];
+};
+
 type BackupBundle = {
   version: 1;
   exported_at: string;
   ranking: RankingState;
   lists: SavedLists;
-};
+} & Partial<BackupExtras>;
 
 type ParseResult =
   | { ok: true; state: RankingState; lists: SavedLists | null }
@@ -97,12 +107,13 @@ function parseLists(value: unknown, pool: Album[]): SavedLists | null {
   return { wantToListen, notHeard, dontCare, ...(backlog && { backlog }) };
 }
 
-export function createRankingBackup(state: RankingState, lists: SavedLists): string {
+export function createRankingBackup(state: RankingState, lists: SavedLists, extras?: BackupExtras): string {
   const bundle: BackupBundle = {
     version: 1,
     exported_at: new Date().toISOString(),
     ranking: { ranked: state.ranked, pending: null },
     lists,
+    ...extras,
   };
   return JSON.stringify(bundle, null, 2);
 }

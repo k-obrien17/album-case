@@ -124,3 +124,18 @@ describe('ranking backups', () => {
     expect(parsed.ok).toBe(false);
   });
 });
+
+describe('backup extras', () => {
+  it('carries hidden artists, curated skips, removed albums and locks, and still restores without them', () => {
+    const state = { ranked: [], pending: null };
+    const lists = { wantToListen: [], notHeard: [], dontCare: [] };
+    const json = createRankingBackup(state, lists, { blocked_artists: ['Artist A'], curated_skips: ['list:entry'], skipped_albums: ['mbid-1'], artist_locks: [] });
+    const bundle = JSON.parse(json);
+
+    expect(bundle.blocked_artists).toEqual(['Artist A']);
+    expect(bundle.curated_skips).toEqual(['list:entry']);
+    expect(bundle.skipped_albums).toEqual(['mbid-1']);
+    expect(parseRankingBackup(json, [])).toEqual({ ok: true, state, lists });
+    expect(Object.keys(JSON.parse(createRankingBackup(state, lists)))).not.toContain('blocked_artists');
+  });
+});

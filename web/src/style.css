@@ -102,6 +102,18 @@ button:active {
   font-size: 0.8rem;
 }
 .sync-banner button { margin: 8px 8px 0 0; max-width: 100%; }
+.sync-banner .sync-key-input {
+  box-sizing: border-box;
+  min-height: 44px;
+  margin: 8px 8px 0 0;
+  padding: 8px 12px;
+  max-width: 100%;
+  border: 1px solid var(--color-border-btn);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font: inherit;
+}
 
 /* Sticky chrome: search + view tabs stay reachable from any scroll depth.
    z-index above .candidate-col (2), which is itself sticky below this bar. */
@@ -765,6 +777,7 @@ button.rank-rating {
   text-underline-offset: 3px;
   cursor: pointer;
   min-height: 44px;
+  min-width: 44px;
 }
 
 button.rank-overall::after,
