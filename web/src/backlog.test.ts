@@ -42,9 +42,17 @@ describe('artist backlog', () => {
   it('includes preferred artists without rankings and puts reviewed artists last', () => {
     const second = { ...album('second'), primary_artist_name: 'Most played', primary_artist_mbid: undefined };
     const lists = { ...empty(), backlog: { ...emptyBacklog<Album>(), reviewedArtistIds: [artistId] } };
-    const gaps = buildArtistGaps([second], [{ ...album('rated'), rating: 8 }], lists, [{ artist: 'Most played', plays: 100, rank: 1, hours: 5 }]);
+    const gaps = buildArtistGaps([second, album('unheard')], [{ ...album('rated'), rating: 8 }], lists, [{ artist: 'Most played', plays: 100, rank: 1, hours: 5 }]);
     expect(gaps.map((g) => g.name)).toEqual(['Most played', 'Known Artist']);
     expect(buildArtistGaps([second], [], lists, [], ['Known Artist'])).toEqual([]);
+  });
+
+  it('drops artists whose every album is ranked, want to listen, not heard, not interested, or skipped', () => {
+    const ranked = [{ ...album('rated'), rating: 8 }];
+    const pool = [album('want'), album('unheard'), album('ignored'), album('skip')];
+    const lists = { ...empty(), wantToListen: [album('want')], notHeard: [album('unheard')], dontCare: [album('ignored')] };
+    expect(buildArtistGaps(pool, ranked, lists, [], [], new Set(['skip']))).toEqual([]);
+    expect(buildArtistGaps([...pool, album('fresh')], ranked, lists, [], [], new Set(['skip'])).map((g) => g.name)).toEqual(['Known Artist']);
   });
 
   it('moves decisions between queues exclusively and removes them when rated', () => {

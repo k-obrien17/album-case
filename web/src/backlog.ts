@@ -64,7 +64,7 @@ export function buildArtistGaps(
   }
   const byYear = (a: Album, b: Album) => (a.release_year ?? 9999) - (b.release_year ?? 9999) || a.title.localeCompare(b.title);
   return [...groups.values()]
-    .filter((g) => g.ranked.length > 0 || g.plays > 0)
+    .filter((g) => (g.ranked.length > 0 || g.plays > 0) && g.remaining.length > 0)
     .map((g) => ({ ...g, albums: g.albums.sort(byYear), remaining: g.remaining.sort(byYear) }))
     .sort((a, b) => Number(a.reviewed) - Number(b.reviewed) || b.ranked.length - a.ranked.length || b.plays - a.plays || a.name.localeCompare(b.name));
 }
