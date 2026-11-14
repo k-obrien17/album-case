@@ -1,19 +1,36 @@
 # Security Policy
 
-Album Case is public for reads. Write-key enforcement on mutations is
-currently **dropped** (Keith's call, 2026-08-11): a browser that never got
-unlocked was silently caching ratings locally instead of saving them,
-mistaken for data loss. Mutating routes now accept requests unconditionally
--- `requireWriteKey()` (`web/api/_writeKey.ts`) is a pass-through, not
-deleted, so re-enabling is a one-function revert if this gets reconsidered.
-Anyone with the URL can currently edit the ranked list; there is no
-authentication of any kind on writes.
+Album Case is public for reads. Write protection is **opt-in and currently
+off** in production. Keith dropped enforcement on 2026-08-11 because a browser
+that never got unlocked was silently caching ratings locally instead of saving
+them, which read as data loss. On 2026-11-14 `requireWriteKey()`
+(`web/api/_writeKey.ts`) became an explicit switch: it enforces the key only
+when `ALBUM_CASE_ENFORCE_WRITE_KEY=1` and `ALBUM_CASE_WRITE_KEY` is set. A stale
+`ALBUM_CASE_WRITE_KEY` is still in the production environment from the earlier
+era, so the flag (not the key) is what turns enforcement on. With the flag off,
+anyone with the URL can edit the ranked list.
 
-## What Is Intended (while enforcement is dropped)
+The client no longer fails silently when enforcement is on: a 401 puts the sync
+banner into an explicit locked state (changes kept on the device, not saved,
+with an unlock field), and a bookmarkable `/#key=...` link unlocks a device in
+one visit (a URL fragment never reaches the server or its logs).
+
+Separately, `POST /api/ranking` now requires `base_updated_at` (null for a first
+insert, a number for an update). A write without it is rejected with 400
+`missing_base_updated_at`, so a script or old client can no longer overwrite the
+list outside the compare-and-set check.
+
+## What Is Intended (while enforcement is off)
 
 - Public reads.
-- Public writes -- no key, no login, no rate limit beyond MusicBrainz's own.
+- Public writes -- no key, no login, no rate limit beyond MusicBrainz's own, but always version-checked.
 - The fixed owner ID is not auth and never was.
+
+## To turn enforcement on
+
+1. Confirm `ALBUM_CASE_WRITE_KEY` in Vercel production is a value Keith still has.
+2. Set `ALBUM_CASE_ENFORCE_WRITE_KEY=1` in Vercel production and redeploy.
+3. Open `https://album-case.vercel.app/#key=<the key>` once on each device.
 
 ## Do Not Expose
 
@@ -25,7 +42,7 @@ authentication of any kind on writes.
 ## Accepted Tradeoff
 
 - Public read AND write exposure is intentional for now, a deliberate, revertible tradeoff (see above), not an oversight.
-- If this needs re-gating later (privacy, or someone actually vandalizing the list), re-enable `requireWriteKey()` first; gate reads only if private rankings matter independently of that.
+- If this needs re-gating later (privacy, or someone actually vandalizing the list), set `ALBUM_CASE_ENFORCE_WRITE_KEY=1` first; gate reads only if private rankings matter independently of that. Friends with their own lists need real sign-in, not a shared key.
 
 ## Backup Export Is One-Way
 

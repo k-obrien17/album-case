@@ -1,5 +1,24 @@
 # Handoff
 
+## 2026-11-14 follow-up: hides now sync, artist navigation fixed (UNCOMMITTED, NOT DEPLOYED)
+Fixes for "it keeps cycling the same bands and unhid albums I hid", found after a sync conflict was resolved by merging a 919-album local copy into the server (921 ranked, merged payload kept the server's hidden artists/curated skips because the backup file did not carry them).
+- Cause of cycling: after the earlier Artist-gaps filter, an artist whose last album was triaged vanished and the view snapped to `artists[0]` (always the same top bands); "Finish artist & next" also jumped to the first unreviewed artist overall. Now `pickSelectedArtistId` / `nextArtistAfter` (`web/src/backlog.ts`) move to the artist that FOLLOWED it, and the heading button is "Skip artist →" (marks reviewed, so skipped artists stop returning at the top). E2E: `web/e2e/artist-gaps-hides.spec.ts` (fails on the old logic).
+- Removed albums (`tastetest-skipped-albums`, previously browser-only) are now saved with the snapshot as `skipped_albums` (migration `add_skipped_albums_json`, `COALESCE` so older clients never clear it; cap 20,000). Boot merges server + local and pushes anything only this browser had.
+- "Discard unsaved changes" now unions hidden artists, curated skips and removed albums with the server copy instead of overwriting local hides, and saves any local-only ones right after the reload. "Export unsaved backup" now also writes `blocked_artists`, `curated_skips`, `skipped_albums`, `artist_locks`.
+- Still device-local by design: "Skip for now" on a candidate (session only) and the candidate-artist cooldown.
+- 476 unit tests + 19 Playwright specs green. Production currently runs the earlier fix pass below (deployed 2026-11-14); this follow-up is not live.
+
+## 2026-11-14 ship-check fix pass (DEPLOYED 2026-11-14, still uncommitted)
+Fixes for the 2026-11-14 ship-check (report: `~/.claude/ship-check-reports/2026-11-14-1132-album-case.md`). All in the working tree; typecheck clean, 464 unit tests + 16 Playwright specs green.
+- `POST /api/ranking` now requires `base_updated_at` (400 `missing_base_updated_at`); the unconditional-upsert SQL branch is gone. The scripts (`import-album-canon.mjs`, `backfill-ratings.mjs`) already send it.
+- Write key is now an explicit opt-in switch: `requireWriteKey()` enforces only when `ALBUM_CASE_ENFORCE_WRITE_KEY=1` (plus `ALBUM_CASE_WRITE_KEY`). A stale `ALBUM_CASE_WRITE_KEY` is still set in Vercel production, so the flag (not the key) must be what turns it on; deploying this does NOT change production behavior. To enforce: set the flag, redeploy, open `/#key=<key>` once per device. The client shows a locked banner with an unlock field on 401 and stops retrying.
+- Permanent 4xx saves (400, 413, ...) now stop the 4s retry loop and show a "server refused" banner with Export; the next edit retries once. Conflict "Discard" needs two taps. Banner has `role="status"`. Returning to a visible/online tab offers a lossless "Reload" if the server moved on.
+- Migrations: `web/api/_migrate.ts` + `web/api/_migrations/` (README has the rules), shared `_ensureSchema.ts` replaced the three duplicated bootstraps. Legacy DBs adopt the baseline with no data change. Production applies pending migrations on the first request after deploy; adds `schema_migrations` table and an index on `discovered_albums(session_id, primary_artist_mbid)`.
+- 44px `min-width` on rating/overall buttons; favicon; `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` headers in `vercel.json` (no CSP yet).
+- Verified (not assumed): the phone candidate card was already sticky, and a 360px drag from the "More ways to rank" handle autoscrolls to a deep row and lands correctly (Playwright, mouse pointer events; a physical-touch check is still open). The Playwright run used a local-Chrome config because the bundled browser is not installed (`npx playwright install` fixes that).
+- Not done: splitting `main.ts` (1,783 lines), cover-art/denser mobile rows, per-user sync state and real sign-in (friends rollout), CSP.
+- Ask Keith before: committing, `vercel deploy --prod --yes` from `web/`.
+
 ## Current task
 Browse-by-category views + gap-aware discovery (spec `docs/superpowers/specs/2026-11-07-browse-and-discovery-design.md`), then a UX-teardown fix pass (`docs/superpowers/2026-11-08-ux-teardown.md`). Both shipped.
 

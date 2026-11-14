@@ -15,8 +15,8 @@ Off: seo (no public discovery surface — single fixed owner id), legal (no acco
 
 ## Must-pass commitments
 - Owner ranking snapshot in Turso is the single source of truth; localStorage stays cache-only, never authoritative
-- Every mutation route validates `ALBUM_CASE_WRITE_KEY`; the key never lands in source, `VITE_*` env vars, logs, or screenshots
-- Migrations reversible + collision-free; ms timestamps; ranking snapshot writes stay versioned to prevent stale-tab/stale-browser overwrites
+- Every mutation route runs `requireWriteKey()`, which enforces `ALBUM_CASE_WRITE_KEY` when `ALBUM_CASE_ENFORCE_WRITE_KEY=1` (opt-in, off in production until Keith flips it; see SECURITY.md); a write without `base_updated_at` is always rejected; the key never lands in source, `VITE_*` env vars, logs, or screenshots
+- Migrations reversible + collision-free; ms timestamps (`web/api/_migrations/`, rules in its README); ranking snapshot writes stay versioned to prevent stale-tab/stale-browser overwrites
 - Insertion logic (`insertAtRating`) and the append-then-sort tie regression stay covered by tests
 - Golden path (drag candidate to exact rank position) usable at 360px, no horizontal scroll, tap targets >= 44px
 - Consistent, intentional visual design on the ranking surface; doesn't read as generic-AI scaffold

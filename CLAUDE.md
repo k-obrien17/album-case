@@ -11,9 +11,10 @@ actually heard, and keep that ranking honest.
 **Target vs. today.** The shipped code is still a single-owner app: one fixed
 owner id (`web/src/owner.ts`), no accounts, and the canonical list is that
 owner's snapshot in Turso (localStorage is only a fast/offline cache).
-Write-key enforcement (`ALBUM_CASE_WRITE_KEY`) is currently dropped
-(2026-08-11, see `SECURITY.md`), so mutations are unauthenticated;
-`requireWriteKey()` in `web/api/_writeKey.ts` is a pass-through, not deleted.
+Write-key enforcement is opt-in and currently off (dropped 2026-08-11,
+made an explicit switch 2026-11-14, see `SECURITY.md`), so mutations are
+unauthenticated until `ALBUM_CASE_ENFORCE_WRITE_KEY=1` is set;
+`requireWriteKey()` in `web/api/_writeKey.ts` implements the switch.
 That is the current implementation, not the target. New work must not deepen
 the single-owner assumption: prefer per-user data shapes and shared reference
 data (like the album catalog) over anything keyed to the one owner.
@@ -87,6 +88,7 @@ Defined in `web/api/_schema.ts`:
 | `web/src/ui/` | DOM rendering/interaction (`rankList.ts`, `artistBatchView.ts`, `savedList.ts`) |
 | `web/api/` | Vercel serverless routes (`ranking`, `discover-artist`, `search-album`, `similar-artists`, `atom`, write-key/allowlist guards) |
 | `web/api/_schema.ts` | Turso table definitions |
+| `web/api/_migrations/` | Ordered, ms-timestamped schema migrations with up/down (rules in its README); add a migration instead of editing `_schema.ts` DDL for an existing table |
 | `web/scripts/` | Operational scripts: bulk album imports, curated-list MBID resolution, exports (see each script's header for usage) |
 | `pipeline/` | Offline seed-generation pipeline (see "Codebases in this repo") |
 | `scoring/` | Legacy calibration scoring module + pytest tests |
