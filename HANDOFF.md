@@ -1,64 +1,39 @@
 # Handoff
 
-## 2026-11-14 follow-up: hides now sync, artist navigation fixed (UNCOMMITTED, NOT DEPLOYED)
-Fixes for "it keeps cycling the same bands and unhid albums I hid", found after a sync conflict was resolved by merging a 919-album local copy into the server (921 ranked, merged payload kept the server's hidden artists/curated skips because the backup file did not carry them).
-- Cause of cycling: after the earlier Artist-gaps filter, an artist whose last album was triaged vanished and the view snapped to `artists[0]` (always the same top bands); "Finish artist & next" also jumped to the first unreviewed artist overall. Now `pickSelectedArtistId` / `nextArtistAfter` (`web/src/backlog.ts`) move to the artist that FOLLOWED it, and the heading button is "Skip artist →" (marks reviewed, so skipped artists stop returning at the top). E2E: `web/e2e/artist-gaps-hides.spec.ts` (fails on the old logic).
-- Removed albums (`tastetest-skipped-albums`, previously browser-only) are now saved with the snapshot as `skipped_albums` (migration `add_skipped_albums_json`, `COALESCE` so older clients never clear it; cap 20,000). Boot merges server + local and pushes anything only this browser had.
-- "Discard unsaved changes" now unions hidden artists, curated skips and removed albums with the server copy instead of overwriting local hides, and saves any local-only ones right after the reload. "Export unsaved backup" now also writes `blocked_artists`, `curated_skips`, `skipped_albums`, `artist_locks`.
-- Still device-local by design: "Skip for now" on a candidate (session only) and the candidate-artist cooldown.
-- 476 unit tests + 19 Playwright specs green. Production currently runs the earlier fix pass below (deployed 2026-11-14); this follow-up is not live.
-
-## 2026-11-14 ship-check fix pass (DEPLOYED 2026-11-14, still uncommitted)
-Fixes for the 2026-11-14 ship-check (report: `~/.claude/ship-check-reports/2026-11-14-1132-album-case.md`). All in the working tree; typecheck clean, 464 unit tests + 16 Playwright specs green.
-- `POST /api/ranking` now requires `base_updated_at` (400 `missing_base_updated_at`); the unconditional-upsert SQL branch is gone. The scripts (`import-album-canon.mjs`, `backfill-ratings.mjs`) already send it.
-- Write key is now an explicit opt-in switch: `requireWriteKey()` enforces only when `ALBUM_CASE_ENFORCE_WRITE_KEY=1` (plus `ALBUM_CASE_WRITE_KEY`). A stale `ALBUM_CASE_WRITE_KEY` is still set in Vercel production, so the flag (not the key) must be what turns it on; deploying this does NOT change production behavior. To enforce: set the flag, redeploy, open `/#key=<key>` once per device. The client shows a locked banner with an unlock field on 401 and stops retrying.
-- Permanent 4xx saves (400, 413, ...) now stop the 4s retry loop and show a "server refused" banner with Export; the next edit retries once. Conflict "Discard" needs two taps. Banner has `role="status"`. Returning to a visible/online tab offers a lossless "Reload" if the server moved on.
-- Migrations: `web/api/_migrate.ts` + `web/api/_migrations/` (README has the rules), shared `_ensureSchema.ts` replaced the three duplicated bootstraps. Legacy DBs adopt the baseline with no data change. Production applies pending migrations on the first request after deploy; adds `schema_migrations` table and an index on `discovered_albums(session_id, primary_artist_mbid)`.
-- 44px `min-width` on rating/overall buttons; favicon; `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` headers in `vercel.json` (no CSP yet).
-- Verified (not assumed): the phone candidate card was already sticky, and a 360px drag from the "More ways to rank" handle autoscrolls to a deep row and lands correctly (Playwright, mouse pointer events; a physical-touch check is still open). The Playwright run used a local-Chrome config because the bundled browser is not installed (`npx playwright install` fixes that).
-- Not done: splitting `main.ts` (1,783 lines), cover-art/denser mobile rows, per-user sync state and real sign-in (friends rollout), CSP.
-- Ask Keith before: committing, `vercel deploy --prod --yes` from `web/`.
-
 ## Current task
-Browse-by-category views + gap-aware discovery (spec `docs/superpowers/specs/2026-11-07-browse-and-discovery-design.md`), then a UX-teardown fix pass (`docs/superpowers/2026-11-08-ux-teardown.md`). Both shipped.
+Keith is rating albums 1x1 in chat ("go through classics"); results are written to production in batches. Batch 2 is collected but NOT yet written.
 
 ## Status
-- Browse/discovery: merged at 5e389e4, deployed 2026-11-08.
-- UX teardown slices 1-4 SHIPPED 2026-11-08 (cc90da8..69a4b25, bundle `assets/index-IKNPecZ4.js` verified live): sticky search chrome (16% of viewport pinned incl. the pill, was 23% with no search access), candidate card collapses to a "Place next:" pill on phones (expand/Hide, state kept across renders), slice headers got a "N unranked picks ↓" jump link (zero picks = direct Find more trigger), Year/Decade browse now chronological newest-first (Artist keeps best-album order), muted/faint ink darkened to 6.0:1 / 5.3:1 (AA) via te-bridge.css overrides. 433 unit tests green.
-- Teardown slices 5-6 NOT built (desktop max-width/grid, Want to listen sort+filters); see the teardown doc.
-- Vercel CLI note: the project lives under account `k-obrien17` (team keith-obriens-projects), not `eighthchair-8983`. A wrong login 403s on deploy; fix with `vercel login`.
-- My list now has List / Artist / Year / Decade / Genre browse chips; year/decade/genre sections open a slice view (rating/overall edits mbid-resolved to global indices, reorder suppressed); artist sections open the existing artist batch view.
-- Slice pages show up to 3 unranked candidates (rate-in-place) plus "Find more from <slice>", which constrains the backlog's Suggest one shelf (dismissable "Only <slice> ×" chip).
-- `suggestAlbum` gained `sliceFilter` and a bounded gap bonus (N>=20, slice mean>=7.5, share<=5%, max +8, artist excluded).
-- Genre backfill COMPLETE: 5,227/5,230 discovered rows have genres; the 3 NULLs are permanent MusicBrainz 404s (deleted release-groups). All 826 ranked albums covered (813 with genres, 13 checked-none). Script `web/scripts/backfill-genres.mjs` stays resumable (`--session/--pool/--limit/--write`, dry run prints remaining NULL count).
-- Bootstrap now overlays discovered genres onto seed-pool albums; snapshots self-heal genres on the next save.
+- Code: hides sync, "Skip artist →" navigation, base_updated_at required, opt-in write key and migrations are all committed (5f8b852, 75e7058, ab4ddcd; NOT pushed) and deployed 2026-11-14. Write enforcement is OFF (`ALBUM_CASE_ENFORCE_WRITE_KEY` unset).
+- Batch 1 WRITTEN 2026-11-15: 22 ratings + Houses of the Holy re-rate (8.64 → 9.19) + 24 Want to listen. Live is 952 ranked / 75 want / 61 notHeard / 42 dontCare. Backup: `~/Desktop/album-case-server-before-60s70s-2026-11-15.json`. Keith's in-app Kraftwerk edits (Trans Europa Express 9.03, Computerwelt 9.53, Die Mensch·Maschine 9.33) were left as is; he had told chat 9.33 for Trans-Europe Express (unresolved, ask).
+- Batch 2 (answered in chat, unwritten):
+  - Ratings: Oasis Definitely Maybe 8.32, Beastie Boys Licensed to Ill 8.77, Cypress Hill (self-titled) 9.01, PE Apocalypse 91 8.68, Amy Winehouse Back to Black 8.95, Goldfrapp Black Cherry 9.13. Re-rate: Pharcyde Bizarre Ride II 8.21 → 9.04.
+  - Want to listen: Wilco Being There, Built to Spill Perfect from Now On, Yo La Tengo I Can Hear the Heart Beating as One, Depeche Mode Songs of Faith and Devotion, D'Angelo Voodoo, Mercury Rev Deserter's Songs, BDP Criminal Minded + By All Means Necessary, Gang Starr Step in the Arena + Hard to Earn, Pete Rock & CL Smooth Mecca and the Soul Brother, PE Yo! Bum Rush the Show, Kate Bush The Dreaming, Herbie Hancock Head Hunters, Slint Spiderland, Gang of Four Entertainment!, Ride Nowhere, Boards of Canada Geogaddi, Suede Dog Man Star, Mogwai Young Team, Aaliyah One in a Million, Spiritualized Pure Phase, Aphex Twin Richard D. James Album, Pulp This Is Hardcore, Blur 13, Modest Mouse Good News for People Who Love Bad News, Teenage Fanclub Bandwagonesque, Lush Spooky, Swervedriver Raise, Catherine Wheel Ferment, plus 15 Nas albums (It Was Written, I Am…, Nastradamus, Stillmatic, God's Son, Street's Disciple, Hip Hop Is Dead, Untitled, Life Is Good, Nasir, King's Disease, KD II, Magic, KD III, Light-Years).
+  - Skipped (no write): Eminem Slim Shady LP, LL Cool J Mama Said, Geto Boys, Common Resurrection, PE Muse Sick-N-Hour, Pharcyde Labcabincalifornia, Nina Simone, Manic Street Preachers, Arctic Monkeys, Deftones White Pony, Grizzly Bear Veckatimest, Janet Jackson Velvet Rope, Supergrass.
+  - Pending answer: The Verve, A Storm in Heaven (shown, unanswered).
 
 ## Next concrete step
-Keith phone-sessions the shipped teardown fixes (search from depth, pill, slice jump link, chronological years) and reports friction. Remaining queued work, in rough order: teardown slices 5-6 (desktop width, Want to listen sort), gap-bonus shrinkage (Codex finding below), then the still-open product decisions.
+Show Keith the batch-2 tally for approval, then write it with the batch-1 procedure: back up the live copy to ~/Desktop, re-read the live snapshot (Keith edits in-app, so fetch fresh and never overwrite his edits), resolve each album via `/api/search-album` (fallback: MusicBrainz release-group browse by artist MBID; Blackstar-style stylized titles need a direct lookup), splice ratings with insertAtRating semantics (insert before first album with a lower rating), append wants to `lists.wantToListen`, assert no mbid in both ranked and any list, POST with `base_updated_at`, read back. Scripts: `/private/tmp/claude-501/-Users-keithobrien-Desktop-Claude-Projects-album-case/dc2c2b51-8db7-4cbf-acca-42a7b24337c5/scratchpad/` (`resolve.py`, `merge.py` are templates, `tl.py` fetches a MusicBrainz tracklist: `python3 tl.py "<artist>" "<title>" <year>`).
 
-## Deferred review minors (ledgered in the final review, workspace since deleted)
-- Backfill re-fetches 404'd mbids each rerun; write `[]` on 404 next time the script is touched.
-- Backfill duplicates USER_AGENT instead of importing from `web/api/_lp.ts`.
-- `groups.ts` More-genres collapse uses a side-effecting filter predicate; fine at this scale.
-- ~~True 360px media queries unexercised~~ RESOLVED 2026-11-08: verified with Playwright at 360x740 against production.
-- Search/discovery reject release-groups with ANY secondary type (`isAlbumOrEpReleaseGroup`, `web/api/_lp.ts:30`), so soundtrack-typed classics (e.g. Purple Rain, Album+Soundtrack on MB) can't be added via search; Curated lists is the one surface that still carries them. Purple Rain was spliced in directly 2026-11-08 (exact insertAtRating semantics, versioned write). Consider admitting Soundtrack as a sole secondary type in explicit search.
+## Open questions
+- Mark Deftones as Not interested in the app, or just skip the one album? (Keith said "don't care about deftones"; nu-metal Korn/Linkin Park/Slipknot/Marilyn Manson were dropped from the queue.)
+- Add the minor Nas albums (Napalm, Scriptures & Testaments, Distant Relatives, NuMatic, Magic 2/3)?
+- Push the three local commits? Needs Keith's say-so.
 
-## Codex second-opinion findings (2026-11-08, verified against code)
-- ~~Candidate strip invisible in long slices~~ RESOLVED 2026-11-08: jump link shipped (2eaaade).
-- Gap bonus has no per-slice minimum count: one 7.5+ album in a niche genre earns ~+7.8 of max +8 (suggestions.ts gapFor). Consider shrinkage like the artist-affinity line (suggestions.ts:124) or scaling the bonus by slice count.
-- Gap bonus only rescales candidates already eligible via artist familiarity or related-artist connection; genre alone cannot introduce a candidate (by design, but undocumented).
-- "More genres" is a dedup bucket with no per-genre navigation or candidates; expanding it into rare genre names is a smaller fix than any taxonomy work.
-- When the first friend account ships, server-enforced ownership must ship with it (write-key is currently a pass-through; see SECURITY.md); session_id can serve as list ID with auth resolving it server-side.
-
-## Still-open product decisions (carried from 2026-10-04 handoff; that handoff's catalog-pipeline state may be stale — cron fixes landed since)
-- Redesign decisions (mockup https://claude.ai/artifact/2z3JETpGSYvDYc8AWJMgVT): ranking method, where Want to listen lives, drop drag-reorder, Hide semantics, Voice speed round's fate, default source.
-- Agreed order: (1) streamlined Rank screen + listening-history import spec, (2) friend accounts/per-user data last.
+## Don't forget
+- Remaining queue after A Storm in Heaven: Beck Mellow Gold, Prodigy, Autechre, Squarepusher, Super Furry Animals, Orbital, Leftfield, Fatboy Slim, Justice, Moloko, GY!BE, Mastodon, Opeth, Sunn O))), Boris, Earth, Sleep, Arcade Fire Neon Bible, Kings of Leon, Spoon Gimme Fiction, Muse, Norah Jones, Alicia Keys, Gaga, Britney x2, Destiny's Child, Mary J. Blige, Brandy, Usher, Bright Eyes, Iron & Wine, Devendra Banhart, Feist, Regina Spektor, Ani DiFranco, and ~70 cross-genre 50s-80s classics (jazz, soul, country, world, post-punk).
+- Filter rule: skip artists already in wantToListen/notHeard/dontCare/blocked_artists (memory `filter-recs-against-triage-lists`).
+- Keith still needs to re-hide hidden artists/curated entries made since Nov 8 plus Sam Smith and Christina Aguilera albums (pre-fix merge dropped them); `skipped_albums` should fill after he opens the new build on each device.
+- "Cat Power is first" in Artist gaps: it resumes the persisted `currentArtistId`; Skip artist → should move to the next artist (untested by Keith).
+- Tracklists from memory were wrong several times; use `tl.py` (MusicBrainz) instead.
+- Still open from earlier: UX-teardown slices 5-6 (desktop width, Want to listen sort), gap-bonus shrinkage in `suggestions.ts`, splitting `main.ts`, CSP, friend accounts with server-enforced ownership, redesign decisions in the 2026-10-04 notes.
 
 ## Git state
-- Branch: main, pushed through 69a4b25; only this handoff commit may trail origin. Untracked by choice: the two `album-case-backup-*.json` snapshots and `docs/superpowers/2026-11-08-codex-perspective-brief.md` / `2026-11-08-ux-teardown.md` (commit or delete, Keith's call).
+- Branch: main, 3 commits ahead of origin (ab4ddcd, 75e7058, 5f8b852), deployed.
+- Uncommitted: only untracked `.playwright-mcp/` (pre-existing, leave).
 
 ## Reason for handoff
-Implementation session wrapped: browse/discovery shipped, dedupe done (Ocean Blvd Demos removed, backup `album-case-backup-2026-11-08-pre-dedupe.json`), UX teardown written and its slices 1-4 shipped.
+session paused
 
 ## Updated
-2026-11-08
+2026-11-15T14:03:48Z
