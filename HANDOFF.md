@@ -4,7 +4,7 @@
 Curated lists: Pitchfork Indie Rock 100 and Spin 300 are both shipped. Waiting on Keith for source URLs and which UX fixes to do next.
 
 ## Status
-- Deployed 2026-11-17: `f5bf572` (Indie Rock 100), `6368963` (curated rows no longer collapse at 900px+ or overflow at 390px), `aec15dd` (Spin 300, 300 entries all resolved). Live bundle `index-DeNDMSbs.js`. 9 local commits, NOT pushed.
+- Deployed 2026-11-17: `f5bf572` (Indie Rock 100), `6368963` (curated rows no longer collapse at 900px+ or overflow at 390px), `aec15dd` (Spin 300, 300 entries all resolved). Live bundle `index-DeNDMSbs.js`. Pushed to origin/main through `4716aa6`.
 - Spin 300 notes: rank 164 "janet." fixed to the 1993 album (`785e1f49`); rank 296 "Total 4" is a 2002 compilation matched by title only (unverified); mixtapes (nostalgia ULTRA, Da Drought 3, Acid Rap, House of Balloons), the Fame Monster EP, MTV Unplugged (live), The Singles and 3 Various Artists compilations are kept as resolved on purpose; Kanye albums carry artist name "Ye" on the resolved record.
 - Bundle grew from 360 kB to 464 kB (gzip 95 to 121 kB) because curated list data ships in the main JS. Consider lazy-loading `curatedLists.ts` if it grows further.
 - Do NOT run `web/scripts/resolve-curated-list-mbids.mjs --write`. A full run rewrote older lists and dropped existing resolutions (reverted once), and the privacy hook blocks it (its user agent holds Keith's email). Scoped resolvers used this session (`resolve-spin.mjs`, `resolve-spin2.mjs`, `build-spin.mjs`) live in session e685fbf8's scratchpad and may be gone; MusicBrainz drops connections after a few hundred requests at 1/sec, so use 2.5s spacing and retry on network errors.
@@ -15,7 +15,6 @@ Ask Keith for the real source URLs (Pitchfork Indie Rock 100, Spin 300), then re
 ## Open questions
 - Real source URLs for the Indie Rock 100 (placeholder `https://pitchfork.com/`) and Spin 300 (placeholder `https://www.spin.com/`).
 - Apply the other curated-list UX findings (picker header + source link, collapsed "Already ranked", move "No more X" into an overflow)? Report was given in chat, nothing implemented beyond the CSS fix.
-- Push the 7 local commits? Needs Keith's say-so.
 - Earlier: Deftones mark Not interested or skip only White Pony; minor Nas albums; Trans-Europe Express 9.03 in app vs 9.33 told in chat.
 
 ## Don't forget
@@ -32,7 +31,7 @@ Ask Keith for the real source URLs (Pitchfork Indie Rock 100, Spin 300), then re
 - `web/src/style.css`: `.saved-meta` flex floor, `.saved-item .candidate-place` wrap (committed)
 
 ## Git state
-- Branch: main, 9 commits ahead of origin (after this handoff commit), deployed through `aec15dd`
+- Branch: main, pushed through `4716aa6` (plus this handoff fix), deployed through `aec15dd`
 - Last commit: aec15dd feat(data): add Spin 300 curated list
 - Uncommitted changes: only untracked `.playwright-mcp/` (pre-existing screenshots, leave out)
 - Stashed: no
