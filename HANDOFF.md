@@ -1,46 +1,43 @@
 # Handoff
 
 ## Current task
-Keith is rating albums 1x1 in chat ("go through classics" and his Want to listen list); results are written to production in batches. Batch 2 is fully collected but NOT yet written. Keith has not said "write it".
+Wiring Spin's 300 Best Albums 1985-2014 in as a curated list; the Pitchfork Indie Rock 100 list and a curated-row CSS fix already shipped.
 
 ## Status
-- Code unchanged: 3 local commits (5f8b852, 75e7058, ab4ddcd) deployed 2026-11-14, NOT pushed. Write enforcement OFF.
-- Batch 1 written 2026-11-15. Live (re-fetched 2026-11-15): 952 ranked / 75 want / 61 notHeard / 42 dontCare, `updated_at` 1794745725206. Backup of pre-batch-1 state: `~/Desktop/album-case-server-before-60s70s-2026-11-15.json`.
-- Batch 2, all answered in chat, nothing written:
-  - New ratings (18): Oasis Definitely Maybe 8.32, Beastie Boys Licensed to Ill 8.77, Cypress Hill 9.01, PE Apocalypse 91 8.68, Amy Winehouse Back to Black 8.95, Goldfrapp Black Cherry 9.13, Slint Spiderland 9.34, Can Tago Mago 9.04, Nick Drake Pink Moon 9.55, Scott Walker Scott 4 9.45, Joni Mitchell Hejira 9.18, Yo La Tengo I Can Hear the Heart Beating as One 9.56, Aphex Twin Richard D. James Album 9.86 (first said 9.34, corrected), Mercury Rev Deserter's Songs 8.78, Suede Dog Man Star 8.78, Pulp This Is Hardcore 8.88, Built to Spill Perfect From Now On 8.92, Teenage Fanclub Bandwagonesque 8.87.
-  - Re-rate: Pharcyde Bizarre Ride II 8.21 to 9.04.
-  - Remove from live wantToListen (now ranked): Tago Mago, Pink Moon, Scott 4, Hejira.
-  - Add to wantToListen (37): Wilco Being There, D'Angelo Voodoo, BDP Criminal Minded + By All Means Necessary, Gang Starr Step in the Arena + Hard to Earn, Pete Rock & CL Smooth Mecca and the Soul Brother, PE Yo! Bum Rush the Show, Kate Bush The Dreaming, Depeche Mode Songs of Faith and Devotion, Herbie Hancock Head Hunters, Gang of Four Entertainment!, Ride Nowhere (Keith could not find it on Spotify), Boards of Canada Geogaddi, Mogwai Young Team, Aaliyah One in a Million, Spiritualized Pure Phase, Blur 13 (Keith skipped the suggestion, still wanted), Modest Mouse Good News for People Who Love Bad News, Lush Spooky, Swervedriver Raise, Catherine Wheel Ferment, plus 15 Nas albums (It Was Written, I Am..., Nastradamus, Stillmatic, God's Son, Street's Disciple, Hip Hop Is Dead, Untitled, Life Is Good, Nasir, King's Disease, KD II, Magic, KD III, Light-Years).
-  - Skipped, no write: Eminem Slim Shady LP, LL Cool J Mama Said, Geto Boys, Common Resurrection, PE Muse Sick-N-Hour, Pharcyde Labcabincalifornia, Nina Simone, Manic Street Preachers, Arctic Monkeys, Deftones White Pony, Grizzly Bear Veckatimest, Janet Jackson Velvet Rope, Supergrass.
-  - Pending answer: The Verve, A Storm in Heaven (shown, unanswered). Last suggestion made, unanswered: Boards of Canada Geogaddi.
+- Shipped and deployed 2026-11-17: `f5bf572` (Indie Rock 100, all 100 entries resolved) and `6368963` (curated rows no longer collapse to 1 char wide at 900px+, long artist names no longer overflow at 390px). Live bundle `index-B9VPI6VU.js`. 7 local commits, NOT pushed.
+- Spin 300: not yet in `web/src/data/curatedLists.ts`. List text is saved at `/private/tmp/claude-501/-Users-keithobrien-Desktop-Claude-Projects-album-case/e685fbf8-4500-49f5-a42e-ffd71fc0c4e7/scratchpad/spin300.txt`. A scoped resolver (`resolve-spin.mjs`, same folder) was mid-run: 146 of 300 resolved by rank 160, 14 in review. It writes `spin-resolved.json` (checkpoint every 20 ranks, final at end). If the scratchpad is gone, rerun it; it reuses mbids already in other lists and uses a generic user agent.
+- Do NOT run `web/scripts/resolve-curated-list-mbids.mjs --write` for this. A full run rewrote older lists and dropped existing resolutions (reverted once). The privacy hook also blocks that script because its user agent holds Keith's email.
 
 ## Next concrete step
-Ask Keith for "write it" (writes to production), then run the batch-1 procedure from `merge.py`: back up live to `~/Desktop/album-case-server-before-batch2-2026-11-15.json`, re-fetch fresh (Keith edits in-app, never overwrite his edits), splice ratings with insertAtRating semantics (insert before first album with a lower rating), remove the 4 rated albums from wantToListen, append the 37 wants, assert no mbid in both ranked and any list, POST with `base_updated_at`, read back. Scripts and resolved data: `/private/tmp/claude-501/-Users-keithobrien-Desktop-Claude-Projects-album-case/707534b2-e012-4d0f-9a2e-ab1eb647f946/scratchpad/` (`resolve2.py`, `resolved2.json`, `live2.json`; `merge.py` and `tl.py` live in the older dc2c2b51 scratchpad). Overlap check vs live found only the Pharcyde re-rate.
+Read `spin-resolved.json`, review the `review` entries (Various Artists: C86, Soweto, Total 4, plus no-confident matches), then add list id `spin-300` (name "Spin: The 300 Best Albums, 1985-2014", rank 1 = Nevermind) to `curatedLists.ts` with `resolved` merged in. Confirm `git diff --stat` touches only that file, run `npm run test`, then ask before commit and deploy.
 
 ## Open questions
-- Deftones: mark Not interested, or skip only White Pony? (default: skip only White Pony)
-- Add minor Nas albums (Napalm, Scriptures & Testaments, Distant Relatives, NuMatic, Magic 2/3)? (default: no)
-- Trans-Europe Express: app has 9.03, Keith told chat 9.33. Left as is, ask.
-- Push the 3 local commits? Needs Keith's say-so.
+- Real source URL for the Indie Rock 100 (currently placeholder `https://pitchfork.com/`) and for Spin 300.
+- Apply the other curated-list UX findings (picker header + source link, collapsed "Already ranked", move "No more X" into an overflow)? Report was given in chat, nothing implemented beyond the CSS fix.
+- Push the 7 local commits? Needs Keith's say-so.
+- Earlier: Deftones mark Not interested or skip only White Pony; minor Nas albums; Trans-Europe Express 9.03 in app vs 9.33 told in chat.
 
 ## Don't forget
-- `resolved2.json` has four bad or missing entries: Oasis (use `451dca98...`), Wilco Being There (`5aed5f2c...`), Yo La Tengo (`901ddfef...`), Mogwai (wrong hit, tribute album; correct is Young Team `8cc9da13...`). Spiderland resolves to `e9f4b96a...`. Get full mbids from `/api/search-album` before building the payload.
-- Light-Years is stored with release year 2025; Untitled is "[untitled]". Fine.
-- Remaining queue: Beck Mellow Gold, Prodigy, Autechre, Squarepusher, Super Furry Animals, Orbital, Leftfield, Fatboy Slim, Justice, Moloko, GY!BE, Mastodon, Opeth, Sunn O))), Boris, Earth, Sleep, Arcade Fire Neon Bible, Kings of Leon, Spoon Gimme Fiction, Muse, Norah Jones, Alicia Keys, Gaga, Britney x2, Destiny's Child, Mary J. Blige, Brandy, Usher, Bright Eyes, Iron & Wine, Devendra Banhart, Feist, Regina Spektor, Ani DiFranco, and ~70 cross-genre 50s-80s classics.
-- Keith is also picking from his Want to listen list; I suggest by taste fit (artist averages from the live ranking). Remaining live wants include Stevie Wonder Innervisions, Cluster Zuckerzeit, Faust IV, Dirty Projectors x3.
-- Filter rule: skip artists already in wantToListen/notHeard/dontCare/blocked_artists.
+- Rating session, batch 2 is collected but NOT written to production; Keith has not said "write it". Details: 18 new ratings, Pharcyde re-rate to 9.04, remove 4 now-ranked albums from wantToListen, add 37 wants. Procedure: back up live to `~/Desktop/album-case-server-before-batch2-2026-11-15.json`, re-fetch fresh (Keith edits in-app), splice with insertAtRating semantics, assert no mbid in both ranked and a list, POST with `base_updated_at`, read back. Scratchpad files `resolve2.py`, `resolved2.json`, `live2.json` are in session 445b931c's / 707534b2's scratchpads and may be gone. Bad entries in resolved2: Oasis `451dca98...`, Wilco Being There `5aed5f2c...`, Yo La Tengo `901ddfef...`, Mogwai Young Team `8cc9da13...`, Spiderland `e9f4b96a...`; get full mbids from `/api/search-album`.
+- Live counts as of 2026-11-15: 952 ranked / 75 want / 61 notHeard / 42 dontCare.
+- Filter rule: skip artists already in wantToListen/notHeard/dontCare/blocked_artists when recommending.
 - Keith still needs to re-hide hidden artists/curated entries made since Nov 8 plus Sam Smith and Christina Aguilera albums.
-- Tracklists from memory were wrong; use `tl.py`.
-- Still open: UX-teardown slices 5-6, gap-bonus shrinkage in `suggestions.ts`, splitting `main.ts`, CSP, friend accounts, redesign decisions in the 2026-10-04 notes.
+- Stereolab "Switched On" resolved to the 1992 compilation; Yeah Yeah Yeahs resolved to the 2002 EP; check the app's LP filter doesn't hide it.
+- Check the Want to listen view after the `.saved-meta` CSS change (shares the class; not opened).
+- Still open from earlier: UX-teardown slices 5-6, gap-bonus shrinkage in `suggestions.ts`, splitting `main.ts`, CSP, friend accounts. Pages are 112,256px tall with 952 rows in DOM; not virtualized.
+
+## Files touched this session
+- `web/src/data/curatedLists.ts`: added `pitchfork-indie-rock-100` (committed)
+- `web/src/style.css`: `.saved-meta` flex floor, `.saved-item .candidate-place` wrap (committed)
 
 ## Git state
-- Branch: main, 3 commits ahead of origin, deployed.
-- Last commit: 98acebc chore: handoff session paused
-- Uncommitted changes: only untracked `.playwright-mcp/` (pre-existing, leave out).
+- Branch: main, 7 commits ahead of origin, deployed through `6368963`
+- Last commit: 6368963 fix(ui): stop curated row titles collapsing on wide screens
+- Uncommitted changes: only untracked `.playwright-mcp/` (pre-existing screenshots, leave out)
 - Stashed: no
 
 ## Reason for handoff
 session paused
 
 ## Updated
-2026-11-16T01:24:00Z
+2026-11-17T13:52:00Z
