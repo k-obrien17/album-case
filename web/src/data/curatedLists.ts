@@ -897,7 +897,7 @@ export const CURATED_LISTS: Record<string, CuratedList> = {
   },
   'pitchfork-indie-rock-100': {
     name: 'Pitchfork: The 100 Best Indie-Rock Albums of All Time',
-    source: 'https://pitchfork.com/',
+    source: 'https://pitchfork.com/story/the-100-best-indie-rock-albums-of-all-time/',
     albums: [
       { rank: 1, artist: 'Pavement', title: 'Crooked Rain, Crooked Rain', resolved: { mbid: '4f348977-6f44-39f9-b243-071927ecc6a4', title: 'Crooked Rain, Crooked Rain', primary_artist_name: 'Pavement', primary_artist_mbid: '36bfa85f-737b-41db-a8fc-b8825850ffc3', release_year: 1994, cover_url: 'https://coverartarchive.org/release-group/4f348977-6f44-39f9-b243-071927ecc6a4/front-500' } },
       { rank: 2, artist: 'Liz Phair', title: 'Exile in Guyville', resolved: { mbid: 'c186db82-9988-367e-8486-2e38e9b6c8db', title: 'Exile in Guyville', primary_artist_name: 'Liz Phair', primary_artist_mbid: '149326c2-b8a3-48e3-b3d2-9b5b9593127f', release_year: 1993, cover_url: 'https://coverartarchive.org/release-group/c186db82-9988-367e-8486-2e38e9b6c8db/front-500' } },
@@ -1003,7 +1003,7 @@ export const CURATED_LISTS: Record<string, CuratedList> = {
   },
   'spin-300': {
     name: 'Spin: The 300 Best Albums, 1985-2014',
-    source: 'https://www.spin.com/',
+    source: 'https://www.spin.com/2015/05/the-300-best-albums-of-the-past-30-years-1985-2014/',
     albums: [
       { rank: 1, artist: 'Nirvana', title: 'Nevermind', resolved: { mbid: '1b022e01-4da6-387b-8658-8678046e4cef', title: 'Nevermind', primary_artist_name: 'Nirvana', primary_artist_mbid: '5b11f4ce-a62d-471e-81fc-a69a8278c7da', release_year: 1991, cover_url: 'https://coverartarchive.org/release-group/1b022e01-4da6-387b-8658-8678046e4cef/front-500' } },
       { rank: 2, artist: 'Wu-Tang Clan', title: 'Enter the Wu-Tang (36 Chambers)', resolved: { mbid: '610fb60f-900a-3c42-ac7d-f6b6aa8035f9', title: 'Enter the Wu‐Tang (36 Chambers)', primary_artist_name: 'Wu‐Tang Clan', primary_artist_mbid: '0febdcf7-4e1f-4661-9493-b40427de2c13', release_year: 1993, cover_url: 'https://coverartarchive.org/release-group/610fb60f-900a-3c42-ac7d-f6b6aa8035f9/front-500' } },
