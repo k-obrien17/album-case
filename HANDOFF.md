@@ -1,18 +1,19 @@
 # Handoff
 
 ## Current task
-Wiring Spin's 300 Best Albums 1985-2014 in as a curated list; the Pitchfork Indie Rock 100 list and a curated-row CSS fix already shipped.
+Curated lists: Pitchfork Indie Rock 100 and Spin 300 are both shipped. Waiting on Keith for source URLs and which UX fixes to do next.
 
 ## Status
-- Shipped and deployed 2026-11-17: `f5bf572` (Indie Rock 100, all 100 entries resolved) and `6368963` (curated rows no longer collapse to 1 char wide at 900px+, long artist names no longer overflow at 390px). Live bundle `index-B9VPI6VU.js`. 7 local commits, NOT pushed.
-- Spin 300: not yet in `web/src/data/curatedLists.ts`. List text is saved at `/private/tmp/claude-501/-Users-keithobrien-Desktop-Claude-Projects-album-case/e685fbf8-4500-49f5-a42e-ffd71fc0c4e7/scratchpad/spin300.txt`. A scoped resolver (`resolve-spin.mjs`, same folder) was mid-run: 146 of 300 resolved by rank 160, 14 in review. It writes `spin-resolved.json` (checkpoint every 20 ranks, final at end). If the scratchpad is gone, rerun it; it reuses mbids already in other lists and uses a generic user agent.
-- Do NOT run `web/scripts/resolve-curated-list-mbids.mjs --write` for this. A full run rewrote older lists and dropped existing resolutions (reverted once). The privacy hook also blocks that script because its user agent holds Keith's email.
+- Deployed 2026-11-17: `f5bf572` (Indie Rock 100), `6368963` (curated rows no longer collapse at 900px+ or overflow at 390px), `aec15dd` (Spin 300, 300 entries all resolved). Live bundle `index-DeNDMSbs.js`. 9 local commits, NOT pushed.
+- Spin 300 notes: rank 164 "janet." fixed to the 1993 album (`785e1f49`); rank 296 "Total 4" is a 2002 compilation matched by title only (unverified); mixtapes (nostalgia ULTRA, Da Drought 3, Acid Rap, House of Balloons), the Fame Monster EP, MTV Unplugged (live), The Singles and 3 Various Artists compilations are kept as resolved on purpose; Kanye albums carry artist name "Ye" on the resolved record.
+- Bundle grew from 360 kB to 464 kB (gzip 95 to 121 kB) because curated list data ships in the main JS. Consider lazy-loading `curatedLists.ts` if it grows further.
+- Do NOT run `web/scripts/resolve-curated-list-mbids.mjs --write`. A full run rewrote older lists and dropped existing resolutions (reverted once), and the privacy hook blocks it (its user agent holds Keith's email). Scoped resolvers used this session (`resolve-spin.mjs`, `resolve-spin2.mjs`, `build-spin.mjs`) live in session e685fbf8's scratchpad and may be gone; MusicBrainz drops connections after a few hundred requests at 1/sec, so use 2.5s spacing and retry on network errors.
 
 ## Next concrete step
-Read `spin-resolved.json`, review the `review` entries (Various Artists: C86, Soweto, Total 4, plus no-confident matches), then add list id `spin-300` (name "Spin: The 300 Best Albums, 1985-2014", rank 1 = Nevermind) to `curatedLists.ts` with `resolved` merged in. Confirm `git diff --stat` touches only that file, run `npm run test`, then ask before commit and deploy.
+Ask Keith for the real source URLs (Pitchfork Indie Rock 100, Spin 300), then replace the two placeholder `source` values in `curatedLists.ts` and redeploy.
 
 ## Open questions
-- Real source URL for the Indie Rock 100 (currently placeholder `https://pitchfork.com/`) and for Spin 300.
+- Real source URLs for the Indie Rock 100 (placeholder `https://pitchfork.com/`) and Spin 300 (placeholder `https://www.spin.com/`).
 - Apply the other curated-list UX findings (picker header + source link, collapsed "Already ranked", move "No more X" into an overflow)? Report was given in chat, nothing implemented beyond the CSS fix.
 - Push the 7 local commits? Needs Keith's say-so.
 - Earlier: Deftones mark Not interested or skip only White Pony; minor Nas albums; Trans-Europe Express 9.03 in app vs 9.33 told in chat.
@@ -27,12 +28,12 @@ Read `spin-resolved.json`, review the `review` entries (Various Artists: C86, So
 - Still open from earlier: UX-teardown slices 5-6, gap-bonus shrinkage in `suggestions.ts`, splitting `main.ts`, CSP, friend accounts. Pages are 112,256px tall with 952 rows in DOM; not virtualized.
 
 ## Files touched this session
-- `web/src/data/curatedLists.ts`: added `pitchfork-indie-rock-100` (committed)
+- `web/src/data/curatedLists.ts`: added `pitchfork-indie-rock-100` and `spin-300` (committed)
 - `web/src/style.css`: `.saved-meta` flex floor, `.saved-item .candidate-place` wrap (committed)
 
 ## Git state
-- Branch: main, 7 commits ahead of origin, deployed through `6368963`
-- Last commit: 6368963 fix(ui): stop curated row titles collapsing on wide screens
+- Branch: main, 9 commits ahead of origin (after this handoff commit), deployed through `aec15dd`
+- Last commit: aec15dd feat(data): add Spin 300 curated list
 - Uncommitted changes: only untracked `.playwright-mcp/` (pre-existing screenshots, leave out)
 - Stashed: no
 
@@ -40,4 +41,4 @@ Read `spin-resolved.json`, review the `review` entries (Various Artists: C86, So
 session paused
 
 ## Updated
-2026-11-17T13:52:00Z
+2026-11-17T15:10:00Z
