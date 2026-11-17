@@ -1026,7 +1026,15 @@ button.rank-rating:hover {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  flex: 1;
+  /* Basis floor so the title wraps the controls below it instead of
+     shrinking to a few pixels when everything fits on one line. */
+  flex: 1 1 220px;
+}
+
+/* Action rows inside saved/curated items: long artist names ("All The
+   Dismemberment Plan albums") must wrap to a new line, not push the page wider. */
+.saved-item .candidate-place {
+  flex-wrap: wrap;
 }
 
 .saved-title {
