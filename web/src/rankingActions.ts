@@ -25,7 +25,7 @@ export function reRate(ranked: RankedAlbum[], album: Album, targetIndex: number)
   const without = ranked.filter((a) => a.mbid !== album.mbid);
   const clampedIndex = Math.max(0, Math.min(targetIndex, without.length));
   const rating = ratingForDropIndex(without, clampedIndex);
-  const rated: RankedAlbum = { ...album, rating };
+  const rated: RankedAlbum = { ...album, rating, rated_at: Date.now() };
   return [...without.slice(0, clampedIndex), rated, ...without.slice(clampedIndex)];
 }
 
@@ -43,7 +43,7 @@ export function insertAtRating(ranked: RankedAlbum[], album: Album, rating: numb
   // parseRankedAlbumList validation (400 invalid_snapshot), surfacing only
   // as a sync failure in the banner. Mirrors what reRate already does.
   const without = ranked.filter((a) => a.mbid !== album.mbid);
-  const rated: RankedAlbum = { ...album, rating };
+  const rated: RankedAlbum = { ...album, rating, rated_at: Date.now() };
   const insertAt = without.findIndex((a) => a.rating < rating);
   const index = insertAt === -1 ? without.length : insertAt;
   return [...without.slice(0, index), rated, ...without.slice(index)];

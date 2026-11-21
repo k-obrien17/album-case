@@ -48,7 +48,12 @@ export function parseRankedAlbum(value: unknown): RankedAlbum | null {
   if (!album) return null;
   const rating = isObject(value) ? value.rating : undefined;
   if (typeof rating !== 'number') return null;
-  return { ...album, rating };
+  const ratedAt = isObject(value) ? value.rated_at : undefined;
+  return {
+    ...album,
+    rating,
+    ...(typeof ratedAt === 'number' && Number.isFinite(ratedAt) && ratedAt > 0 ? { rated_at: ratedAt } : {}),
+  };
 }
 
 export function parseRankedAlbumArray(value: unknown): RankedAlbum[] {

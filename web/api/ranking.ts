@@ -28,7 +28,7 @@ type Album = {
 
 // A ranked-list entry additionally requires a rating (the single source of
 // truth for its position). Pool/list albums have no rating.
-type RankedAlbum = Album & { rating: number };
+type RankedAlbum = Album & { rating: number; rated_at?: number };
 
 type SnapshotLists = {
   wantToListen: Album[];
@@ -133,7 +133,12 @@ function parseRankedAlbum(value: unknown): RankedAlbum | null {
   if (!album) return null;
   const rating = isObject(value) ? value.rating : undefined;
   if (typeof rating !== 'number') return null;
-  return { ...album, rating };
+  const ratedAt = isObject(value) ? value.rated_at : undefined;
+  return {
+    ...album,
+    rating,
+    ...(typeof ratedAt === 'number' && Number.isFinite(ratedAt) && ratedAt > 0 ? { rated_at: ratedAt } : {}),
+  };
 }
 
 // Duplicate mbids within `ranked` are NOT rejected here -- that's validate()'s

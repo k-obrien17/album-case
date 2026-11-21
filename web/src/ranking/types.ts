@@ -17,6 +17,9 @@ export type Album = {
  *  are plain `Album`s with no rating until they're placed. */
 export type RankedAlbum = Album & {
   rating: number; // 0.00-10.00, 2 decimal places.
+  /** Epoch ms of the last time this album was placed or re-rated. Absent on
+   *  albums ranked before 2026-11-21 (no date was recorded). */
+  rated_at?: number;
 };
 
 /**

@@ -50,6 +50,7 @@ import {
 import { CURATED_LISTS } from './data/curatedLists';
 import { curatedEntryKey, unrankedFromCuratedList } from './curatedListMatch';
 import { renderCuratedListView } from './ui/curatedListView';
+import { recentlyRanked, formatRatedDate } from './recentlyRanked';
 import type { CuratedAlbumEntry } from './data/curatedLists';
 import { buildArtistGaps, decideAlbum, albumKey, pickSelectedArtistId, nextArtistAfter } from './backlog';
 import { emptyBacklog } from '../shared/backlog';
@@ -62,7 +63,7 @@ import { rateAlbum, reRateAt, setRatingAt, directRate, setAside, placeAt } from 
 import { bootstrapApp } from './bootstrap';
 import { extractKeyFromFragment, setWriteKey } from './writeKey';
 
-type ViewMode = 'ranked' | ListName | 'blockedArtists' | 'artistBatch' | 'speedRound' | 'curatedLists' | 'backlog' | 'slice';
+type ViewMode = 'ranked' | ListName | 'blockedArtists' | 'artistBatch' | 'speedRound' | 'curatedLists' | 'recent' | 'backlog' | 'slice';
 
 type RestoreSnapshot = { state: RankingState; lists: SavedLists };
 
@@ -1106,6 +1107,38 @@ async function main(): Promise<void> {
    *  artists (global, all views) and skipped curated albums (per-entry,
    *  curated lists only) -- one screen rather than two, per the design
    *  discussion (both are "I hid this, let me get it back" in spirit). */
+  function renderRecentlyRanked(): void {
+    stage.textContent = '';
+    const ranked = rankingStore.getState().ranked;
+    const recent = recentlyRanked(ranked);
+    const status = document.createElement('p');
+    status.className = 'curated-list-status';
+    status.textContent = recent.length
+      ? `Last ${recent.length} albums you rated. Albums ranked before 21 Nov 2026 have no date.`
+      : 'No dated ratings yet. Albums you rate from now on will show up here with the date.';
+    stage.append(status);
+    if (!recent.length) return;
+    const list = document.createElement('ul');
+    list.className = 'saved-list';
+    for (const album of recent) {
+      const item = document.createElement('li');
+      item.className = 'saved-item';
+      const meta = document.createElement('div');
+      meta.className = 'saved-meta';
+      const title = document.createElement('p');
+      title.className = 'saved-title';
+      title.textContent = album.title;
+      const sub = document.createElement('p');
+      sub.className = 'saved-artist';
+      const rank = ranked.findIndex((a) => a.mbid === album.mbid) + 1;
+      sub.textContent = `${album.primary_artist_name} · ${album.rating.toFixed(2)} · #${rank} · ${formatRatedDate(album.rated_at as number)}`;
+      meta.append(title, sub);
+      item.append(meta);
+      list.append(item);
+    }
+    stage.append(list);
+  }
+
   function renderBlockedArtists(): void {
     stage.textContent = '';
 
@@ -1630,6 +1663,8 @@ async function main(): Promise<void> {
       renderSpeedRound();
     } else if (view === 'curatedLists') {
       renderCuratedListsView();
+    } else if (view === 'recent') {
+      renderRecentlyRanked();
     } else {
       renderCurrentSavedList(view);
     }
@@ -1747,7 +1782,7 @@ async function main(): Promise<void> {
     const more = document.createElement('details');
     more.className = 'nav-more';
     const moreLabel = document.createElement('summary');
-    const moreModes: ViewMode[] = ['blockedArtists', 'speedRound', 'curatedLists'];
+    const moreModes: ViewMode[] = ['blockedArtists', 'speedRound', 'curatedLists', 'recent'];
     moreLabel.className = moreModes.includes(view) ? 'view-tab view-tab-active' : 'view-tab';
     moreLabel.textContent = 'More';
     const moreItems = document.createElement('div');
@@ -1758,6 +1793,7 @@ async function main(): Promise<void> {
       { mode: 'blockedArtists', label: `Blocked artists (${rankingStore.getBlockedArtists().length})` },
       { mode: 'speedRound', label: 'Voice speed round' },
       { mode: 'curatedLists', label: 'Curated lists' },
+      { mode: 'recent', label: 'Recently ranked' },
     ];
     for (const { mode, label } of moreViews) {
       moreItems.append(tabButton(label, mode === view, () => showView(mode)));

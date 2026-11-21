@@ -66,3 +66,13 @@ describe('parseRankedAlbum', () => {
     expect(parseRankedAlbum({ ...base, rating: 'high' })).toBeNull();
   });
 });
+
+describe('parseRankedAlbum rated_at', () => {
+  const base = { mbid: 'm', title: 't', primary_artist_name: 'a', rating: 7 };
+  it('keeps a valid rated_at and drops junk', async () => {
+    const { parseRankedAlbum } = await import('./album');
+    expect(parseRankedAlbum({ ...base, rated_at: 1700000000000 })?.rated_at).toBe(1700000000000);
+    expect(parseRankedAlbum({ ...base, rated_at: 'x' })).not.toHaveProperty('rated_at');
+    expect(parseRankedAlbum(base)).not.toHaveProperty('rated_at');
+  });
+});
