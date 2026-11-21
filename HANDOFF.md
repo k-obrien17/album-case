@@ -5,7 +5,7 @@ Rating sessions: ratings go to production immediately (standing OK from Keith, 2
 
 ## Status
 - Live 2026-11-21: bundle `index-Bq_V9xb0.js` (`c517c7b`: `rated_at` on ranked albums + More > Recently ranked; real source URLs on Indie Rock 100 and Spin 300). Pushed to origin/main through `c517c7b`.
-- Batch 2 written to production 2026-11-21: 18 new ratings, Pharcyde 9.04, 4 moved out of wantToListen, 37 wants added. Live counts after: 980 ranked / 108 want. Only these 19 albums have a `rated_at`; the older ones have no date and cannot get one.
+- Batch 2 written to production 2026-11-21: 18 new ratings, Pharcyde 9.04, 4 moved out of wantToListen, 37 wants added. Live counts: 980 ranked / 108 want / 61 notHeard / 43 dontCare / 6 blocked artists. Only these 19 albums have a `rated_at`; the older ones have no date and cannot get one.
 - Backups: `~/Desktop/album-case-server-before-batch2-2026-11-21.json` and `~/Desktop/album-case-server-before-batch2-write-1795129721828.json`. Plan file: `~/Desktop/album-case-batch2-plan-2026-11-21.json`.
 - Not yet opened in a browser: the Recently ranked view (row styling reuses saved-list CSS).
 - Do NOT run `web/scripts/resolve-curated-list-mbids.mjs --write` (rewrites older lists; privacy hook blocks it).
@@ -14,10 +14,7 @@ Rating sessions: ratings go to production immediately (standing OK from Keith, 2
 Open More > Recently ranked on production and check the row styling. Then build the curated list header (compact picker, source link, "N ranked, M to go", collapsed "Already ranked").
 
 ## Open questions
-- Deftones: mark Not interested, or skip only White Pony?
-- Add the minor Nas albums (Napalm, Scriptures & Testaments, Distant Relatives, NuMatic, Magic 2/3)?
-- Trans-Europe Express: 9.03 in app vs 9.33 told in chat.
-- The Verve, A Storm in Heaven is unanswered; the queue continues with Beck, Prodigy, Autechre, Boards of Canada and others.
+None. Resolved 2026-11-21: Trans Europa Express 9.33, Deftones blocked, The Verve's A Storm in Heaven in Don't care (album only, not the artist), minor Nas albums not wanted. Rating queue continues with Beck, Prodigy, Autechre, Boards of Canada and others.
 
 ## Don't forget
 - Write each rating to production as Keith gives it: back up, fresh fetch, `insertAtRating` splice, assert no mbid in both ranked and any list (backlog is an object: use `allSavedAlbums`), POST with `base_updated_at`, read back. Run scripts via `web/node_modules/.bin/vite-node --root web` (extensionless imports). Save a running tally to a file, never only in chat.
