@@ -92,7 +92,7 @@ Defined in `web/api/_schema.ts`:
 | `web/scripts/` | Operational scripts: bulk album imports, curated-list MBID resolution, exports (see each script's header for usage) |
 | `pipeline/` | Offline seed-generation pipeline (see "Codebases in this repo") |
 | `scoring/` | Legacy calibration scoring module + pytest tests |
-| `archive/` | Retired demos (`elo-demo.html`, `pairwise-demo.html`), the `poc/` exploratory scripts, and `PRODUCT.md` — dead weight, not part of the product or CI |
+| `archive/` | Retired demos (`elo-demo.html`, `pairwise-demo.html`), the `poc/` exploratory scripts, and `PRODUCT.md`; dead weight, not part of the product or CI |
 
 ## Commands (legacy tool)
 
