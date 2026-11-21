@@ -103,7 +103,7 @@ export type RankListOptions = {
    *  rating and overall-rank editors stay active. For instances that render a
    *  static subset (slice views) where a drop index against a partial list
    *  would compute a wrong rating. Search chrome stays query-driven. */
-  suppressReorder?: boolean;
+  suppressReorder?: boolean | (() => boolean);
   /** The live search query. When non-empty, this instance is rendering a
    *  FILTERED subset: row grips and the candidate card are suppressed, because
    *  a drop index computed against a partial list would produce a wrong rating.
@@ -901,7 +901,9 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     // partial-list safety rules (grips/candidate/drop-index suppression),
     // which slice views opt into via suppressReorder without a query.
     const searching = query.trim() !== '';
-    const filtered = searching || opts.suppressReorder === true;
+    const suppress =
+      typeof opts.suppressReorder === 'function' ? opts.suppressReorder() : opts.suppressReorder === true;
+    const filtered = searching || suppress;
 
     const layout = document.createElement('div');
     layout.className = 'rank-layout';

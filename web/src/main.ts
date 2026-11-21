@@ -912,8 +912,17 @@ async function main(): Promise<void> {
     if (view === 'ranked') renderRankedView();
   }
 
+  // Temporary view toggle (not persisted): shows the flat list lowest rating
+  // first. Read-only for drag, because a drop index against a reversed array
+  // would compute a wrong rating. Rank numbers stay global (subRanks).
+  let reverseList = false;
+
   const rankList = mountRankList(rankedListHost, {
-    getRanked: () => filterAlbums(rankingStore.getState().ranked, searchQuery),
+    getRanked: () => {
+      const rows = filterAlbums(rankingStore.getState().ranked, searchQuery);
+      return reverseList && searchQuery.trim() === '' ? [...rows].reverse() : rows;
+    },
+    suppressReorder: () => reverseList,
     getGlobalRanked: () => rankingStore.getState().ranked,
     getSearchQuery: () => searchQuery,
     onSearchMusicBrainz: runMusicBrainzSearch,
@@ -1723,6 +1732,21 @@ async function main(): Promise<void> {
         chips.append(chip);
       }
       stage.append(chips);
+      if (browseDimension === 'list') {
+        const revRow = document.createElement('div');
+        revRow.className = 'view-filters browse-dimensions';
+        const rev = document.createElement('button');
+        rev.type = 'button';
+        rev.className = reverseList ? 'view-tab view-filter view-tab-active' : 'view-tab view-filter';
+        rev.setAttribute('aria-pressed', String(reverseList));
+        rev.textContent = 'Lowest first';
+        rev.addEventListener('click', () => {
+          reverseList = !reverseList;
+          renderRankedView();
+        });
+        revRow.append(rev);
+        stage.append(revRow);
+      }
     }
 
     if (searching || browseDimension === 'list') {
