@@ -48,7 +48,7 @@ import {
   saveCandidateArtistCooldown,
 } from './candidateCooldown';
 import { CURATED_LISTS } from './data/curatedLists';
-import { curatedEntryKey, unrankedFromCuratedList } from './curatedListMatch';
+import { curatedEntryKey, unrankedFromCuratedList, rankedFromCuratedList } from './curatedListMatch';
 import { renderCuratedListView } from './ui/curatedListView';
 import { recentlyRanked, formatRatedDate } from './recentlyRanked';
 import type { CuratedAlbumEntry } from './data/curatedLists';
@@ -1437,6 +1437,9 @@ async function main(): Promise<void> {
       lists: CURATED_LISTS,
       selectedListId: selectedCuratedListId,
       unranked,
+      rankedEntries: selectedCuratedListId
+        ? rankedFromCuratedList(CURATED_LISTS[selectedCuratedListId].albums, rankingStore.getState().ranked)
+        : [],
       onSelectList: handleSelectCuratedList,
       onRateAlbum: (entry, rating) => {
         void handleRateCuratedAlbum(entry, rating);

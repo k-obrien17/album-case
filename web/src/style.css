@@ -1097,9 +1097,50 @@ button.rank-rating:hover {
 }
 
 .curated-list-picker {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  font: inherit;
+}
+
+.curated-list-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.curated-list-head-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.curated-list-source {
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.curated-list-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-border, rgba(0, 0, 0, 0.12));
+  overflow: hidden;
+}
+
+.curated-list-progress-fill {
+  height: 100%;
+  background: var(--color-accent, currentColor);
+}
+
+.curated-list-ranked > summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  color: var(--color-muted);
+  font-size: 0.85rem;
 }
 
 .curated-list-status {

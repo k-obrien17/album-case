@@ -10,6 +10,9 @@ export type CuratedListViewOptions = {
   /** Already filtered to the entries not in the owner's ranked list, in
    *  source rank order. Ignored while `selectedListId` is null. */
   unranked: CuratedAlbumEntry[];
+  /** Entries already ranked (with the ranked rating), for the collapsed
+   *  "Already ranked" section and the progress line. */
+  rankedEntries: Array<{ entry: CuratedAlbumEntry; rating: number }>;
   onSelectList: (listId: string) => void;
   /** Resolve this entry via MusicBrainz search. Doesn't insert anything --
    *  the found album is held as `pendingMatch` until the owner confirms it
@@ -63,16 +66,24 @@ export function renderCuratedListView(container: HTMLElement, opts: CuratedListV
   const wrap = document.createElement('div');
   wrap.className = 'curated-list-view';
 
-  const picker = document.createElement('div');
+  const picker = document.createElement('select');
   picker.className = 'curated-list-picker';
+  picker.setAttribute('aria-label', 'Curated list');
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = 'Pick a list…';
+  placeholder.selected = !opts.selectedListId;
+  picker.append(placeholder);
   for (const [id, list] of Object.entries(opts.lists)) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = id === opts.selectedListId ? 'view-tab view-tab-active' : 'view-tab';
-    btn.textContent = list.name;
-    btn.addEventListener('click', () => opts.onSelectList(id));
-    picker.append(btn);
+    const option = document.createElement('option');
+    option.value = id;
+    option.textContent = list.name;
+    option.selected = id === opts.selectedListId;
+    picker.append(option);
   }
+  picker.addEventListener('change', () => {
+    if (picker.value) opts.onSelectList(picker.value);
+  });
   wrap.append(picker);
 
   if (!opts.selectedListId) {
@@ -86,16 +97,41 @@ export function renderCuratedListView(container: HTMLElement, opts: CuratedListV
   const selectedListId = opts.selectedListId;
 
   const selected = opts.lists[selectedListId];
+  const head = document.createElement('div');
+  head.className = 'curated-list-head';
+  const total = selected.albums.length;
+  const rankedCount = opts.rankedEntries.length;
+  const hidden = total - rankedCount - opts.unranked.length;
   const heading = document.createElement('p');
   heading.className = 'curated-list-status';
-  heading.textContent = `${opts.unranked.length} of ${selected.albums.length} not yet ranked.`;
-  wrap.append(heading);
+  heading.textContent =
+    `${rankedCount} ranked · ${opts.unranked.length} to go` + (hidden > 0 ? ` · ${hidden} skipped or hidden` : '');
+  const source = document.createElement('a');
+  source.className = 'curated-list-source';
+  source.href = selected.source;
+  source.target = '_blank';
+  source.rel = 'noopener noreferrer';
+  source.textContent = 'Source';
+  const bar = document.createElement('div');
+  bar.className = 'curated-list-progress';
+  bar.setAttribute('role', 'img');
+  bar.setAttribute('aria-label', `${rankedCount} of ${total} ranked`);
+  const fill = document.createElement('div');
+  fill.className = 'curated-list-progress-fill';
+  fill.style.width = `${total ? Math.round((rankedCount / total) * 100) : 0}%`;
+  bar.append(fill);
+  const headRow = document.createElement('div');
+  headRow.className = 'curated-list-head-row';
+  headRow.append(heading, source);
+  head.append(headRow, bar);
+  wrap.append(head);
 
   if (opts.unranked.length === 0) {
     const empty = document.createElement('p');
     empty.className = 'saved-empty';
     empty.textContent = "You've ranked every album on this list.";
     wrap.append(empty);
+    appendRankedSection(wrap, opts);
     container.append(wrap);
     return;
   }
@@ -244,6 +280,36 @@ export function renderCuratedListView(container: HTMLElement, opts: CuratedListV
     list.append(item);
   }
   wrap.append(list);
+  appendRankedSection(wrap, opts);
 
   container.append(wrap);
+}
+
+/** Collapsed list of entries already ranked, so progress is visible without
+ *  crowding the to-do rows. */
+function appendRankedSection(wrap: HTMLElement, opts: CuratedListViewOptions): void {
+  if (opts.rankedEntries.length === 0) return;
+  const details = document.createElement('details');
+  details.className = 'curated-list-ranked';
+  const summary = document.createElement('summary');
+  summary.textContent = `Already ranked (${opts.rankedEntries.length})`;
+  const ul = document.createElement('ul');
+  ul.className = 'saved-list';
+  for (const { entry, rating } of opts.rankedEntries) {
+    const li = document.createElement('li');
+    li.className = 'saved-item';
+    const meta = document.createElement('div');
+    meta.className = 'saved-meta';
+    const title = document.createElement('p');
+    title.className = 'saved-title';
+    title.textContent = `#${entry.rank} · ${entry.title}`;
+    const artist = document.createElement('p');
+    artist.className = 'saved-artist';
+    artist.textContent = `${entry.artist} · you rated ${rating.toFixed(2)}`;
+    meta.append(title, artist);
+    li.append(meta);
+    ul.append(li);
+  }
+  details.append(summary, ul);
+  wrap.append(details);
 }

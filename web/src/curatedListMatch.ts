@@ -80,3 +80,20 @@ export function unrankedFromCuratedList(
     return true;
   });
 }
+
+/** Curated list entries the owner has already ranked, each with the ranked
+ *  album's rating, in the list's rank order. Same matching rule as
+ *  `unrankedFromCuratedList` (resolved mbid first, then normalized text). */
+export function rankedFromCuratedList(
+  albums: CuratedAlbumEntry[],
+  ranked: RankedAlbum[]
+): Array<{ entry: CuratedAlbumEntry; rating: number }> {
+  const byId = new Map(ranked.map((a) => [a.mbid, a]));
+  const byKey = new Map(ranked.map((a) => [key(a.primary_artist_name, a.title), a]));
+  const out: Array<{ entry: CuratedAlbumEntry; rating: number }> = [];
+  for (const entry of albums) {
+    const hit = (entry.resolved && byId.get(entry.resolved.mbid)) || byKey.get(key(entry.artist, entry.title));
+    if (hit) out.push({ entry, rating: hit.rating });
+  }
+  return out;
+}
