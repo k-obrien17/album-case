@@ -1,21 +1,21 @@
 # Handoff
 
 ## Current task
-Curated list header is built but not deployed. Rating sessions write to production immediately (standing OK from Keith, 2026-11-21).
+Rating sessions write to production immediately (standing OK from Keith, 2026-11-21). Curated list header is deployed and verified.
 
 ## Status
-- Production serves `index-Bq_V9xb0.js` (`c517c7b`): `rated_at` on ranked albums, More > Recently ranked, real source URLs on Indie Rock 100 and Spin 300.
-- Committed, NOT deployed: `0baf7cf` curated list header (dropdown picker, "N ranked · M to go · K skipped or hidden" line with progress bar, Source link, collapsed "Already ranked (N)" with your ratings). tsc clean, 480 tests pass, checked at 390/900/1280 against a read-only copy of live data (Spin 300 only). Row buttons unchanged.
-- Local commits `18a8a94`, `301dad7`, `0baf7cf` are not pushed (Keith runs `! git push origin main`).
-- Batch 2 is written (2026-11-21). Live counts: 980 ranked / 108 want / 61 notHeard / 43 dontCare / 6 blocked. Only batch 2's 19 albums have a `rated_at`; older ones have no date. Decisions applied: Trans Europa Express 9.33, Deftones blocked, The Verve's A Storm in Heaven in Don't care (album only), minor Nas albums not wanted.
-- Backups on `~/Desktop`: `album-case-server-before-batch2-2026-11-21.json`, `album-case-server-before-batch2-write-1795129721828.json`, `album-case-server-before-decisions-1795129721828.json`. Plan file: `album-case-batch2-plan-2026-11-21.json`.
-- Recently ranked view has not been opened in a browser on production.
+- Production serves `index-CT3EKKos.js` (includes `0baf7cf` curated list header). Checked live at 390px/1280px: Recently ranked, Curated lists (Spin 300 only), collapsed Already ranked, Want to listen. No console errors. Everything is pushed (`4401fe9` on origin).
+- Live counts after this session's ratings: 992 ranked / 111 want / 61 notHeard / 43 dontCare / 6 blocked.
+- Written this session (read back): Beck (Odelay re-rated 9.38, Mellow Gold 8.78, Mutations 8.69, Midnite Vultures 8.99, Sea Change 9.27, Guero 8.87); The Prodigy (Experience 8.88, Jilted Generation 8.92, Fat of the Land 9.15); Boards of Canada (Music Has the Right to Children re-rated 9.41, Geogaddi 9.19, Tomorrow's Harvest 9.03; Campfire Headphase + Inferno to Want to listen); Justice (cross 9.66, Audio Video Disco 9.53; Woman + Hyperdrama to Want to listen).
+- Skipped for now by Keith: Beck's The Information, Modern Guilt, Colors, Hyperspace, Ride Lonesome, One Foot in the Grave, Stereopathetic Soulmanure; Prodigy's Always Outnumbered, Invaders Must Die, The Day Is My Enemy, No Tourists. Autechre has only Amber in the catalog (others need discovery by artist MBID).
+- Running tally: `~/Desktop/album-case-beck-tally-2026-11-21.md`. Backups: `~/Desktop/album-case-server-before-{beck,prodigy,boc,boc-want,justice,justice-want}-*.json`.
+- Ratings live in Turso, not git; only HANDOFF.md changes are committed.
 
 ## Next concrete step
-Ask Keith to OK `vercel deploy --prod --yes` from `web/`, verify the live bundle hash matches the local build, then open More > Recently ranked and Curated lists on production and check them.
+Rate Aphex Twin (offered to Keith, awaiting ratings): ...I Care Because You Do, Drukqs, Syro, Melodies From Mars. Alternative: Röyksopp.
 
 ## Don't forget
-- Write each rating to production as Keith gives it: back up, fresh fetch, `insertAtRating` splice, assert no mbid in both ranked and any list (backlog is an object: use `allSavedAlbums`), POST with `base_updated_at`, read back. Run scripts via `web/node_modules/.bin/vite-node --root web` (extensionless imports). Save a running tally to a file, never only in chat. Rating queue continues with Beck, Prodigy, Autechre, Boards of Canada and others.
+- Write each rating to production as Keith gives it: back up, fresh fetch, `insertAtRating` splice, assert no mbid in both ranked and any list (backlog is an object: use `allSavedAlbums`), POST with `base_updated_at`, read back. Run scripts via `web/node_modules/.bin/vite-node --root web` (extensionless imports). Save a running tally to a file, never only in chat. Rating queue continues with Aphex Twin, then others. Scripts for the pattern are ad hoc in the session scratchpad; a rated album found in a saved list must be stripped via `removeFromAllLists` before the POST.
 - Do NOT run `web/scripts/resolve-curated-list-mbids.mjs --write` (rewrites older lists; privacy hook blocks it).
 - Filter rule: skip artists already in wantToListen/notHeard/dontCare/blocked_artists when recommending.
 - Keith still needs to re-hide hidden artists/curated entries made since Nov 8, plus Sam Smith and Christina Aguilera albums.
