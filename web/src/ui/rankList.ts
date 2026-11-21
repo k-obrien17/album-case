@@ -103,7 +103,12 @@ export type RankListOptions = {
    *  rating and overall-rank editors stay active. For instances that render a
    *  static subset (slice views) where a drop index against a partial list
    *  would compute a wrong rating. Search chrome stays query-driven. */
-  suppressReorder?: boolean | (() => boolean);
+  suppressReorder?: boolean;
+  /** True while the caller renders the flat list in reverse (lowest first).
+   *  Row grips stay on (the caller maps displayed indices back to global ones
+   *  in onReorder); the candidate card is hidden because its drop index
+   *  would be reversed too. */
+  isReversed?: () => boolean;
   /** The live search query. When non-empty, this instance is rendering a
    *  FILTERED subset: row grips and the candidate card are suppressed, because
    *  a drop index computed against a partial list would produce a wrong rating.
@@ -901,9 +906,7 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     // partial-list safety rules (grips/candidate/drop-index suppression),
     // which slice views opt into via suppressReorder without a query.
     const searching = query.trim() !== '';
-    const suppress =
-      typeof opts.suppressReorder === 'function' ? opts.suppressReorder() : opts.suppressReorder === true;
-    const filtered = searching || suppress;
+    const filtered = searching || opts.suppressReorder === true;
 
     const layout = document.createElement('div');
     layout.className = 'rank-layout';
@@ -970,7 +973,7 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
 
     const candidateCol = document.createElement('div');
     candidateCol.className = 'candidate-col';
-    if (!opts.hideCandidateColumn && !filtered) {
+    if (!opts.hideCandidateColumn && !filtered && !(opts.isReversed?.() ?? false)) {
       const candidate = opts.getCandidate();
       if (candidate && !(candidateOpen ?? wideViewport())) {
         candidateCol.append(buildCandidatePill(candidate));
@@ -997,7 +1000,7 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     }
 
     layout.append(
-      ...(opts.hideCandidateColumn || filtered ? [listCol] : [candidateCol, listCol])
+      ...(opts.hideCandidateColumn || filtered || (opts.isReversed?.() ?? false) ? [listCol] : [candidateCol, listCol])
     );
     container.append(layout);
   }

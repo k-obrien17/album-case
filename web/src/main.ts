@@ -922,7 +922,7 @@ async function main(): Promise<void> {
       const rows = filterAlbums(rankingStore.getState().ranked, searchQuery);
       return reverseList && searchQuery.trim() === '' ? [...rows].reverse() : rows;
     },
-    suppressReorder: () => reverseList,
+    isReversed: () => reverseList && searchQuery.trim() === '',
     getGlobalRanked: () => rankingStore.getState().ranked,
     getSearchQuery: () => searchQuery,
     onSearchMusicBrainz: runMusicBrainzSearch,
@@ -976,7 +976,14 @@ async function main(): Promise<void> {
       renderNav();
     },
     onReorder: (from, to) => {
-      reRateAt(rankingStore, from, to);
+      // Displayed index d in the reversed list is global index n-1-d, for both
+      // the source row and the post-removal drop slot.
+      if (reverseList && searchQuery.trim() === '') {
+        const n = rankingStore.getState().ranked.length;
+        reRateAt(rankingStore, n - 1 - from, n - 1 - to);
+      } else {
+        reRateAt(rankingStore, from, to);
+      }
       persistRankingState();
       rankList.render();
     },
