@@ -104,6 +104,9 @@ export type RankListOptions = {
    *  static subset (slice views) where a drop index against a partial list
    *  would compute a wrong rating. Search chrome stays query-driven. */
   suppressReorder?: boolean;
+  /** Tapping the artist name on a ranked row opens that artist's screen
+   *  (all their albums with ratings). Omit to keep the name plain text. */
+  onOpenArtist?: (album: Album) => void;
   /** True while the caller renders the flat list in reverse (lowest first).
    *  Row grips stay on (the caller maps displayed indices back to global ones
    *  in onReorder); the candidate card is hidden because its drop index
@@ -285,7 +288,19 @@ export function mountRankList(container: HTMLElement, opts: RankListOptions): Ra
     title.textContent = album.title;
     const sub = document.createElement('p');
     sub.className = 'rank-sub';
-    sub.textContent = rankedSubtitle(album, subRanks.get(album.mbid));
+    const subText = rankedSubtitle(album, subRanks.get(album.mbid));
+    const artistName = album.primary_artist_name;
+    if (opts.onOpenArtist && subText.startsWith(artistName)) {
+      const link = document.createElement('button');
+      link.type = 'button';
+      link.className = 'rank-artist-link';
+      link.textContent = artistName;
+      link.setAttribute('aria-label', `Show all albums by ${artistName}`);
+      link.addEventListener('click', () => opts.onOpenArtist?.(album));
+      sub.append(link, document.createTextNode(subText.slice(artistName.length)));
+    } else {
+      sub.textContent = subText;
+    }
     meta.append(title, sub);
 
     if (isArranged) {

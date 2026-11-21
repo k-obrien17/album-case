@@ -723,6 +723,24 @@ button:active {
   overflow-wrap: anywhere;
 }
 
+/* Artist name as a tap target: padding grows the hit area to 44px tall
+   without changing the line's height (negative margin cancels it). */
+.rank-artist-link {
+  display: inline-block;
+  margin: -14px 0;
+  min-width: 44px;
+  text-align: left;
+  padding: 14px 4px 14px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
 .rank-row-arranged .rank-sub,
 .lock-unranked-row-arranged .rank-sub {
   color: var(--color-fg);

@@ -923,6 +923,7 @@ async function main(): Promise<void> {
       return reverseList && searchQuery.trim() === '' ? [...rows].reverse() : rows;
     },
     isReversed: () => reverseList && searchQuery.trim() === '',
+    onOpenArtist: handleOpenArtistBatch,
     getGlobalRanked: () => rankingStore.getState().ranked,
     getSearchQuery: () => searchQuery,
     onSearchMusicBrainz: runMusicBrainzSearch,
